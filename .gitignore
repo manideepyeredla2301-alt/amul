@@ -7,4 +7,4 @@ cloudflare-app/.wrangler/
 **/.env
 **/.env.*
 *.zip.tmp
-
+creds.txt
