@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Mr Enterprises - Amul Catalogue Assets</title>
+  <style>
+    :root { color-scheme: light; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+    body { margin: 0; background: #f6f8fb; color: #18212f; }
+    header { padding: 28px 20px; background: #008b72; color: white; }
+    main { max-width: 1160px; margin: auto; padding: 24px 20px 48px; }
+    .status { background: white; border-radius: 14px; padding: 16px 18px; box-shadow: 0 8px 28px #1f293714; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-top: 20px; }
+    .card { background: white; border-radius: 14px; padding: 12px; box-shadow: 0 8px 28px #1f293710; }
+    .card img { width: 100%; aspect-ratio: 1; object-fit: contain; border-radius: 10px; }
+    .card strong, .card small { display: block; }
+    .card small { color: #64748b; margin-top: 5px; }
+  </style>
+</head>
+<body>
+  <header><h1>Mr Enterprises - Amul Catalogue Assets</h1></header>
+  <main>
+    <div class="status">Catalogue image host is running. <strong>49</strong> verified product images are available. Machine-readable data: <a href="catalog.json">catalog.json</a>.</div>
+    <div id="grid" class="grid"></div>
+  </main>
+  <script>
+    fetch('catalog.json').then(r => r.json()).then(catalog => {
+      const products = catalog.departments.flatMap(d => d.categories.flatMap(c => c.groups.flatMap(g => g.products)));
+      document.querySelector('#grid').innerHTML = products.filter(p => p.image).map(p =>
+        '<article class="card"><img loading="lazy" src="images/' + encodeURIComponent(p.id) + '.jpg" alt=""><strong>' + escapeHtml(p.name) + '</strong><small>' + escapeHtml(p.group + ' - ' + p.pack) + '</small></article>'
+      ).join('');
+    });
+    function escapeHtml(value) {
+      const node = document.createElement('span');
+      node.textContent = String(value || '');
+      return node.innerHTML;
+    }
+  </script>
+</body>
+</html>
