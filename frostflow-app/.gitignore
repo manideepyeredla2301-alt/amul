@@ -1,0 +1,12 @@
+data/*.sqlite
+data/*.sqlite-*
+data/backups/
+data/cloud-sync.json
+data/.cloud-sync-secret
+data/cloud-sync.log
+node_modules/
+.env
+.env.*
+cloudflare/*.json
+cloudflare/*.pem
+cloudflare/*.token

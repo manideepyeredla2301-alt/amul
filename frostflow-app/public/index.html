@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#0a2942">
+    <title>FrostFlow ERP</title>
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/invoice-grid.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Primary navigation">
+        <div class="brand"><span class="brand-mark">❄</span><span>Frost<span>Flow</span></span></div>
+        <div class="business-label">DISTRIBUTION + RETAIL ERP</div>
+        <nav class="nav">
+          <button class="nav-item active" data-view="dashboard"><span>◫</span>Dashboard</button>
+          <button class="nav-item" data-view="amul"><span>⇣</span>Amul · read-only</button>
+          <div class="nav-caption">SALES</div>
+          <button class="nav-item" data-view="orders"><span>⌁</span>Orders</button>
+          <button class="nav-item" data-view="wholesale"><span>▤</span>Wholesale billing</button>
+          <button class="nav-item" data-view="pos"><span>▦</span>Retail POS <kbd>F2</kbd></button>
+          <button class="nav-item" data-view="itemSheet"><span>▤</span>Item sheet</button>
+          <button class="nav-item" data-view="routes"><span>⌁</span>Routes</button>
+          <button class="nav-item" data-view="invoices"><span>▤</span>Invoices</button>
+          <button class="nav-item" data-view="payments"><span>₹</span>Payments</button>
+          <button class="nav-item" data-view="receivables"><span>◴</span>Customer receivables</button>
+          <div class="nav-caption">CATALOGUE & STOCK</div>
+          <button class="nav-item" data-view="products"><span>□</span>Products</button>
+          <button class="nav-item" data-view="inventory"><span>▥</span>Inventory</button>
+          <button class="nav-item" data-view="purchases"><span>↓</span>Purchases</button>
+          <button class="nav-item" data-view="returns"><span>↶</span>Returns</button>
+          <div class="nav-caption">PEOPLE & FINANCE</div>
+          <button class="nav-item" data-view="customers"><span>♙</span>Customers</button>
+          <button class="nav-item" data-view="suppliers"><span>♧</span>Suppliers</button>
+          <button class="nav-item" data-view="expenses"><span>◒</span>Expenses</button>
+          <button class="nav-item" data-view="reports"><span>◱</span>Reports & GST</button>
+          <div class="nav-caption">CONTROL</div>
+          <a class="nav-item" href="/whatsapp-inbox.html"><span>◉</span>WhatsApp inbox & catalog</a>
+          <button class="nav-item" data-view="excel"><span>⇄</span>Excel import / export</button>
+          <button class="nav-item" data-view="audit"><span>◷</span>Audit history</button>
+          <button class="nav-item" data-view="settings"><span>⚙</span>Backup & settings</button>
+        </nav>
+        <div class="offline-status" id="live-status"><i></i><span><b id="live-label">Connecting to local service…</b><small>Core work needs no internet</small></span></div>
+      </aside>
+      <section class="workspace">
+        <header class="topbar">
+          <button class="mobile-menu" aria-label="Open menu">☰</button>
+          <div><p class="eyebrow" id="section-kicker">OPERATIONS OVERVIEW</p><h1 id="page-title">Dashboard</h1></div>
+          <div class="top-actions"><span class="date-chip" id="today"></span><button class="button ghost refresh-button" data-action="refresh-view" title="Refresh current records" aria-label="Refresh current records">↻</button><button class="button primary quick-pos" data-view="pos">＋ New POS sale</button><span class="avatar" title="Local owner account">O</span></div>
+        </header>
+        <main id="view" class="view" aria-live="polite"></main>
+      </section>
+    </div>
+    <div id="modal-root"></div>
+    <div id="toast-root" class="toast-root" aria-live="polite"></div>
+    <script src="/item-sheet.js"></script>
+    <script src="/whatsapp-ui.js"></script>
+    <script src="/invoice-grid.js"></script>
+    <script src="/app.js"></script>
+    <script src="/inventory-groups.js"></script>
+    <link rel="stylesheet" href="/pos-counter.css">
+    <script src="/pos-counter.js"></script>
+    <script src="/wholesale.js"></script>
+  </body>
+</html>

@@ -1,0 +1,37 @@
+const test=require('node:test'),assert=require('node:assert/strict');
+const {openDatabase}=require('../src/db');
+const {ERPService}=require('../src/services/erp-service');
+const {AmulSync,DATASETS}=require('../src/services/amul-sync');
+const {CatalogueAdmin}=require('../src/services/catalogue-admin');
+test('full catalogue, sheet saves and route membership survive source refresh',async()=>{
+ const db=openDatabase(':memory:'),erp=new ERPService(db);
+ const datasets=Object.fromEntries(DATASETS.map(k=>[k,[]]));
+ datasets.products=Array.from({length:250},(_,i)=>({PrdId:i+1,PrdName:'Item '+i}));
+ datasets.routes=[{RMId:5,RMName:'Route A',RMstatus:1}];
+ datasets.customers=[{RtrId:1,RtrName:'Retailer',RtrStatus:1}];
+ datasets.customer_routes=[{RtrId:1,RMId:5}];
+ const sync=new AmulSync(db,{enabled:true,read:async()=>({datasets})});
+ const admin=new CatalogueAdmin(db,erp);
+ assert.equal(await sync.sync(),true);
+ assert.equal(admin.rows().length,250);
+ assert.equal(admin.routes()[0].customers[0].retailer_name,'Retailer');
+ const row=admin.rows()[0];
+ const change={source:row.source,id:row.id,before:row,name:'Changed',mrp:'25',price:'19.50',active:1};
+ admin.save({rows:[change]});
+ assert.equal(admin.rows().find(p=>p.id===row.id).mrp,2500);
+ assert.equal(await sync.sync({full:true}),true);
+ assert.equal(admin.rows().find(p=>p.id===row.id).name,'Changed');
+ assert.throws(()=>admin.save({rows:[change]}),/Prices changed/);
+ await sync.stop();db.close();
+});
+test('mixed sheet validation failure rolls all earlier edits back',()=>{
+ const db=openDatabase(':memory:'),erp=new ERPService(db);
+ const sync=new AmulSync(db,{enabled:false}),admin=new CatalogueAdmin(db,erp);
+ erp.createProduct({sku:'A',name:'A',mrpPrice:10});
+ erp.createProduct({sku:'B',name:'B',mrpPrice:20});
+ const rows=admin.rows().map(p=>({source:p.source,id:p.id,before:p,name:p.name,mrp:30,price:20,gst:18,active:1}));
+ rows[1].mrp=-1;
+ assert.throws(()=>admin.save({rows}));
+ assert.equal(admin.rows()[0].mrp,1000);
+ db.close();
+});

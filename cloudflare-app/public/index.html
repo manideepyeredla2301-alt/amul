@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#087f5b">
+  <title>FrostFlow Online</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header>
+    <div><small>MR ENTERPRISES</small><h1>FrostFlow Online</h1></div>
+    <span id="sync" class="pill">Checking sync…</span>
+  </header>
+  <nav aria-label="Main navigation">
+    <button class="active" data-tab="dashboard">Overview</button>
+    <button data-tab="catalog">Catalogue</button>
+    <button data-tab="orders">Orders</button>
+    <button data-tab="customers">Customers</button>
+    <button data-tab="accounts">Accounts</button>
+    <button data-tab="whatsapp">WhatsApp</button>
+  </nav>
+  <main>
+    <section id="dashboard" class="tab active">
+      <div class="section-head"><div><h2>Business overview</h2><p class="hint">Latest data kept online by the Amul PC.</p></div><button class="secondary" id="refresh-all">Refresh</button></div>
+      <div id="metrics" class="metrics"></div>
+      <div class="panel"><h3>Sync status</h3><div id="sync-list" class="sync-list"></div></div>
+    </section>
+
+    <section id="catalog" class="tab">
+      <div class="section-head"><div><h2>Product catalogue</h2><p class="hint">Tap + for every product required. Stock is reserved when the order is saved.</p></div><button id="open-cart">Cart <span id="cart-count">0</span></button></div>
+      <div class="toolbar"><input id="search" type="search" placeholder="Search product or code"><select id="category"><option value="">All categories</option></select><button id="refresh">Refresh</button></div>
+      <div id="inventory-list" class="product-grid"></div>
+    </section>
+
+    <section id="orders" class="tab">
+      <div class="section-head"><div><h2>Order management</h2><p class="hint">Online orders queue safely until the Amul PC reconnects.</p></div><button id="new-order">New order</button></div>
+      <h3>Online order queue</h3><div id="orders-list" class="cards"></div>
+      <h3 class="subheading">Orders already in FrostFlow</h3><div id="distribution-orders-list" class="cards"></div>
+    </section>
+
+    <section id="customers" class="tab">
+      <div class="section-head"><div><h2>Customers & routes</h2><p class="hint">Retailer account, route and outstanding balance.</p></div><input id="customer-search" type="search" placeholder="Search name, number or route"></div>
+      <div id="customers-list" class="cards"></div>
+    </section>
+
+    <section id="accounts" class="tab">
+      <div class="section-head"><div><h2>Invoices & collections</h2><p class="hint">Read-only cloud view; accounting changes remain on the business PC.</p></div><input id="account-search" type="search" placeholder="Search invoice or customer"></div>
+      <h3>Receivables</h3><div id="invoices-list" class="cards"></div>
+      <h3 class="subheading">Recent payments</h3><div id="payments-list" class="cards"></div>
+    </section>
+
+    <section id="whatsapp" class="tab">
+      <div class="section-head"><div><h2>WhatsApp Business</h2><p class="hint">Use templates outside the 24-hour customer-service window.</p></div></div>
+      <form id="message-form" class="panel compact-form">
+        <label>Customer number<input name="to" inputmode="tel" placeholder="919876543210" required></label>
+        <label>Message<textarea name="text" maxlength="4096" placeholder="Enter a reply"></textarea></label>
+        <label>Approved template (optional)<input name="template_name" placeholder="order_update"></label>
+        <label>Template language<input name="language" value="en"></label>
+        <button>Send WhatsApp</button><p id="message-result" class="hint"></p>
+      </form>
+      <h3>Activity</h3><div id="whatsapp-list" class="cards"></div>
+    </section>
+  </main>
+
+  <dialog id="order-dialog">
+    <form method="dialog" id="order-form">
+      <div class="dialog-head"><div><h2>Create distribution order</h2><p class="hint">Multiple products can be added from the catalogue.</p></div><button value="cancel" class="secondary">Close</button></div>
+      <label>Existing customer<select name="customer_id" id="order-customer"><option value="">Walk-in / new customer</option></select></label>
+      <div class="form-grid"><label>Customer name<input name="customer_name" maxlength="120"></label><label>WhatsApp number<input name="phone" inputmode="tel" placeholder="919876543210"></label></div>
+      <div class="form-grid"><label>Route<input name="route_name" maxlength="150"></label><label>Delivery date<input name="delivery_date" type="date"></label></div>
+      <div><strong>Selected products</strong><div id="cart-lines" class="cart-lines"></div><p id="cart-total" class="cart-total"></p></div>
+      <label>Delivery note<textarea name="note" maxlength="400"></textarea></label>
+      <button value="submit" id="submit-order">Reserve stock & save order</button>
+      <p id="order-error" class="error"></p>
+    </form>
+  </dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

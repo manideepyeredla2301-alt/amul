@@ -1,0 +1,9 @@
+const {AppError}=require('../domain');
+class WholesaleCustomers {
+ constructor(db,erp){this.db=db;this.erp=erp;db.exec('CREATE TABLE IF NOT EXISTS wholesale_customer_links(retailer_id TEXT PRIMARY KEY,party_id INTEGER NOT NULL UNIQUE REFERENCES parties(id))');}
+ rows(){const links=new Map(this.db.prepare('SELECT * FROM wholesale_customer_links').all().map(r=>[r.retailer_id,r.party_id]));const linked=new Set(links.values());return [...this.erp.listParties('CUSTOMER').filter(p=>p.active&&!linked.has(p.id)).map(p=>({id:'LOCAL:'+p.id,name:p.name,code:p.code,mobile:p.mobile,route:'',source:'LOCAL'})),...this.db.prepare('SELECT * FROM amul_retailers WHERE active=1 AND local_deleted=0').all().map(p=>({id:'AMUL:'+p.retailer_id,name:p.retailer_name,code:p.retailer_code,mobile:p.mobile,route:p.route_name,source:'AMUL'}))];}
+ resolve(key){const [source,...rest]=String(key).split(':'),id=rest.join(':');if(source==='LOCAL')return this.erp.getParty(id,'CUSTOMER').id;if(source!=='AMUL')throw new AppError('Select a customer.');const r=this.db.prepare('SELECT * FROM amul_retailers WHERE retailer_id=? AND active=1 AND local_deleted=0').get(id);if(!r)throw new AppError('Retailer is unavailable.');const existing=this.db.prepare('SELECT party_id FROM wholesale_customer_links WHERE retailer_id=?').get(id);if(existing)return this.erp.getParty(existing.party_id,'CUSTOMER').id;
+ const p=this.erp.createParty({code:'AMUL-RETAILER-'+id,name:r.retailer_name,mobile:r.mobile,address:r.address,gstin:r.gstin,stateCode:r.gstin?.slice(0,2)||undefined,creditDays:r.credit_days,creditLimit:r.credit_limit_paise/100});this.db.prepare('INSERT INTO wholesale_customer_links VALUES(?,?)').run(id,p.id);this.erp.audit('LINK','WHOLESALE_CUSTOMER',p.id,{retailerId:id});return p.id;
+ }
+}
+module.exports={WholesaleCustomers};

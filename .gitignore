@@ -1,0 +1,10 @@
+app-source/
+cloudflare-app/node_modules/
+cloudflare-app/.wrangler/
+**/data/*.sqlite
+**/data/*.sqlite-*
+**/data/backups/
+**/.env
+**/.env.*
+*.zip.tmp
+

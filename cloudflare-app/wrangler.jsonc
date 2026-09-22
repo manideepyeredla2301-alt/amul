@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "frostflow-online",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-09-22",
+  "workers_dev": true,
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "frostflow-online",
+      "database_id": "64460bde-1a74-4ede-9c7f-88ecbc2a3ace",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    "META_PHONE_ID": "1260169793854093",
+    "META_WABA_ID": "1726651212800561",
+    "META_GRAPH_VERSION": "v23.0"
+  }
+}

@@ -1,0 +1,32 @@
+'use strict';
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const os=require('node:os');
+const path=require('node:path');
+process.env.FROSTFLOW_CLOUD_URL='https://example.invalid';
+process.env.FROSTFLOW_SYNC_SECRET='test-secret-that-is-longer-than-thirty-two-characters';
+const {openDatabase}=require('../src/db');
+const {inventoryRows,businessRows,category}=require('../scripts/cloud-sync-agent');
+
+test('cloud sync maps the local ERP into controlled online snapshots',()=>{
+ const directory=fs.mkdtempSync(path.join(os.tmpdir(),'frostflow-cloud-map-'));
+ const db=openDatabase(path.join(directory,'frostflow.sqlite'));
+ db.prepare("INSERT INTO products(id,sku,name,category,unit,retail_price_paise,wholesale_price_paise,mrp_paise) VALUES(1,'SKU1','Vanilla 1 L Tub','Ice Cream','PCS',20000,18000,22000)").run();
+ db.prepare("INSERT INTO inventory_batches(id,product_id,batch_number,cost_paise,quantity_received,quantity_available) VALUES(1,1,'B1',10000,10,8)").run();
+ db.prepare("INSERT INTO parties(id,party_type,code,name,mobile,whatsapp_number) VALUES(1,'CUSTOMER','C1','Corner Shop','9876543210','919876543210')").run();
+ db.prepare("INSERT INTO sales_orders(id,order_number,customer_id,order_date,status) VALUES(1,'ORD-1',1,'2026-09-23','CONFIRMED')").run();
+ db.prepare('INSERT INTO sales_order_items(order_id,product_id,quantity,unit_price_paise,gst_bps) VALUES(1,1,2,18000,500)').run();
+ db.prepare("INSERT INTO invoices(id,invoice_number,channel,customer_id,invoice_date,total_paise) VALUES(1,'INV-1','DISTRIBUTION',1,'2026-09-23',37800)").run();
+ db.prepare("INSERT INTO payments(id,receipt_number,party_id,invoice_id,payment_date,direction,method,amount_paise) VALUES(1,'RCPT-1',1,1,'2026-09-23','RECEIPT','UPI',10000)").run();
+ db.prepare('INSERT INTO payment_allocations(payment_id,invoice_id,amount_paise) VALUES(1,1,10000)').run();
+ const products=inventoryRows(db),data=businessRows(db);
+ assert.equal(products[0].product_id,'LOCAL:1');
+ assert.equal(products[0].stock_qty,8);
+ assert.equal(data.customers[0].id,'LOCAL:1');
+ assert.equal(data.distribution_orders[0].lines.length,1);
+ assert.equal(data.invoices[0].outstanding_paise,27800);
+ assert.equal(data.payments[0].amount_paise,10000);
+ assert.equal(category('Amul Butterscotch 60 ml Cup'),'60 ml Cups');
+ db.close();
+});
