@@ -15,7 +15,7 @@ class WhatsAppService {
  save(input) {
   const c={phoneId:String(input.phoneId || '').trim(),version:String(input.version || '').trim(),template:String(input.template || '').trim(),language:String(input.language || 'en').trim()};
   if(!/^\d+$/.test(c.phoneId))throw new AppError('Meta Phone Number ID must contain digits only.');
-  if(!/^v\d+\.0$/.test(c.version))throw new AppError('Graph API version must look like v23.0 (not v1).');
+  if(!/^v\d+\.0$/.test(c.version))throw new AppError('Graph API version must look like v25.0 (not v1).');
   if(!/^[a-z0-9_]+$/.test(c.template))throw new AppError('Template name must be the exact approved Meta name, using lowercase letters, numbers and underscores only.');
   if(!/^[a-zA-Z_]+$/.test(c.language))throw new AppError('Template language must be a code such as en or en_US.');
   if(input.token)this.token=String(input.token).trim();

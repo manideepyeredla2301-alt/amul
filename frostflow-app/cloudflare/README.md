@@ -31,7 +31,7 @@ checks authenticate requests.
 5. Run `start-frostflow-online.bat`. The PC and this process must stay online.
 6. Configure Meta's callback as
    `https://webhook.<your-domain>/webhooks/whatsapp`, using the same webhook
-   verification token, and subscribe the app to WABA `1726651212800561`.
+   verification token, and subscribe the app to WABA `1135807005773575`.
 
 Do not route port 4317 publicly without the online username/password. Do not put
 Cloudflare tunnel tokens, Meta secrets, WhatsApp tokens, or the SQLite database in
