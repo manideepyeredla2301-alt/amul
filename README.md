@@ -9,7 +9,9 @@ Public product-image assets for the WhatsApp Commerce catalogue.
 Public image URL format:
 
 ```text
-https://raw.githubusercontent.com/manideepyeredla2301-alt/amul/main/images/<PRODUCT_ID>.jpg
+https://manideepyeredla2301-alt.github.io/amul/images/<PRODUCT_ID>.jpg
 ```
+
+Verification gallery: https://manideepyeredla2301-alt.github.io/amul/
 
 The remaining products intentionally have no image URL because the supplied PDF did not contain an exact matching pack or flavour.
