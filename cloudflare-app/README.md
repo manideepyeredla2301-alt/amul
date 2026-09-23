@@ -10,6 +10,11 @@ The protected Orders view searches both online and PC-synced orders by order
 number, customer, phone, product or status. Staff can also add a one-off custom
 product with quantity, unit and price when it is missing from the catalogue.
 Custom items remain attached to the order and do not pollute searchable stock.
+The public cart accepts up to 200 different products and 10,000 units per
+product, while synced products still respect their available stock. Cart
+quantities can be typed directly. Location capture uses an iPhone-friendly
+retry and explains how to continue in Safari when an in-app browser blocks
+location permission.
 
 The Worker requires these encrypted secrets:
 

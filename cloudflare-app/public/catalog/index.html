@@ -23,7 +23,7 @@
   <button id="floating-cart" class="floating-cart" type="button" hidden><span id="floating-count"></span> View order</button>
   <dialog id="cart-dialog">
     <form method="dialog">
-      <div class="dialog-head"><div><small>YOUR ORDER</small><h2>Selected products</h2></div><button value="cancel" class="icon-button" aria-label="Close">×</button></div>
+      <div class="dialog-head"><div><small>YOUR ORDER</small><h2>Selected products</h2><p class="quantity-help">Tap the quantity number to type a larger quantity.</p></div><button value="cancel" class="icon-button" aria-label="Close">×</button></div>
       <div id="cart-lines" class="cart-lines"></div>
       <div class="checkout-title"><strong>Delivery details</strong><span id="saved-profile-note">Saved here for your next order</span></div>
       <div class="form-grid">
@@ -38,6 +38,7 @@
       <div class="location-box">
         <div><strong>Delivery location</strong><small>Pin the shop so the driver finds it easily.</small></div>
         <button id="use-location" type="button">Use current location</button>
+        <p class="iphone-location-help">On iPhone, open this order page in Safari and allow Location when prompted. WhatsApp’s in-app browser may block location access.</p>
         <label>Or paste Google Maps link<input id="location-url" type="url" maxlength="600" placeholder="https://maps.app.goo.gl/…"></label>
         <input id="location-lat" type="hidden"><input id="location-lng" type="hidden">
         <a id="location-preview" target="_blank" rel="noreferrer" hidden>View saved map point</a>

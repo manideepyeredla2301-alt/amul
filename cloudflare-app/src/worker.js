@@ -5,6 +5,7 @@ const securityHeaders = {
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'same-origin',
   'X-Frame-Options': 'DENY',
+  'Permissions-Policy': 'geolocation=(self)',
   'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
 };
 
@@ -245,7 +246,7 @@ async function createOrder(request, env, options = {}) {
   const requestId = cleanText(body.request_id, 'request_id', 100);
   if (!/^[A-Za-z0-9_-]{8,100}$/.test(requestId)) throw new Response('Invalid request_id', { status: 400 });
   const lines = Array.isArray(body.lines) ? body.lines : [];
-  if (!lines.length || lines.length > 20) throw new Response('Choose 1 to 20 products', { status: 400 });
+  if (!lines.length || lines.length > 200) throw new Response('Choose 1 to 200 products', { status: 400 });
   const existing = await env.DB.prepare('SELECT id,status,order_number,total_paise FROM orders WHERE request_id=?1').bind(requestId).first();
   if (existing) return json(existing, 200);
   const id = crypto.randomUUID();
@@ -275,7 +276,7 @@ async function createOrder(request, env, options = {}) {
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
     const quantity = Number(line.quantity);
-    if (!Number.isFinite(quantity) || quantity <= 0 || quantity > 1000) throw new Response('Invalid quantity', { status: 400 });
+    if (!Number.isFinite(quantity) || quantity <= 0 || quantity > 10000) throw new Response('Quantity must be between 1 and 10,000', { status: 400 });
     if (line.custom === true) {
       if (options.publicCatalog) throw new Response('Custom products are available only in the protected order app', { status: 400 });
       const productName = cleanText(line.product_name, 'product_name', 200);
@@ -774,7 +775,7 @@ async function sendWhatsAppTemplate(request, env) {
 async function route(request, env) {
   const url = new URL(request.url);
   const path = url.pathname;
-  if (path === '/api/health') return json({ ok: true, service: 'frostflow-online', version: '0.5.0' });
+  if (path === '/api/health') return json({ ok: true, service: 'frostflow-online', version: '0.5.1' });
   if (path === '/webhooks/whatsapp' || path === '/webhooks/whatsapp/') return whatsappWebhook(request, env);
   if (path === '/api/catalog/orders' && request.method === 'POST') return createOrder(request, env, { publicCatalog: true });
   if (request.method === 'GET' && (path === '/catalog' || path === '/catalog/' || path === '/catalog.js' || path === '/catalog.css' || path === '/catalog-data.json' || path.startsWith('/images/'))) {
