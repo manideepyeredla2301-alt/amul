@@ -11,15 +11,15 @@
 </head>
 <body>
   <header>
-    <div><small>MR ENTERPRISES</small><h1>FrostFlow Online</h1></div>
-    <span id="sync" class="pill">Checking sync…</span>
+    <div><small>MR ENTERPRISES · ADMIN</small><h1>FrostFlow Online</h1><p>Orders, billing, stock, customers and WhatsApp in one place</p></div>
+    <div class="header-actions"><button id="quick-invoice" class="header-button">＋ Create invoice</button><span id="sync" class="pill">Checking sync…</span></div>
   </header>
   <nav aria-label="Main navigation">
     <button class="active" data-tab="dashboard">Overview</button>
     <button data-tab="catalog">Stock</button>
     <button data-tab="orders">Picking &amp; orders</button>
     <button data-tab="customers">Customers</button>
-    <button data-tab="accounts">Accounts</button>
+    <button data-tab="accounts">Billing &amp; accounts</button>
     <button data-tab="whatsapp">WhatsApp</button>
   </nav>
   <main>
@@ -46,12 +46,12 @@
     </section>
 
     <section id="customers" class="tab">
-      <div class="section-head"><div><h2>Customers & routes</h2><p class="hint">Retailer account, route and outstanding balance.</p></div><input id="customer-search" type="search" placeholder="Search name, number or route"></div>
+      <div class="section-head"><div><h2>Customers &amp; routes</h2><p class="hint">Retailer details, WhatsApp history and outstanding balance.</p></div><div class="section-actions"><input id="customer-search" type="search" placeholder="Search name, number or route"><button id="new-customer">＋ Customer</button></div></div>
       <div id="customers-list" class="cards"></div>
     </section>
 
     <section id="accounts" class="tab">
-      <div class="section-head"><div><h2>Invoices & collections</h2><p class="hint">Read-only cloud view; accounting changes remain on the business PC.</p></div><input id="account-search" type="search" placeholder="Search invoice or customer"></div>
+      <div class="section-head"><div><h2>Billing &amp; collections</h2><p class="hint">Create invoices online, deduct stock, print bills and follow up on payment.</p></div><div class="section-actions"><input id="account-search" type="search" placeholder="Search invoice or customer"><button id="create-invoice">＋ Create invoice</button></div></div>
       <h3>Receivables</h3><div id="invoices-list" class="cards"></div>
       <h3 class="subheading">Recent payments</h3><div id="payments-list" class="cards"></div>
     </section>
@@ -114,6 +114,52 @@
       <button value="submit">Save latest top-up</button>
       <p id="topup-error" class="error"></p>
     </form>
+  </dialog>
+  <dialog id="stock-dialog">
+    <form method="dialog" id="stock-form">
+      <div class="dialog-head"><div><h2>Set current stock</h2><p class="hint">Enter the physical quantity currently available.</p></div><button value="cancel" class="secondary">Close</button></div>
+      <input name="product_id" type="hidden">
+      <p id="stock-product" class="topup-product"></p>
+      <div class="form-grid"><label>Physical stock<input name="stock_qty" type="number" min="0" step="0.01" required></label><label>Unit<select name="unit"><option>BX</option><option>PCS</option><option>BOX</option><option>CRT</option><option>PACK</option><option>KG</option><option>LTR</option></select></label></div>
+      <label>Adjustment note<textarea name="note" maxlength="300" placeholder="Physical count, opening stock, damaged stock…"></textarea></label>
+      <button value="submit">Save stock</button><p id="stock-error" class="error"></p>
+    </form>
+  </dialog>
+  <dialog id="customer-dialog">
+    <form method="dialog" id="customer-form">
+      <div class="dialog-head"><div><h2>Add customer</h2><p class="hint">Saved centrally and available for orders, invoices and WhatsApp.</p></div><button value="cancel" class="secondary">Close</button></div>
+      <div class="form-grid"><label>Shop / customer name<input name="name" maxlength="200" required></label><label>WhatsApp number<input name="whatsapp_number" inputmode="tel" placeholder="919876543210"></label></div>
+      <div class="form-grid"><label>GSTIN<input name="gstin" maxlength="15"></label><label>Route<input name="route_name" maxlength="150"></label></div>
+      <div class="form-grid"><label>City<input name="city" maxlength="100"></label><label>Credit days<input name="credit_days" type="number" min="0" max="365" value="0"></label></div>
+      <label>Address<textarea name="address" maxlength="500"></textarea></label>
+      <button value="submit">Save customer</button><p id="customer-error" class="error"></p>
+    </form>
+  </dialog>
+  <dialog id="invoice-dialog" class="wide-dialog">
+    <form method="dialog" id="invoice-form">
+      <div class="dialog-head"><div><h2>Create invoice</h2><p class="hint">Select a customer, add products and review payment before posting.</p></div><button value="cancel" class="secondary">Close</button></div>
+      <div class="invoice-customer-grid">
+        <label>Customer<select name="customer_id" id="invoice-customer" required><option value="">Select customer</option></select></label>
+        <label>Invoice date<input name="invoice_date" id="invoice-date" type="date" required></label>
+        <label>Due date<input name="due_date" id="invoice-due-date" type="date"></label>
+      </div>
+      <section class="invoice-builder">
+        <div class="invoice-product-picker"><label>Find product<input id="invoice-product-search" type="search" placeholder="Type product name or code"></label><div id="invoice-product-results" class="picker-results"></div></div>
+        <div><strong>Invoice items</strong><div id="invoice-lines" class="invoice-lines"></div></div>
+      </section>
+      <div class="invoice-summary-grid">
+        <label>Discount (₹)<input name="discount" id="invoice-discount" type="number" min="0" step="0.01" value="0"></label>
+        <label>Amount received (₹)<input name="paid" id="invoice-paid" type="number" min="0" step="0.01" value="0"></label>
+        <label>Payment method<select name="payment_method"><option value="CREDIT">Credit</option><option value="CASH">Cash</option><option value="UPI">UPI</option><option value="BANK">Bank transfer</option><option value="CARD">Card</option><option value="OTHER">Other</option></select></label>
+        <div id="invoice-totals" class="invoice-totals"></div>
+      </div>
+      <label>Invoice note<textarea name="notes" maxlength="500" placeholder="Delivery, payment or customer note"></textarea></label>
+      <button value="submit" id="post-invoice">Post invoice &amp; deduct stock</button><p id="invoice-error" class="error"></p>
+    </form>
+  </dialog>
+  <dialog id="invoice-view-dialog" class="wide-dialog">
+    <div class="invoice-view-actions"><button id="print-invoice">Print / Save PDF</button><button id="close-invoice-view" class="secondary">Close</button></div>
+    <article id="invoice-print" class="invoice-document"></article>
   </dialog>
   <div id="toast" role="status" aria-live="polite"></div>
   <script type="module" src="/app.js"></script>

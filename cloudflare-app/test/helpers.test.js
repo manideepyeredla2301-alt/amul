@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {approvedTemplateMessage,catalogueInviteMessage,catalogueReply,catalogueRequested,cleanGstin,cleanLocationUrl,cleanPhone,equalSecret,supportsWhatsAppWebhook} from '../src/worker.js';
+import {approvedTemplateMessage,catalogueInviteMessage,catalogueReply,catalogueRequested,cleanGstin,cleanLocationUrl,cleanPhone,equalSecret,invoiceLineAmounts,paymentStatus,supportsWhatsAppWebhook} from '../src/worker.js';
 
 test('constant-time secret comparison and phone normalization',async()=>{
   assert.equal(await equalSecret('same','same'),true);
@@ -49,4 +49,11 @@ test('utility templates carry all approved body parameters',()=>{
   assert.equal(message.type,'template');
   assert.equal(message.template.name,'payment_remainder');
   assert.deepEqual(message.template.components[0].parameters.map(item=>item.text),['Anil Stores','INV-42','1250.00','30 Sep 2026']);
+});
+
+test('online invoice arithmetic stays in paise and derives payment status',()=>{
+  assert.deepEqual(invoiceLineAmounts(3,12550,500),{subtotal_paise:37650,tax_paise:1883,total_paise:39533});
+  assert.equal(paymentStatus(39533,0),'UNPAID');
+  assert.equal(paymentStatus(39533,10000),'PART_PAID');
+  assert.equal(paymentStatus(39533,39533),'PAID');
 });

@@ -23,6 +23,19 @@ quantities can be typed directly. Location capture uses an iPhone-friendly
 retry and explains how to continue in Safari when an in-app browser blocks
 location permission.
 
+The protected admin can also create central customers, set an absolute physical
+stock quantity, and post a customer invoice directly in D1. Online invoice
+posting validates available stock in the database transaction, deducts each
+line once, records any opening receipt, updates receivables and produces a
+printable invoice. Unpaid online invoices can be voided, which restores their
+stock exactly once. Synced PC/Amul invoices remain read-only so source records
+cannot be silently changed from the browser.
+
+WhatsApp conversations are stored independently in `whatsapp_events`; customer,
+stock and invoice operations never replace or delete message history. The admin
+continues to render saved conversations even if Meta's template-list endpoint
+is temporarily unavailable.
+
 The Worker requires these encrypted secrets:
 
 - `APP_USER`
