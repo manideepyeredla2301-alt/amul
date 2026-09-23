@@ -24,6 +24,9 @@ inbox when the PC reconnects.
 5. The first full sync runs immediately. Windows Task Scheduler then runs
    `FrostFlow Cloud Sync` every five minutes whenever a network is available.
 
+You can also double-click `Sync-FrostFlow-Now.bat` at any time to run and
+verify a complete sync immediately.
+
 If the live database is in a different folder, open PowerShell 7 in the app
 folder and run:
 
@@ -36,6 +39,15 @@ pwsh -NoProfile -File .\scripts\install-cloud-sync.ps1 `
 Check `data\cloud-sync.log` after the first run. A successful line includes the
 product count and customer/order/invoice/payment counts. The online app should
 then stop showing “Waiting for PC sync.”
+
+The public customer catalogue does not wait for the PC and is available at:
+
+```text
+https://frostflow-online.manideepyeredla2301.workers.dev/catalog/
+```
+
+The protected management dashboard still needs the first Windows sync before
+it can display live stock, customers, invoices, collections and local orders.
 
 ## WhatsApp production secrets
 
@@ -73,4 +85,3 @@ The current office/Mac network returns a Cisco Umbrella block page for generic
 prevent opening it. Test once on mobile data. For dependable office access,
 attach a domain that you own to the Worker; this changes only the URL and does
 not change the D1 database or sync process.
-

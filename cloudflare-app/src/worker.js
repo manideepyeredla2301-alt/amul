@@ -322,6 +322,53 @@ async function validMetaSignature(request, secret, raw) {
   return equalSecret(supplied, expected);
 }
 
+function catalogueReply(catalogueUrl) {
+  return `Welcome to MR Enterprises – Amul Distribution.\n\nOpen our catalogue: ${catalogueUrl}\n\n• Browse Frozen, Dairy, Chocolates and Snacks\n• Tap + / − to add multiple products\n• Review and send one complete order here on WhatsApp\n\nReply CATALOGUE whenever you need this link again.`;
+}
+
+function catalogueRequested(body) {
+  return /\b(catalog|catalogue|menu|products?|price\s*list)\b/i.test(String(body || ''));
+}
+
+async function sendMetaMessage(env, to, message) {
+  if (!env.META_ACCESS_TOKEN || !env.META_PHONE_ID) throw new Error('WhatsApp sending is not configured yet.');
+  const version = /^v\d+\.\d+$/.test(env.META_GRAPH_VERSION || '') ? env.META_GRAPH_VERSION : 'v25.0';
+  const response = await fetch(`https://graph.facebook.com/${version}/${encodeURIComponent(env.META_PHONE_ID)}/messages`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${env.META_ACCESS_TOKEN}`, 'content-type': 'application/json' },
+    body: JSON.stringify(message),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error?.message || `Meta rejected the message (${response.status})`);
+  return { result, messageId: result.messages?.[0]?.id || crypto.randomUUID() };
+}
+
+async function autoReplyWithCatalogue(env, requestUrl, message, body) {
+  const to = cleanPhone(message.from);
+  if (!to) return;
+  const prior = await env.DB.prepare('SELECT last_catalog_at FROM whatsapp_auto_replies WHERE from_number=?1').bind(to).first();
+  const priorTime = prior?.last_catalog_at ? Date.parse(`${String(prior.last_catalog_at).replace(' ', 'T')}Z`) : 0;
+  if (!catalogueRequested(body) && Number.isFinite(priorTime) && priorTime > Date.now() - 86_400_000) return;
+  const catalogueUrl = String(env.PUBLIC_CATALOG_URL || `${new URL(requestUrl).origin}/catalog`).replace(/\/$/, '');
+  try {
+    const outbound = { messaging_product: 'whatsapp', recipient_type: 'individual', to, type: 'text', text: { preview_url: true, body: catalogueReply(catalogueUrl) } };
+    const { result, messageId } = await sendMetaMessage(env, to, outbound);
+    await env.DB.batch([
+      env.DB.prepare(`INSERT INTO whatsapp_auto_replies(from_number,last_inbound_message_id,last_catalog_at,last_reply_message_id,status,last_error,updated_at)
+        VALUES(?1,?2,CURRENT_TIMESTAMP,?3,'SENT',NULL,CURRENT_TIMESTAMP)
+        ON CONFLICT(from_number) DO UPDATE SET last_inbound_message_id=excluded.last_inbound_message_id,last_catalog_at=CURRENT_TIMESTAMP,
+        last_reply_message_id=excluded.last_reply_message_id,status='SENT',last_error=NULL,updated_at=CURRENT_TIMESTAMP`).bind(to, message.id, messageId),
+      env.DB.prepare(`INSERT OR IGNORE INTO whatsapp_events(event_id,event_type,from_number,message_type,body,raw_json,event_time)
+        VALUES(?1,'AUTO_REPLY',?2,'text',?3,?4,?5)`).bind(`auto:${message.id}`, to, catalogueUrl, JSON.stringify(result), String(Math.floor(Date.now() / 1000))),
+    ]);
+  } catch (error) {
+    await env.DB.prepare(`INSERT INTO whatsapp_auto_replies(from_number,last_inbound_message_id,last_catalog_at,last_reply_message_id,status,last_error,updated_at)
+      VALUES(?1,?2,NULL,NULL,'FAILED',?3,CURRENT_TIMESTAMP)
+      ON CONFLICT(from_number) DO UPDATE SET last_inbound_message_id=excluded.last_inbound_message_id,status='FAILED',last_error=excluded.last_error,updated_at=CURRENT_TIMESTAMP`)
+      .bind(to, message.id, String(error.message || error).slice(0, 500)).run();
+  }
+}
+
 async function whatsappWebhook(request, env) {
   const url = new URL(request.url);
   if (request.method === 'GET') {
@@ -336,6 +383,7 @@ async function whatsappWebhook(request, env) {
   try { payload = JSON.parse(raw); } catch { return text('Invalid JSON', 400); }
   if (payload.object !== 'whatsapp_business_account') return text('Invalid object', 400);
   const statements = [];
+  const newMessages = [];
   for (const entry of payload.entry || []) for (const change of entry.changes || []) {
     if (change.field !== 'messages') continue;
     const value = change.value || {};
@@ -344,8 +392,12 @@ async function whatsappWebhook(request, env) {
       if (!message.id) continue;
       const flow = message.interactive?.nfm_reply?.response_json;
       const body = message.text?.body || message.button?.text || message.interactive?.button_reply?.title || message.interactive?.list_reply?.title || flow || null;
-      statements.push(env.DB.prepare(`INSERT OR IGNORE INTO whatsapp_events(event_id,event_type,from_number,message_type,body,raw_json,event_time)
-        VALUES(?1,'MESSAGE',?2,?3,?4,?5,?6)`).bind(message.id, String(message.from || ''), String(message.type || 'unknown'), body, JSON.stringify(message), String(message.timestamp || '')));
+      const duplicate = await env.DB.prepare('SELECT 1 found FROM whatsapp_events WHERE event_id=?1').bind(message.id).first();
+      if (!duplicate) {
+        statements.push(env.DB.prepare(`INSERT OR IGNORE INTO whatsapp_events(event_id,event_type,from_number,message_type,body,raw_json,event_time)
+          VALUES(?1,'MESSAGE',?2,?3,?4,?5,?6)`).bind(message.id, String(message.from || ''), String(message.type || 'unknown'), body, JSON.stringify(message), String(message.timestamp || '')));
+        newMessages.push({ message, body });
+      }
     }
     for (const status of value.statuses || []) if (status.id && status.timestamp) {
       statements.push(env.DB.prepare(`INSERT OR IGNORE INTO whatsapp_events(event_id,event_type,from_number,message_type,body,raw_json,event_time)
@@ -353,6 +405,7 @@ async function whatsappWebhook(request, env) {
     }
   }
   if (statements.length) await env.DB.batch(statements.slice(0, 50));
+  for (const incoming of newMessages.slice(0, 10)) await autoReplyWithCatalogue(env, request.url, incoming.message, incoming.body);
   return text('EVENT_RECEIVED');
 }
 
@@ -369,15 +422,9 @@ async function sendWhatsApp(request, env) {
     const content = cleanText(body.text, 'message', 4096);
     message = { messaging_product: 'whatsapp', recipient_type: 'individual', to, type: 'text', text: { preview_url: false, body: content } };
   }
-  const version = /^v\d+\.\d+$/.test(env.META_GRAPH_VERSION || '') ? env.META_GRAPH_VERSION : 'v25.0';
-  const response = await fetch(`https://graph.facebook.com/${version}/${encodeURIComponent(env.META_PHONE_ID)}/messages`, {
-    method: 'POST',
-    headers: { authorization: `Bearer ${env.META_ACCESS_TOKEN}`, 'content-type': 'application/json' },
-    body: JSON.stringify(message),
-  });
-  const result = await response.json().catch(() => ({}));
-  if (!response.ok) return json({ error: result.error?.message || `Meta rejected the message (${response.status})`, meta_code: result.error?.code || null }, 502);
-  const messageId = result.messages?.[0]?.id || crypto.randomUUID();
+  let result, messageId;
+  try { ({ result, messageId } = await sendMetaMessage(env, to, message)); }
+  catch (error) { return json({ error: String(error.message || error) }, 502); }
   await env.DB.prepare(`INSERT OR IGNORE INTO whatsapp_events(event_id,event_type,from_number,message_type,body,raw_json,event_time)
     VALUES(?1,'OUTBOUND',?2,?3,?4,?5,?6)`).bind(`out:${messageId}`, to, message.type, templateName || message.text.body, JSON.stringify(result), String(Math.floor(Date.now() / 1000))).run();
   return json({ accepted: true, message_id: messageId, to, type: message.type }, 201);
@@ -386,8 +433,12 @@ async function sendWhatsApp(request, env) {
 async function route(request, env) {
   const url = new URL(request.url);
   const path = url.pathname;
-  if (path === '/api/health') return json({ ok: true, service: 'frostflow-online', version: '0.2.0' });
+  if (path === '/api/health') return json({ ok: true, service: 'frostflow-online', version: '0.3.0' });
   if (path === '/webhooks/whatsapp' || path === '/webhooks/whatsapp/') return whatsappWebhook(request, env);
+  if (request.method === 'GET' && (path === '/catalog' || path === '/catalog/' || path === '/catalog.js' || path === '/catalog.css' || path === '/catalog-data.json' || path.startsWith('/images/'))) {
+    if (path === '/catalog') return Response.redirect(new URL('/catalog/', request.url), 308);
+    return env.ASSETS.fetch(request);
+  }
 
   if (path.startsWith('/api/sync/')) {
     if (!await syncAuthorized(request, env)) return json({ error: 'Unauthorized sync agent' }, 401);
@@ -430,4 +481,4 @@ export default {
   },
 };
 
-export { equalSecret, cleanPhone };
+export { equalSecret, cleanPhone, catalogueReply, catalogueRequested };

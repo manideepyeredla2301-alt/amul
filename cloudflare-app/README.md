@@ -15,10 +15,22 @@ The Worker requires these encrypted secrets:
 - `META_WEBHOOK_VERIFY_TOKEN`
 - `META_ACCESS_TOKEN` (permanent System User token for outbound messages)
 
+The customer catalogue is public at `/catalog/`. It contains all products from
+the repository catalogue, category and product-group filters, search, product
+images, and a multi-product `+`/`−` cart. The final cart is reviewed and sent
+to the business number in WhatsApp. The management application at `/` remains
+protected with HTTP Basic authentication.
+
+Every new WhatsApp sender receives the catalogue link automatically. Further
+messages do not trigger repeated replies for 24 hours, unless the customer
+explicitly sends `catalogue`, `catalog`, `menu`, `products`, or `price list`.
+The webhook records successful and failed automatic replies in D1.
+
 Deploy in this order:
 
 ```sh
 npm install
+npm run build:catalog
 npx wrangler login
 npx wrangler d1 create frostflow-online
 # Replace REPLACE_AFTER_D1_CREATE in wrangler.jsonc with the returned database ID.

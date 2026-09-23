@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#087f5b">
+  <meta name="description" content="MR Enterprises Amul product catalogue and WhatsApp ordering">
+  <title>MR Enterprises · Amul Catalogue</title>
+  <link rel="stylesheet" href="/catalog.css">
+</head>
+<body>
+  <header class="catalog-header">
+    <div><small>MR ENTERPRISES</small><h1>Amul Catalogue</h1><p>Choose products and send one complete order on WhatsApp.</p></div>
+    <button id="open-cart" type="button">Cart <span id="cart-count">0</span></button>
+  </header>
+  <main>
+    <div class="search-row"><input id="search" type="search" placeholder="Search ice cream, dairy, chocolate…" autocomplete="off"><button id="clear-search" type="button" aria-label="Clear search">×</button></div>
+    <nav id="departments" class="chip-row" aria-label="Departments"></nav>
+    <nav id="groups" class="chip-row subgroups" aria-label="Product groups"></nav>
+    <p id="result-summary" class="summary">Loading catalogue…</p>
+    <section id="products" class="product-list" aria-live="polite"></section>
+  </main>
+  <button id="floating-cart" class="floating-cart" type="button" hidden><span id="floating-count"></span> View order</button>
+  <dialog id="cart-dialog">
+    <form method="dialog">
+      <div class="dialog-head"><div><small>YOUR ORDER</small><h2>Selected products</h2></div><button value="cancel" class="icon-button" aria-label="Close">×</button></div>
+      <div id="cart-lines" class="cart-lines"></div>
+      <label>Your name<input id="customer-name" maxlength="80" autocomplete="name" required></label>
+      <label>Shop / delivery address<textarea id="customer-address" maxlength="250" rows="2"></textarea></label>
+      <label>Note (optional)<textarea id="customer-note" maxlength="200" rows="2"></textarea></label>
+      <p class="privacy-note">Your order opens in WhatsApp for your review before it is sent.</p>
+      <button id="send-order" type="button" class="whatsapp-button">Send order on WhatsApp</button>
+      <button id="clear-cart" type="button" class="text-button">Clear order</button>
+      <p id="form-error" class="error" role="alert"></p>
+    </form>
+  </dialog>
+  <template id="product-template">
+    <article class="product-card"><div class="product-art"><img alt="" loading="lazy"><span>AMUL</span></div><div class="product-copy"><span class="group"></span><h2></h2><p class="pack"></p></div><div class="stepper"><button type="button" data-minus aria-label="Reduce quantity">−</button><output>0</output><button type="button" data-plus aria-label="Increase quantity">+</button></div></article>
+  </template>
+  <script type="module" src="/catalog.js"></script>
+</body>
+</html>
