@@ -60,8 +60,40 @@ function cleanText(value, name, max = 200, required = true) {
 }
 
 function cleanPhone(value) {
-  const result = String(value ?? '').replace(/\D/g, '');
+  let result = String(value ?? '').replace(/\D/g, '');
+  if (/^[6-9]\d{9}$/.test(result)) result = `91${result}`;
   if (result && !/^[1-9]\d{7,14}$/.test(result)) throw new Response('Invalid phone number', { status: 400 });
+  return result;
+}
+
+function cleanGstin(value) {
+  const result = String(value ?? '').trim().toUpperCase();
+  if (result && !/^\d{2}[A-Z]{5}\d{4}[A-Z][A-Z0-9]Z[A-Z0-9]$/.test(result)) throw new Response('Invalid GSTIN', { status: 400 });
+  return result;
+}
+
+function cleanCoordinate(value, name, minimum, maximum) {
+  if (value === '' || value === null || value === undefined) return null;
+  const result = Number(value);
+  if (!Number.isFinite(result) || result < minimum || result > maximum) throw new Response(`Invalid ${name}`, { status: 400 });
+  return result;
+}
+
+function cleanLocationUrl(value, latitude, longitude) {
+  const raw = String(value ?? '').trim();
+  if (!raw && latitude !== null && longitude !== null) return `https://www.google.com/maps?q=${latitude},${longitude}`;
+  if (!raw) return '';
+  let parsed;
+  try { parsed = new URL(raw); } catch { throw new Response('Invalid Google Maps link', { status: 400 }); }
+  const host = parsed.hostname.toLowerCase();
+  if (parsed.protocol !== 'https:' || !['maps.app.goo.gl', 'goo.gl', 'www.google.com', 'google.com'].includes(host)) throw new Response('Use a Google Maps link', { status: 400 });
+  return parsed.toString().slice(0, 600);
+}
+
+function cleanDeliveryDate(value, required = false) {
+  const result = String(value ?? '').trim();
+  if (!result && required) throw new Response('Expected delivery date is required', { status: 400 });
+  if (result && !/^\d{4}-\d{2}-\d{2}$/.test(result)) throw new Response('Invalid expected delivery date', { status: 400 });
   return result;
 }
 
@@ -208,43 +240,76 @@ async function acceptBusinessSnapshot(request, env) {
   return json({ accepted: true, dataset, complete: false, record_count: items.length });
 }
 
-async function createOrder(request, env) {
+async function createOrder(request, env, options = {}) {
   const body = await readObject(request);
   const requestId = cleanText(body.request_id, 'request_id', 100);
   if (!/^[A-Za-z0-9_-]{8,100}$/.test(requestId)) throw new Response('Invalid request_id', { status: 400 });
   const lines = Array.isArray(body.lines) ? body.lines : [];
   if (!lines.length || lines.length > 20) throw new Response('Choose 1 to 20 products', { status: 400 });
-  const existing = await env.DB.prepare('SELECT id,status FROM orders WHERE request_id=?1').bind(requestId).first();
+  const existing = await env.DB.prepare('SELECT id,status,order_number,total_paise FROM orders WHERE request_id=?1').bind(requestId).first();
   if (existing) return json(existing, 200);
   const id = crypto.randomUUID();
   const customerId = cleanText(body.customer_id, 'customer_id', 140, false);
   const savedCustomer = customerId ? await env.DB.prepare('SELECT name,mobile,whatsapp_number,address,route_name FROM customers WHERE id=?1 AND active=1').bind(customerId).first() : null;
   if (customerId && !savedCustomer) throw new Response('Selected customer is unavailable', { status: 400 });
-  const customer = cleanText(savedCustomer?.name || body.customer_name, 'customer_name', 120);
+  const phone = cleanPhone(body.phone || savedCustomer?.whatsapp_number || savedCustomer?.mobile);
+  if (options.publicCatalog && !phone) throw new Response('WhatsApp phone number is required', { status: 400 });
+  const onlineProfile = phone ? await env.DB.prepare('SELECT * FROM whatsapp_customers WHERE phone=?1').bind(phone).first() : null;
+  const customer = cleanText(body.shop_name || body.customer_name || onlineProfile?.shop_name || onlineProfile?.display_name || savedCustomer?.name, 'shop_name', 120);
+  const contactName = cleanText(body.contact_name || onlineProfile?.contact_name, 'contact_name', 120, false);
+  const address = cleanText(body.address || onlineProfile?.address || savedCustomer?.address, 'address', 400, options.publicCatalog);
+  const gstin = cleanGstin(body.gstin || onlineProfile?.gstin);
+  const latitude = cleanCoordinate(body.location_lat, 'latitude', -90, 90);
+  const longitude = cleanCoordinate(body.location_lng, 'longitude', -180, 180);
+  if ((latitude === null) !== (longitude === null)) throw new Response('Both location coordinates are required', { status: 400 });
+  const locationUrl = cleanLocationUrl(body.location_url || onlineProfile?.location_url, latitude, longitude);
+  const deliveryDate = cleanDeliveryDate(body.delivery_date, options.publicCatalog);
+  if (options.publicCatalog) {
+    const recent = await env.DB.prepare("SELECT COUNT(*) count FROM orders WHERE phone=?1 AND created_at>=datetime('now','-10 minutes')").bind(phone).first();
+    if (Number(recent?.count || 0) >= 4) throw new Response('Too many recent orders. Please wait a few minutes.', { status: 429 });
+  }
   const preparedLines = [];
   let total = 0;
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
-    const productId = cleanText(line.product_id, 'product_id', 100);
+    const requestedProductId = cleanText(line.product_id, 'product_id', 100);
     const quantity = Number(line.quantity);
     if (!Number.isFinite(quantity) || quantity <= 0 || quantity > 1000) throw new Response('Invalid quantity', { status: 400 });
-    const product = await env.DB.prepare('SELECT product_name,unit,selling_price_paise FROM inventory WHERE product_id=?1 AND active=1').bind(productId).first();
-    if (!product) throw new Response(`Unknown product ${productId}`, { status: 400 });
+    const prefixedProductId = requestedProductId.startsWith('AMUL:') ? requestedProductId : `AMUL:${requestedProductId}`;
+    const product = await env.DB.prepare(`SELECT product_id,product_name,unit,selling_price_paise
+      FROM inventory WHERE active=1 AND (product_id=?1 OR product_id=?2 OR sku=?1) LIMIT 1`)
+      .bind(requestedProductId, prefixedProductId).first();
+    if (!product) throw new Response(`Unknown product ${requestedProductId}`, { status: 400 });
     total += Math.round(quantity * Number(product.selling_price_paise || 0));
     preparedLines.push(env.DB.prepare('INSERT INTO order_lines(order_id,line_no,product_id,product_name,quantity,unit,price_paise) VALUES(?1,?2,?3,?4,?5,?6,?7)')
-      .bind(id, index + 1, productId, product.product_name, quantity, cleanText(line.unit, 'unit', 20, false) || product.unit, product.selling_price_paise || 0));
+      .bind(id, index + 1, product.product_id, product.product_name, quantity, cleanText(line.unit, 'unit', 20, false) || product.unit, product.selling_price_paise || 0));
   }
   const businessDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()).replaceAll('-', '');
-  const orderNumber = `WEB-${businessDate}-${id.slice(0, 6).toUpperCase()}`;
+  const source = options.source === 'WHATSAPP' ? 'WHATSAPP' : 'ONLINE';
+  const orderNumber = `${source === 'WHATSAPP' ? 'WA' : 'WEB'}-${businessDate}-${id.slice(0, 6).toUpperCase()}`;
   const statements = [env.DB.prepare(`INSERT INTO orders
-    (id,request_id,source,customer_id,customer_name,phone,address,note,status,order_number,route_name,delivery_date,total_paise,workflow_status,updated_at)
-    VALUES(?1,?2,'ONLINE',?3,?4,?5,?6,?7,'NEW',?8,?9,?10,?11,'RECEIVED',CURRENT_TIMESTAMP)`)
-    .bind(id, requestId, customerId || null, customer, cleanPhone(body.phone || savedCustomer?.whatsapp_number || savedCustomer?.mobile), cleanText(body.address || savedCustomer?.address, 'address', 400, false), cleanText(body.note, 'note', 400, false), orderNumber, cleanText(body.route_name || savedCustomer?.route_name, 'route_name', 150, false), cleanText(body.delivery_date, 'delivery_date', 40, false), total), ...preparedLines];
+    (id,request_id,source,customer_id,customer_name,phone,address,note,status,order_number,route_name,delivery_date,total_paise,workflow_status,updated_at,contact_name,gstin,location_url,location_lat,location_lng)
+    VALUES(?1,?2,?3,?4,?5,?6,?7,?8,'NEW',?9,?10,?11,?12,'RECEIVED',CURRENT_TIMESTAMP,?13,?14,?15,?16,?17)`)
+    .bind(id, requestId, source, customerId || (phone ? `WHATSAPP:${phone}` : null), customer, phone, address, cleanText(body.note, 'note', 400, false), orderNumber, cleanText(body.route_name || savedCustomer?.route_name, 'route_name', 150, false), deliveryDate, total, contactName, gstin, locationUrl, latitude, longitude), ...preparedLines];
+  if (phone) statements.push(env.DB.prepare(`INSERT INTO whatsapp_customers
+    (phone,display_name,shop_name,contact_name,gstin,address,location_url,location_lat,location_lng,last_order_id,last_order_at,updated_at)
+    VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+    ON CONFLICT(phone) DO UPDATE SET
+      display_name=COALESCE(NULLIF(excluded.display_name,''),whatsapp_customers.display_name),
+      shop_name=COALESCE(NULLIF(excluded.shop_name,''),whatsapp_customers.shop_name),
+      contact_name=COALESCE(NULLIF(excluded.contact_name,''),whatsapp_customers.contact_name),
+      gstin=COALESCE(NULLIF(excluded.gstin,''),whatsapp_customers.gstin),
+      address=COALESCE(NULLIF(excluded.address,''),whatsapp_customers.address),
+      location_url=COALESCE(NULLIF(excluded.location_url,''),whatsapp_customers.location_url),
+      location_lat=COALESCE(excluded.location_lat,whatsapp_customers.location_lat),
+      location_lng=COALESCE(excluded.location_lng,whatsapp_customers.location_lng),
+      last_order_id=excluded.last_order_id,last_order_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP`)
+    .bind(phone, contactName || customer, customer, contactName, gstin, address, locationUrl, latitude, longitude, id));
   try { await env.DB.batch(statements); } catch (error) {
     if (String(error).includes('INSUFFICIENT_STOCK')) throw new Response('Insufficient available stock', { status: 409 });
     throw error;
   }
-  return json({ id, request_id: requestId, order_number: orderNumber, status: 'NEW', workflow_status: 'RECEIVED', total_paise: total }, 201);
+  return json({ id, request_id: requestId, order_number: orderNumber, status: 'NEW', workflow_status: 'RECEIVED', total_paise: total, delivery_date: deliveryDate }, 201);
 }
 
 async function listOrders(env, syncOnly = false) {
@@ -269,14 +334,15 @@ async function updateOrder(request, env, id, action) {
 }
 
 async function dashboard(env) {
-  const [inventorySummary, orderSummary, accountSummary, customerSummary, syncRows] = await Promise.all([
+  const [inventorySummary, orderSummary, accountSummary, customerSummary, whatsappCustomerSummary, syncRows] = await Promise.all([
     env.DB.prepare('SELECT COUNT(*) products,COALESCE(SUM(stock_qty),0) stock_units,COALESCE(SUM(reserved_qty),0) reserved_units,COALESCE(SUM(CASE WHEN stock_qty-reserved_qty<=0 THEN 1 ELSE 0 END),0) out_of_stock FROM inventory WHERE active=1').first(),
     env.DB.prepare("SELECT COUNT(*) total,COALESCE(SUM(CASE WHEN status IN ('NEW','SYNCED') THEN 1 ELSE 0 END),0) open_orders,COALESCE(SUM(CASE WHEN date(created_at)=date('now') THEN total_paise ELSE 0 END),0) today_value_paise FROM orders").first(),
     env.DB.prepare("SELECT COALESCE(SUM(outstanding_paise),0) receivable_paise,COALESCE(SUM(CASE WHEN due_date<>'' AND date(due_date)<date('now') AND outstanding_paise>0 THEN outstanding_paise ELSE 0 END),0) overdue_paise,COALESCE(SUM(CASE WHEN substr(invoice_date,1,7)=substr(date('now'),1,7) THEN total_paise ELSE 0 END),0) month_sales_paise FROM invoices WHERE status<>'VOID'").first(),
     env.DB.prepare('SELECT COUNT(*) customers FROM customers WHERE active=1').first(),
+    env.DB.prepare('SELECT COUNT(*) customers FROM whatsapp_customers').first(),
     env.DB.prepare("SELECT key,value,updated_at FROM sync_state WHERE key='current_snapshot' OR key LIKE 'business:%' ORDER BY key").all(),
   ]);
-  return json({ inventory: inventorySummary, orders: orderSummary, accounts: accountSummary, customers: customerSummary, sync: syncRows.results || [] });
+  return json({ inventory: inventorySummary, orders: orderSummary, accounts: accountSummary, customers: { customers: Number(customerSummary?.customers || 0) + Number(whatsappCustomerSummary?.customers || 0) }, sync: syncRows.results || [] });
 }
 
 function pageParams(request) {
@@ -287,8 +353,66 @@ function pageParams(request) {
 async function customers(request, env) {
   const { query, limit, offset } = pageParams(request);
   const pattern = `%${query.replace(/[\\%_]/g, '\\$&')}%`;
-  const rows = await env.DB.prepare(`SELECT * FROM customers WHERE active=1 AND (?1='' OR name LIKE ?2 ESCAPE '\\' OR code LIKE ?2 ESCAPE '\\' OR mobile LIKE ?2 ESCAPE '\\' OR route_name LIKE ?2 ESCAPE '\\') ORDER BY name LIMIT ?3 OFFSET ?4`).bind(query, pattern, limit, offset).all();
-  return json({ customers: rows.results || [] });
+  const [rows, onlineRows] = await Promise.all([
+    env.DB.prepare(`SELECT * FROM customers WHERE active=1 AND (?1='' OR name LIKE ?2 ESCAPE '\\' OR code LIKE ?2 ESCAPE '\\' OR mobile LIKE ?2 ESCAPE '\\' OR route_name LIKE ?2 ESCAPE '\\') ORDER BY name LIMIT ?3 OFFSET ?4`).bind(query, pattern, limit, offset).all(),
+    env.DB.prepare(`SELECT * FROM whatsapp_customers WHERE ?1='' OR shop_name LIKE ?2 ESCAPE '\\' OR display_name LIKE ?2 ESCAPE '\\' OR phone LIKE ?2 ESCAPE '\\' OR gstin LIKE ?2 ESCAPE '\\' ORDER BY COALESCE(shop_name,display_name,phone) LIMIT ?3 OFFSET ?4`).bind(query, pattern, limit, offset).all(),
+  ]);
+  const result = rows.results || [];
+  const knownPhones = new Set(result.flatMap(row => [row.mobile, row.whatsapp_number]).filter(Boolean).map(value => cleanPhone(value)));
+  for (const profile of onlineRows.results || []) if (!knownPhones.has(profile.phone)) result.push({
+    id: `WHATSAPP:${profile.phone}`, source: 'WHATSAPP', source_id: profile.phone, code: 'ONLINE',
+    name: profile.shop_name || profile.display_name || profile.phone, mobile: profile.phone, whatsapp_number: profile.phone,
+    gstin: profile.gstin || '', address: profile.address || '', city: '', route_id: '', route_name: '', credit_days: 0,
+    credit_limit_paise: 0, balance_paise: 0, active: 1, location_url: profile.location_url || '', last_order_at: profile.last_order_at,
+  });
+  return json({ customers: result.slice(0, limit) });
+}
+
+async function whatsappConversations(env) {
+  const [eventRows, profileRows, customerRows, orderRows] = await Promise.all([
+    env.DB.prepare(`SELECT event_id,event_type,from_number,customer_name,direction,message_type,body,event_time,received_at,order_id
+      FROM whatsapp_events WHERE from_number<>'' ORDER BY received_at DESC LIMIT 500`).all(),
+    env.DB.prepare('SELECT * FROM whatsapp_customers ORDER BY updated_at DESC LIMIT 300').all(),
+    env.DB.prepare('SELECT name,mobile,whatsapp_number,gstin,address FROM customers WHERE active=1').all(),
+    env.DB.prepare('SELECT id,order_number,phone,delivery_date,status,workflow_status,total_paise,created_at FROM orders ORDER BY created_at DESC LIMIT 300').all(),
+  ]);
+  const profiles = new Map((profileRows.results || []).map(profile => [profile.phone, profile]));
+  const syncedNames = new Map();
+  for (const customer of customerRows.results || []) for (const value of [customer.whatsapp_number, customer.mobile]) {
+    if (!value) continue;
+    try { syncedNames.set(cleanPhone(value), customer); } catch { /* Ignore malformed legacy phone values. */ }
+  }
+  const ordersByPhone = new Map();
+  for (const order of orderRows.results || []) if (order.phone && !ordersByPhone.has(order.phone)) ordersByPhone.set(order.phone, order);
+  const conversations = new Map();
+  for (const event of eventRows.results || []) {
+    let phone;
+    try { phone = cleanPhone(event.from_number); } catch { continue; }
+    if (!phone) continue;
+    if (!conversations.has(phone)) {
+      const profile = profiles.get(phone) || {};
+      const synced = syncedNames.get(phone) || {};
+      conversations.set(phone, {
+        phone,
+        name: profile.shop_name || synced.name || profile.display_name || event.customer_name || phone,
+        contact_name: profile.contact_name || profile.display_name || '',
+        gstin: profile.gstin || synced.gstin || '',
+        address: profile.address || synced.address || '',
+        location_url: profile.location_url || '',
+        last_order: ordersByPhone.get(phone) || null,
+        messages: [],
+      });
+    }
+    conversations.get(phone).messages.push({ ...event, direction: event.direction || (['OUTBOUND', 'AUTO_REPLY', 'ORDER_REPLY'].includes(event.event_type) ? 'OUTBOUND' : event.event_type === 'STATUS' ? 'SYSTEM' : 'INBOUND') });
+  }
+  for (const [phone, profile] of profiles) if (!conversations.has(phone)) conversations.set(phone, {
+    phone, name: profile.shop_name || profile.display_name || phone, contact_name: profile.contact_name || profile.display_name || '',
+    gstin: profile.gstin || '', address: profile.address || '', location_url: profile.location_url || '', last_order: ordersByPhone.get(phone) || null, messages: [],
+  });
+  const result = [...conversations.values()];
+  for (const conversation of result) conversation.messages.reverse();
+  result.sort((a, b) => String(b.messages.at(-1)?.received_at || b.last_order?.created_at || '').localeCompare(String(a.messages.at(-1)?.received_at || a.last_order?.created_at || '')));
+  return json({ conversations: result });
 }
 
 async function distributionOrders(request, env) {
@@ -374,11 +498,76 @@ async function whatsappTemplates(env) {
   return json({ templates });
 }
 
+function messageBody(message) {
+  const flow = message.interactive?.nfm_reply?.response_json;
+  return message.text?.body || message.button?.text || message.interactive?.button_reply?.title || message.interactive?.list_reply?.title || message.location?.name || flow || null;
+}
+
+function collectHistoryMessages(value) {
+  const found = [];
+  const queue = [value?.messages, value?.history, value?.message_echoes, value?.state_sync].flat().filter(Boolean);
+  const seen = new Set();
+  while (queue.length && found.length < 200) {
+    const current = queue.shift();
+    if (!current || typeof current !== 'object' || seen.has(current)) continue;
+    seen.add(current);
+    if (Array.isArray(current)) { queue.push(...current); continue; }
+    if (current.id && current.timestamp && (current.from || current.to || current.recipient_id) && (current.type || current.text || current.interactive || current.location)) found.push(current);
+    for (const key of ['messages', 'message', 'history', 'data', 'items', 'message_echoes']) if (current[key]) queue.push(current[key]);
+  }
+  return found;
+}
+
+function profileUpsert(env, phone, displayName, lastMessage = true) {
+  return env.DB.prepare(`INSERT INTO whatsapp_customers(phone,display_name,last_message_at,updated_at)
+    VALUES(?1,?2,${lastMessage ? 'CURRENT_TIMESTAMP' : 'NULL'},CURRENT_TIMESTAMP)
+    ON CONFLICT(phone) DO UPDATE SET display_name=COALESCE(NULLIF(excluded.display_name,''),whatsapp_customers.display_name),
+    last_message_at=${lastMessage ? 'CURRENT_TIMESTAMP' : 'whatsapp_customers.last_message_at'},updated_at=CURRENT_TIMESTAMP`).bind(phone, displayName || '');
+}
+
+async function matchingRecentOrder(env, phone, body) {
+  const orderNumber = String(body || '').match(/\b(?:WEB|WA)-\d{8}-[A-Z0-9]{6}\b/i)?.[0]?.toUpperCase();
+  if (orderNumber) return env.DB.prepare('SELECT id,order_number,customer_name,delivery_date FROM orders WHERE phone=?1 AND order_number=?2').bind(phone, orderNumber).first();
+  if (!/\border\b/i.test(String(body || ''))) return null;
+  return env.DB.prepare("SELECT id,order_number,customer_name,delivery_date FROM orders WHERE phone=?1 AND created_at>=datetime('now','-30 minutes') ORDER BY created_at DESC LIMIT 1").bind(phone).first();
+}
+
+async function acknowledgeOrder(env, message, body) {
+  const to = cleanPhone(message.from);
+  const order = await matchingRecentOrder(env, to, body);
+  if (!order) return false;
+  const reply = `Thank you${order.customer_name ? `, ${order.customer_name}` : ''}. Order ${order.order_number} is saved${order.delivery_date ? ` for ${order.delivery_date}` : ''}. We will confirm stock and delivery here.`;
+  try {
+    const outbound = { messaging_product: 'whatsapp', recipient_type: 'individual', to, type: 'text', text: { preview_url: false, body: reply } };
+    const { result, messageId } = await sendMetaMessage(env, to, outbound);
+    await env.DB.batch([
+      env.DB.prepare(`INSERT OR IGNORE INTO whatsapp_events(event_id,event_type,from_number,customer_name,direction,message_type,body,raw_json,event_time,order_id)
+        VALUES(?1,'ORDER_REPLY',?2,?3,'OUTBOUND','text',?4,?5,?6,?7)`).bind(`order-reply:${message.id}`, to, order.customer_name || '', reply, JSON.stringify(result), String(Math.floor(Date.now() / 1000)), order.id),
+      env.DB.prepare(`INSERT INTO whatsapp_auto_replies(from_number,last_inbound_message_id,last_catalog_at,last_reply_message_id,status,last_error,updated_at)
+        VALUES(?1,?2,NULL,?3,'ORDER_CONFIRMED',NULL,CURRENT_TIMESTAMP)
+        ON CONFLICT(from_number) DO UPDATE SET last_inbound_message_id=excluded.last_inbound_message_id,last_reply_message_id=excluded.last_reply_message_id,
+        status='ORDER_CONFIRMED',last_error=NULL,updated_at=CURRENT_TIMESTAMP`).bind(to, message.id, messageId),
+    ]);
+  } catch (error) {
+    await env.DB.prepare(`INSERT INTO whatsapp_auto_replies(from_number,last_inbound_message_id,status,last_error,updated_at)
+      VALUES(?1,?2,'FAILED',?3,CURRENT_TIMESTAMP)
+      ON CONFLICT(from_number) DO UPDATE SET last_inbound_message_id=excluded.last_inbound_message_id,status='FAILED',last_error=excluded.last_error,updated_at=CURRENT_TIMESTAMP`)
+      .bind(to, message.id, String(error.message || error).slice(0, 500)).run();
+  }
+  return true;
+}
+
 async function autoReplyWithCatalogue(env, requestUrl, message, body) {
   const to = cleanPhone(message.from);
   if (!to) return;
-  const prior = await env.DB.prepare('SELECT last_catalog_at FROM whatsapp_auto_replies WHERE from_number=?1').bind(to).first();
+  if (await acknowledgeOrder(env, message, body)) return;
+  const [prior, profile] = await Promise.all([
+    env.DB.prepare('SELECT last_catalog_at FROM whatsapp_auto_replies WHERE from_number=?1').bind(to).first(),
+    env.DB.prepare('SELECT last_order_at FROM whatsapp_customers WHERE phone=?1').bind(to).first(),
+  ]);
   const priorTime = prior?.last_catalog_at ? Date.parse(`${String(prior.last_catalog_at).replace(' ', 'T')}Z`) : 0;
+  const lastOrderTime = profile?.last_order_at ? Date.parse(`${String(profile.last_order_at).replace(' ', 'T')}Z`) : 0;
+  if (!catalogueRequested(body) && Number.isFinite(lastOrderTime) && lastOrderTime > Date.now() - 7 * 86_400_000) return;
   if (!catalogueRequested(body) && Number.isFinite(priorTime) && priorTime > Date.now() - 86_400_000) return;
   const catalogueUrl = String(env.PUBLIC_CATALOG_URL || `${new URL(requestUrl).origin}/catalog`).replace(/\/$/, '');
   try {
@@ -389,8 +578,8 @@ async function autoReplyWithCatalogue(env, requestUrl, message, body) {
         VALUES(?1,?2,CURRENT_TIMESTAMP,?3,'SENT',NULL,CURRENT_TIMESTAMP)
         ON CONFLICT(from_number) DO UPDATE SET last_inbound_message_id=excluded.last_inbound_message_id,last_catalog_at=CURRENT_TIMESTAMP,
         last_reply_message_id=excluded.last_reply_message_id,status='SENT',last_error=NULL,updated_at=CURRENT_TIMESTAMP`).bind(to, message.id, messageId),
-      env.DB.prepare(`INSERT OR IGNORE INTO whatsapp_events(event_id,event_type,from_number,message_type,body,raw_json,event_time)
-        VALUES(?1,'AUTO_REPLY',?2,'text',?3,?4,?5)`).bind(`auto:${message.id}`, to, catalogueUrl, JSON.stringify(result), String(Math.floor(Date.now() / 1000))),
+      env.DB.prepare(`INSERT OR IGNORE INTO whatsapp_events(event_id,event_type,from_number,direction,message_type,body,raw_json,event_time)
+        VALUES(?1,'AUTO_REPLY',?2,'OUTBOUND','text',?3,?4,?5)`).bind(`auto:${message.id}`, to, catalogueUrl, JSON.stringify(result), String(Math.floor(Date.now() / 1000))),
     ]);
   } catch (error) {
     await env.DB.prepare(`INSERT INTO whatsapp_auto_replies(from_number,last_inbound_message_id,last_catalog_at,last_reply_message_id,status,last_error,updated_at)
@@ -419,26 +608,39 @@ async function whatsappWebhook(request, env) {
     if (!supportsWhatsAppWebhook(change.field)) continue;
     const value = change.value || {};
     if (change.field !== 'messages') {
+      const historyMessages = ['history', 'smb_message_echoes'].includes(change.field) ? collectHistoryMessages(value) : [];
+      for (const historyMessage of historyMessages) {
+        let phone;
+        try { phone = cleanPhone(historyMessage.from || historyMessage.to || historyMessage.recipient_id); } catch { continue; }
+        if (!phone || !historyMessage.id) continue;
+        const historyBody = messageBody(historyMessage);
+        const direction = change.field === 'smb_message_echoes' ? 'OUTBOUND' : 'HISTORY';
+        statements.push(env.DB.prepare(`INSERT OR IGNORE INTO whatsapp_events(event_id,event_type,from_number,direction,message_type,body,raw_json,event_time)
+          VALUES(?1,'COEXISTENCE_MESSAGE',?2,?3,?4,?5,?6,?7)`).bind(`history:${historyMessage.id}`, phone, direction, String(historyMessage.type || 'unknown'), historyBody, JSON.stringify(historyMessage), String(historyMessage.timestamp || entry.time || '')));
+        statements.push(profileUpsert(env, phone, historyMessage.profile?.name || '', true));
+      }
       const genericId = await webhookEventId(entry.id || '', change.field, value);
-      statements.push(env.DB.prepare(`INSERT OR IGNORE INTO whatsapp_events(event_id,event_type,from_number,message_type,body,raw_json,event_time)
-        VALUES(?1,'COEXISTENCE',?2,?3,?4,?5,?6)`).bind(genericId, String(value.phone_number || value.from || ''), String(change.field), String(value.event || value.sync_type || ''), JSON.stringify(value), String(entry.time || '')));
+      statements.push(env.DB.prepare(`INSERT OR IGNORE INTO whatsapp_events(event_id,event_type,from_number,direction,message_type,body,raw_json,event_time)
+        VALUES(?1,'COEXISTENCE',?2,'SYSTEM',?3,?4,?5,?6)`).bind(genericId, String(value.phone_number || value.from || ''), String(change.field), String(value.event || value.sync_type || ''), JSON.stringify(value), String(entry.time || '')));
       continue;
     }
     if (env.META_PHONE_ID && value.metadata?.phone_number_id !== env.META_PHONE_ID) continue;
     for (const message of value.messages || []) {
       if (!message.id) continue;
-      const flow = message.interactive?.nfm_reply?.response_json;
-      const body = message.text?.body || message.button?.text || message.interactive?.button_reply?.title || message.interactive?.list_reply?.title || flow || null;
+      const body = messageBody(message);
+      const phone = cleanPhone(message.from || '');
+      const customerName = value.contacts?.find(contact => cleanPhone(contact.wa_id || '') === phone)?.profile?.name || '';
       const duplicate = await env.DB.prepare('SELECT 1 found FROM whatsapp_events WHERE event_id=?1').bind(message.id).first();
       if (!duplicate) {
-        statements.push(env.DB.prepare(`INSERT OR IGNORE INTO whatsapp_events(event_id,event_type,from_number,message_type,body,raw_json,event_time)
-          VALUES(?1,'MESSAGE',?2,?3,?4,?5,?6)`).bind(message.id, String(message.from || ''), String(message.type || 'unknown'), body, JSON.stringify(message), String(message.timestamp || '')));
-        newMessages.push({ message, body });
+        statements.push(env.DB.prepare(`INSERT OR IGNORE INTO whatsapp_events(event_id,event_type,from_number,customer_name,direction,message_type,body,raw_json,event_time)
+          VALUES(?1,'MESSAGE',?2,?3,'INBOUND',?4,?5,?6,?7)`).bind(message.id, phone, customerName, String(message.type || 'unknown'), body, JSON.stringify(message), String(message.timestamp || '')));
+        statements.push(profileUpsert(env, phone, customerName, true));
+        newMessages.push({ message: { ...message, from: phone }, body });
       }
     }
     for (const status of value.statuses || []) if (status.id && status.timestamp) {
-      statements.push(env.DB.prepare(`INSERT OR IGNORE INTO whatsapp_events(event_id,event_type,from_number,message_type,body,raw_json,event_time)
-        VALUES(?1,'STATUS',?2,?3,?4,?5,?6)`).bind(`${status.id}:${status.status}:${status.timestamp}`, String(status.recipient_id || ''), String(status.status || ''), status.errors ? JSON.stringify(status.errors) : null, JSON.stringify(status), String(status.timestamp)));
+      statements.push(env.DB.prepare(`INSERT OR IGNORE INTO whatsapp_events(event_id,event_type,from_number,direction,message_type,body,raw_json,event_time)
+        VALUES(?1,'STATUS',?2,'SYSTEM',?3,?4,?5,?6)`).bind(`${status.id}:${status.status}:${status.timestamp}`, cleanPhone(status.recipient_id || ''), String(status.status || ''), status.errors ? JSON.stringify(status.errors) : null, JSON.stringify(status), String(status.timestamp)));
     }
   }
   if (statements.length) await env.DB.batch(statements.slice(0, 50));
@@ -462,16 +664,18 @@ async function sendWhatsApp(request, env) {
   let result, messageId;
   try { ({ result, messageId } = await sendMetaMessage(env, to, message)); }
   catch (error) { return json({ error: String(error.message || error) }, 502); }
-  await env.DB.prepare(`INSERT OR IGNORE INTO whatsapp_events(event_id,event_type,from_number,message_type,body,raw_json,event_time)
-    VALUES(?1,'OUTBOUND',?2,?3,?4,?5,?6)`).bind(`out:${messageId}`, to, message.type, templateName || message.text.body, JSON.stringify(result), String(Math.floor(Date.now() / 1000))).run();
+  const profile = await env.DB.prepare('SELECT COALESCE(shop_name,display_name) name FROM whatsapp_customers WHERE phone=?1').bind(to).first();
+  await env.DB.prepare(`INSERT OR IGNORE INTO whatsapp_events(event_id,event_type,from_number,customer_name,direction,message_type,body,raw_json,event_time)
+    VALUES(?1,'OUTBOUND',?2,?3,'OUTBOUND',?4,?5,?6,?7)`).bind(`out:${messageId}`, to, profile?.name || '', message.type, templateName || message.text.body, JSON.stringify(result), String(Math.floor(Date.now() / 1000))).run();
   return json({ accepted: true, message_id: messageId, to, type: message.type }, 201);
 }
 
 async function route(request, env) {
   const url = new URL(request.url);
   const path = url.pathname;
-  if (path === '/api/health') return json({ ok: true, service: 'frostflow-online', version: '0.3.0' });
+  if (path === '/api/health') return json({ ok: true, service: 'frostflow-online', version: '0.4.0' });
   if (path === '/webhooks/whatsapp' || path === '/webhooks/whatsapp/') return whatsappWebhook(request, env);
+  if (path === '/api/catalog/orders' && request.method === 'POST') return createOrder(request, env, { publicCatalog: true });
   if (request.method === 'GET' && (path === '/catalog' || path === '/catalog/' || path === '/catalog.js' || path === '/catalog.css' || path === '/catalog-data.json' || path.startsWith('/images/'))) {
     if (path === '/catalog') return Response.redirect(new URL('/catalog/', request.url), 308);
     return env.ASSETS.fetch(request);
@@ -499,9 +703,10 @@ async function route(request, env) {
   const orderAction = path.match(/^\/api\/orders\/([^/]+)\/(confirm|pack|dispatch|deliver|cancel|fulfil)$/);
   if (orderAction && request.method === 'POST') return updateOrder(request, env, decodeURIComponent(orderAction[1]), orderAction[2]);
   if (path === '/api/whatsapp/events' && request.method === 'GET') {
-    const rows = await env.DB.prepare('SELECT event_id,event_type,from_number,message_type,body,event_time,received_at FROM whatsapp_events ORDER BY received_at DESC LIMIT 200').all();
+    const rows = await env.DB.prepare('SELECT event_id,event_type,from_number,customer_name,direction,message_type,body,event_time,received_at,order_id FROM whatsapp_events ORDER BY received_at DESC LIMIT 200').all();
     return json({ events: rows.results || [] });
   }
+  if (path === '/api/whatsapp/conversations' && request.method === 'GET') return whatsappConversations(env);
   if (path === '/api/whatsapp/templates' && request.method === 'GET') return whatsappTemplates(env);
   if (path === '/api/whatsapp/send' && request.method === 'POST') return sendWhatsApp(request, env);
   if (path.startsWith('/api/')) return json({ error: 'API endpoint not found' }, 404);
@@ -519,4 +724,4 @@ export default {
   },
 };
 
-export { equalSecret, cleanPhone, catalogueReply, catalogueRequested, supportsWhatsAppWebhook };
+export { equalSecret, cleanPhone, cleanGstin, cleanLocationUrl, catalogueReply, catalogueRequested, supportsWhatsAppWebhook };

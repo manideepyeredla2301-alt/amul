@@ -25,11 +25,31 @@
     <form method="dialog">
       <div class="dialog-head"><div><small>YOUR ORDER</small><h2>Selected products</h2></div><button value="cancel" class="icon-button" aria-label="Close">×</button></div>
       <div id="cart-lines" class="cart-lines"></div>
-      <label>Your name<input id="customer-name" maxlength="80" autocomplete="name" required></label>
-      <label>Shop / delivery address<textarea id="customer-address" maxlength="250" rows="2"></textarea></label>
+      <div class="checkout-title"><strong>Delivery details</strong><span id="saved-profile-note">Saved here for your next order</span></div>
+      <div class="form-grid">
+        <label>Shop name<input id="shop-name" maxlength="120" autocomplete="organization" required></label>
+        <label>Contact person<input id="contact-name" maxlength="120" autocomplete="name"></label>
+      </div>
+      <div class="form-grid">
+        <label>WhatsApp number<input id="customer-phone" inputmode="tel" maxlength="18" autocomplete="tel" placeholder="9014003991" required></label>
+        <label>GSTIN (optional)<input id="customer-gstin" maxlength="15" autocapitalize="characters" placeholder="36ABCDE1234F1Z5"></label>
+      </div>
+      <label>Shop / delivery address<textarea id="customer-address" maxlength="400" rows="2" autocomplete="street-address" required></textarea></label>
+      <div class="location-box">
+        <div><strong>Delivery location</strong><small>Pin the shop so the driver finds it easily.</small></div>
+        <button id="use-location" type="button">Use current location</button>
+        <label>Or paste Google Maps link<input id="location-url" type="url" maxlength="600" placeholder="https://maps.app.goo.gl/…"></label>
+        <input id="location-lat" type="hidden"><input id="location-lng" type="hidden">
+        <a id="location-preview" target="_blank" rel="noreferrer" hidden>View saved map point</a>
+        <p id="location-status" class="privacy-note"></p>
+      </div>
+      <label>When do you expect delivery?
+        <div class="quick-dates"><button type="button" data-delivery-days="1">Tomorrow</button><button type="button" data-delivery-days="2">In 2 days</button><button type="button" data-delivery-days="3">In 3 days</button></div>
+        <input id="delivery-date" type="date" required>
+      </label>
       <label>Note (optional)<textarea id="customer-note" maxlength="200" rows="2"></textarea></label>
-      <p class="privacy-note">Your order opens in WhatsApp for your review before it is sent.</p>
-      <button id="send-order" type="button" class="whatsapp-button">Send order on WhatsApp</button>
+      <p class="privacy-note">Your order is saved online first, then WhatsApp opens for a quick confirmation. These delivery details stay on this device for next time.</p>
+      <button id="send-order" type="button" class="whatsapp-button">Place order &amp; open WhatsApp</button>
       <button id="clear-cart" type="button" class="text-button">Clear order</button>
       <p id="form-error" class="error" role="alert"></p>
     </form>

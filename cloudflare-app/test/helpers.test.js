@@ -1,12 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {catalogueReply,catalogueRequested,cleanPhone,equalSecret,supportsWhatsAppWebhook} from '../src/worker.js';
+import {catalogueReply,catalogueRequested,cleanGstin,cleanLocationUrl,cleanPhone,equalSecret,supportsWhatsAppWebhook} from '../src/worker.js';
 
 test('constant-time secret comparison and phone normalization',async()=>{
   assert.equal(await equalSecret('same','same'),true);
   assert.equal(await equalSecret('same','different'),false);
   assert.equal(cleanPhone('+91 90140 03991'),'919014003991');
+  assert.equal(cleanPhone('9014003991'),'919014003991');
   assert.throws(()=>cleanPhone('123'));
+});
+
+test('checkout profile validation keeps GST and map data usable',()=>{
+  assert.equal(cleanGstin('36abcde1234f1z5'),'36ABCDE1234F1Z5');
+  assert.throws(()=>cleanGstin('not-a-gstin'));
+  assert.equal(cleanLocationUrl('',17.385,78.4867),'https://www.google.com/maps?q=17.385,78.4867');
+  assert.match(cleanLocationUrl('https://maps.app.goo.gl/example',null,null),/^https:\/\/maps\.app\.goo\.gl\//);
+  assert.throws(()=>cleanLocationUrl('https://example.com/shop',null,null));
 });
 
 test('webhook accepts standard and coexistence event fields',()=>{
