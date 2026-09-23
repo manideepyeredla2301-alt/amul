@@ -31,12 +31,14 @@ $secret | ConvertFrom-SecureString | Set-Content -LiteralPath (Join-Path $dataDi
 $amulCredential.Password | ConvertFrom-SecureString | Set-Content -LiteralPath (Join-Path $dataDir '.amul-read-secret') -Encoding UTF8
 [ordered]@{cloudUrl=$CloudUrl;databasePath=$DatabasePath;deviceId=$DeviceId;amulServer=$AmulServer;amulDatabase=$AmulDatabase;amulUser=$amulCredential.UserName;startDate='2026-09-08'} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $dataDir 'cloud-sync.json') -Encoding UTF8
 $runner=Join-Path $PSScriptRoot 'run-cloud-sync-task.ps1'
-$pwsh=(Get-Command pwsh.exe -ErrorAction SilentlyContinue).Source
-if(!$pwsh){throw 'PowerShell 7 (pwsh.exe) is required.'}
+$powerShellCommand=Get-Command pwsh.exe -ErrorAction SilentlyContinue
+if(!$powerShellCommand){$powerShellCommand=Get-Command powershell.exe -ErrorAction SilentlyContinue}
+if(!$powerShellCommand){throw 'Windows PowerShell 5.1 or PowerShell 7 is required.'}
+$powerShell=$powerShellCommand.Source
 Write-Host 'Running the first protected sync...'
-& $pwsh -NoProfile -File $runner
+& $powerShell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $runner
 if($LASTEXITCODE){throw 'The first sync failed. Check data\cloud-sync.log.'}
-$action=New-ScheduledTaskAction -Execute $pwsh -Argument "-NoProfile -WindowStyle Hidden -File `"$runner`""
+$action=New-ScheduledTaskAction -Execute $powerShell -Argument "-NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$runner`""
 $trigger=New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 5) -RepetitionDuration (New-TimeSpan -Days 3650)
 $settings=New-ScheduledTaskSettingsSet -StartWhenAvailable -RunOnlyIfNetworkAvailable -MultipleInstances IgnoreNew
 Register-ScheduledTask -TaskName 'FrostFlow Cloud Sync' -Action $action -Trigger $trigger -Settings $settings -Description 'Refresh Amul read-only data and publish the central Cloudflare database every five minutes.' -Force | Out-Null

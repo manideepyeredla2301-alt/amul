@@ -8,7 +8,7 @@ SQLite's `amul_records` contains replaceable source copies. FrostFlow also mater
 
 On this PC, double-click `FrostFlow-Desktop.bat` after closing the old FrostFlow server. It starts the local engine silently and opens FrostFlow in a desktop-style app window. The current desktop launcher uses the configured Amul read-only connection for this PC.
 
-For troubleshooting, stop the older FrostFlow server, then run `scripts/start-amul.ps1` from PowerShell 7 with Node 24 and pwsh.exe on PATH (or packaged runtime/node.exe for Node). Normal start without Amul leaves sync disabled and the existing cache readable. The connector does not alter Windows execution policy.
+For troubleshooting, stop the older FrostFlow server, then run `scripts/start-amul.ps1` from Windows PowerShell 5.1 or PowerShell 7 with Node 24 on PATH (or packaged runtime/node.exe for Node). Normal start without Amul leaves sync disabled and the existing cache readable. The connector does not change the machine-wide Windows execution policy.
 
 The default source is tcp:192.168.0.106,57868 / 0002018303_GVR ENTERPRISES. Override the script's Server and Database parameters if needed. The connector keeps SQL encryption enabled and trusts the server certificate for this LAN SQL Server because the installed SQL certificate is not chained to a Windows-trusted authority. Passwords exist only in process memory/environment; protect this Windows account and local database/backups, which contain business records.
 

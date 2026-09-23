@@ -1,12 +1,14 @@
 @echo off
 setlocal
-where pwsh.exe >nul 2>nul
+set "FROSTFLOW_PS=pwsh.exe"
+where "%FROSTFLOW_PS%" >nul 2>nul
+if errorlevel 1 set "FROSTFLOW_PS=powershell.exe"
+where "%FROSTFLOW_PS%" >nul 2>nul
 if errorlevel 1 (
-  echo PowerShell 7 is required.
+  echo Windows PowerShell is not available.
   pause
   exit /b 1
 )
-pwsh.exe -NoProfile -File "%~dp0scripts\install-cloud-sync.ps1"
+"%FROSTFLOW_PS%" -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\install-cloud-sync.ps1"
 if errorlevel 1 pause
 endlocal
-

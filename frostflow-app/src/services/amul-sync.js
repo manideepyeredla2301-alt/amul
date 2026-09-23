@@ -16,17 +16,19 @@ const addDays = (value,days) => {
   const d=new Date(value+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+days);
   return d.toISOString().slice(0,10);
 };
-const resolvePwsh = (env = process.env) => {
-  if(env.FROSTFLOW_PWSH)return env.FROSTFLOW_PWSH;
+const resolvePowerShell = (env = process.env) => {
+  if(env.FROSTFLOW_POWERSHELL || env.FROSTFLOW_PWSH)return env.FROSTFLOW_POWERSHELL || env.FROSTFLOW_PWSH;
   const bundled=path.join(env.USERPROFILE || '', '.cache/codex-runtimes/codex-primary-runtime/dependencies/native/powershell/pwsh.exe');
-  return bundled && fs.existsSync(bundled) ? bundled : 'pwsh.exe';
+  if(bundled && fs.existsSync(bundled))return bundled;
+  const windowsPowerShell=path.join(env.SystemRoot || env.WINDIR || 'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe');
+  return fs.existsSync(windowsPowerShell) ? windowsPowerShell : 'powershell.exe';
 };
 
 function readAmul(onPage,env = process.env) {
   return new Promise((resolve,reject) => {
     let metadata=null;
     let stderr='';
-    const child=spawn(resolvePwsh(env),['-NoProfile','-NonInteractive','-File',path.join(__dirname,'../../scripts/read-amul.ps1')], {
+    const child=spawn(resolvePowerShell(env),['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',path.join(__dirname,'../../scripts/read-amul.ps1')], {
       windowsHide:true, stdio:['ignore','pipe','pipe'],
       env:{...env,FROSTFLOW_AMUL_SERVER:env.FROSTFLOW_AMUL_SERVER || 'tcp:100.105.240.98,1433',FROSTFLOW_AMUL_DATABASE:env.FROSTFLOW_AMUL_DATABASE || '0002018303_GVR ENTERPRISES',FROSTFLOW_AMUL_START_DATE:env.FROSTFLOW_AMUL_START_DATE || AMUL_START_DATE}
     });

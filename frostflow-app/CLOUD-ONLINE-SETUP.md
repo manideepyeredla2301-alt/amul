@@ -10,8 +10,9 @@ before every cloud publication.
 
 1. Back up the old local data before replacing program files.
 2. Copy the updated `frostflow-app` files over the program folder.
-3. Double-click `Install-Cloud-Sync.bat`. Enter the SELECT-only `amuluser`
-   credential when prompted.
+3. Double-click `Install-Cloud-Sync.bat`. PowerShell 7 is optional; the installer
+   also supports the Windows PowerShell 5.1 already included with Windows.
+   Enter the SELECT-only `amuluser` credential when prompted.
 4. When asked for the sync secret, retrieve it on the deployment Mac with:
 
    ```sh
@@ -31,7 +32,7 @@ verify a complete sync immediately.
 To place the replaceable cache in a different folder, run:
 
 ```powershell
-pwsh -NoProfile -File .\scripts\install-cloud-sync.ps1 `
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-cloud-sync.ps1 `
   -DatabasePath 'D:\FrostFlow\data\amul-cloud-cache.sqlite' `
   -DeviceId 'amul-pc'
 ```
