@@ -10,54 +10,78 @@
   <link rel="stylesheet" href="/conversations.css">
 </head>
 <body>
-  <header>
-    <div><small>MR ENTERPRISES · ADMIN</small><h1>FrostFlow Online</h1><p>Orders, billing, stock, customers and WhatsApp in one place</p></div>
-    <div class="header-actions"><button id="quick-invoice" class="header-button">＋ Create invoice</button><span id="sync" class="pill">Checking sync…</span></div>
-  </header>
-  <nav aria-label="Main navigation">
-    <button class="active" data-tab="dashboard">Overview</button>
-    <button data-tab="catalog">Stock</button>
-    <button data-tab="orders">Picking &amp; orders</button>
-    <button data-tab="customers">Customers</button>
-    <button data-tab="accounts">Billing &amp; accounts</button>
-    <button data-tab="whatsapp">WhatsApp</button>
-  </nav>
-  <main>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">F</span>
+        <div><small>MR ENTERPRISES</small><strong>FrostFlow</strong></div>
+      </div>
+      <nav aria-label="Main navigation">
+        <button class="active" data-tab="dashboard"><span aria-hidden="true">⌂</span><b>Overview</b></button>
+        <button data-tab="catalog"><span aria-hidden="true">▦</span><b>Stock</b></button>
+        <button data-tab="orders"><span aria-hidden="true">✓</span><b>Orders</b></button>
+        <button data-tab="customers"><span aria-hidden="true">♙</span><b>Customers</b></button>
+        <button data-tab="accounts"><span aria-hidden="true">₹</span><b>Invoices</b></button>
+        <button data-tab="whatsapp"><span aria-hidden="true">◉</span><b>Messages</b></button>
+      </nav>
+      <div class="sidebar-status"><span class="live-dot"></span><div><small>Central database</small><strong id="sync">Checking sync…</strong></div></div>
+    </aside>
+    <div class="workspace">
+      <header class="topbar">
+        <div><small>FROSTFLOW ONLINE</small><h1>Distribution workspace</h1></div>
+        <div class="header-actions"><button id="quick-order" class="secondary">＋ New order</button><button id="quick-invoice">＋ Create invoice</button></div>
+      </header>
+      <main>
     <section id="dashboard" class="tab active">
-      <div class="section-head"><div><h2>Business overview</h2><p class="hint">Latest data kept online by the Amul PC.</p></div><button class="secondary" id="refresh-all">Refresh</button></div>
+      <div class="section-head"><div><span class="page-kicker">OVERVIEW</span><h2>Good to see you</h2><p class="hint">Everything that needs attention, in one place.</p></div><button class="icon-button secondary" id="refresh-all">↻ Refresh</button></div>
       <div id="metrics" class="metrics"></div>
-      <div class="panel"><h3>Sync status</h3><div id="sync-list" class="sync-list"></div></div>
+      <div class="dashboard-grid">
+        <section class="panel quick-panel">
+          <div class="panel-heading"><div><span class="page-kicker">QUICK START</span><h3>What would you like to do?</h3></div></div>
+          <div class="quick-actions">
+            <button type="button" data-quick-action="order"><span>＋</span><strong>New order</strong><small>Select products and reserve stock</small></button>
+            <button type="button" data-quick-action="invoice"><span>₹</span><strong>Create invoice</strong><small>Bill a customer and deduct stock</small></button>
+            <button type="button" data-quick-action="customer"><span>♙</span><strong>Add customer</strong><small>Save shop and delivery details</small></button>
+            <button type="button" data-quick-action="message"><span>◉</span><strong>Send update</strong><small>Payment or delivery message</small></button>
+          </div>
+        </section>
+        <section class="panel sync-panel">
+          <div class="panel-heading"><div><span class="page-kicker">SYSTEM</span><h3>Data sync</h3></div><span class="health-badge"><i></i> Online</span></div>
+          <div id="sync-list" class="sync-list"></div>
+        </section>
+      </div>
     </section>
 
     <section id="catalog" class="tab">
-      <div class="section-head"><div><h2>Central stock &amp; catalogue</h2><p class="hint">Cloudflare is the source of truth for customer visibility. Manual out-of-stock locks survive Amul refreshes.</p></div><button id="open-cart">Cart <span id="cart-count">0</span></button></div>
+      <div class="section-head"><div><span class="page-kicker">INVENTORY</span><h2>Stock &amp; catalogue</h2><p class="hint">Search products, set availability and prepare an order.</p></div><button id="open-cart">Review order <span id="cart-count" class="button-count">0</span></button></div>
       <div class="toolbar"><input id="search" type="search" placeholder="Search product or code"><select id="category"><option value="">All categories</option></select><button id="refresh">Refresh</button></div>
       <div id="inventory-list" class="product-grid"></div>
-      <h3 class="subheading">Active purchase top-ups</h3>
-      <p class="hint">Only the newest top-up for each product remains active. Earlier requests are automatically superseded.</p>
-      <div id="topups-list" class="cards"></div>
+      <details class="secondary-section"><summary><span><strong>Active purchase top-ups</strong><small>Newest requests for replenishment</small></span><b>View</b></summary><div id="topups-list" class="cards"></div></details>
     </section>
 
     <section id="orders" class="tab">
-      <div class="section-head"><div><h2>Pick, crate &amp; invoice</h2><p class="hint">Confirm the order, pick each quantity, add the complete order to a crate, then queue the Amul invoice.</p></div><button id="new-order">New order</button></div>
+      <div class="section-head"><div><span class="page-kicker">FULFILMENT</span><h2>Orders</h2><p class="hint">Confirm, pick, crate and invoice from one queue.</p></div><button id="new-order">＋ New order</button></div>
       <div class="toolbar order-toolbar"><input id="order-search" type="search" placeholder="Search order, customer, phone or product"><button id="refresh-orders" class="secondary">Refresh</button></div>
-      <h3>Online order queue</h3><div id="orders-list" class="cards"></div>
-      <h3 class="subheading">Orders already in FrostFlow</h3><div id="distribution-orders-list" class="cards"></div>
+      <div class="content-heading"><h3>Active order queue</h3><span>Work from top to bottom</span></div><div id="orders-list" class="cards"></div>
+      <details class="secondary-section"><summary><span><strong>Orders synced from desktop</strong><small>Previous FrostFlow records</small></span><b>View</b></summary><div id="distribution-orders-list" class="cards"></div></details>
     </section>
 
     <section id="customers" class="tab">
-      <div class="section-head"><div><h2>Customers &amp; routes</h2><p class="hint">Retailer details, WhatsApp history and outstanding balance.</p></div><div class="section-actions"><input id="customer-search" type="search" placeholder="Search name, number or route"><button id="new-customer">＋ Customer</button></div></div>
+      <div class="section-head"><div><span class="page-kicker">DIRECTORY</span><h2>Customers</h2><p class="hint">Retailer details, balance, route and conversation history.</p></div><button id="new-customer">＋ Add customer</button></div>
+      <div class="toolbar single-search"><input id="customer-search" type="search" placeholder="Search shop, phone number or route"></div>
       <div id="customers-list" class="cards"></div>
     </section>
 
     <section id="accounts" class="tab">
-      <div class="section-head"><div><h2>Billing &amp; collections</h2><p class="hint">Create invoices online, deduct stock, print bills and follow up on payment.</p></div><div class="section-actions"><input id="account-search" type="search" placeholder="Search invoice or customer"><button id="create-invoice">＋ Create invoice</button></div></div>
-      <h3>Receivables</h3><div id="invoices-list" class="cards"></div>
-      <h3 class="subheading">Recent payments</h3><div id="payments-list" class="cards"></div>
+      <div class="section-head"><div><span class="page-kicker">ACCOUNTS</span><h2>Invoices &amp; collections</h2><p class="hint">Create, print and follow up on customer invoices.</p></div><button id="create-invoice">＋ Create invoice</button></div>
+      <div class="toolbar single-search"><input id="account-search" type="search" placeholder="Search invoice or customer"></div>
+      <div class="content-heading"><h3>Receivables</h3><span>Newest invoices first</span></div><div id="invoices-list" class="cards"></div>
+      <details class="secondary-section"><summary><span><strong>Recent payments</strong><small>Synced payment history</small></span><b>View</b></summary><div id="payments-list" class="cards"></div></details>
     </section>
 
     <section id="whatsapp" class="tab">
-      <div class="section-head"><div><h2>WhatsApp Business</h2><p class="hint">Invite a new customer with an approved template, then reply normally after they message you.</p></div></div>
+      <div class="section-head"><div><span class="page-kicker">COMMUNICATIONS</span><h2>WhatsApp</h2><p class="hint">Send approved updates anytime and keep customer conversations together.</p></div></div>
+      <div class="message-compose-grid">
       <form id="template-form" class="panel invite-form">
         <div class="form-title"><h3>Message a customer anytime</h3><p class="hint">Approved templates work outside the 24-hour window for catalogue invitations, payments and delivery updates.</p></div>
         <label>Message type<select name="template_name" id="business-template" required><option value="">Choose an approved template</option></select></label>
@@ -70,15 +94,18 @@
         <p id="template-result" class="hint"></p>
         <p id="template-status" class="hint"></p>
       </form>
-      <h3>Reply to an active chat</h3>
       <form id="message-form" class="panel reply-form">
+        <div class="form-title"><h3>Reply to active chat</h3><p class="hint">Available during the customer service window.</p></div>
         <label>Customer number<input name="to" inputmode="tel" placeholder="919876543210" required></label>
         <label>Message<textarea name="text" maxlength="4096" placeholder="Reply while the 24-hour window is open"></textarea></label>
         <button>Send WhatsApp</button><p id="message-result" class="hint"></p>
       </form>
-      <h3>Customer conversations</h3><div id="whatsapp-list" class="conversations"></div>
+      </div>
+      <div class="content-heading conversation-heading"><h3>Customer conversations</h3><span>Messages and order context</span></div><div id="whatsapp-list" class="conversations"></div>
     </section>
-  </main>
+      </main>
+    </div>
+  </div>
 
   <dialog id="order-dialog">
     <form method="dialog" id="order-form">
@@ -137,24 +164,33 @@
   </dialog>
   <dialog id="invoice-dialog" class="wide-dialog">
     <form method="dialog" id="invoice-form">
-      <div class="dialog-head"><div><h2>Create invoice</h2><p class="hint">Select a customer, add products and review payment before posting.</p></div><button value="cancel" class="secondary">Close</button></div>
-      <div class="invoice-customer-grid">
-        <label>Customer<select name="customer_id" id="invoice-customer" required><option value="">Select customer</option></select></label>
-        <label>Invoice date<input name="invoice_date" id="invoice-date" type="date" required></label>
-        <label>Due date<input name="due_date" id="invoice-due-date" type="date"></label>
-      </div>
-      <section class="invoice-builder">
-        <div class="invoice-product-picker"><label>Find product<input id="invoice-product-search" type="search" placeholder="Type product name or code"></label><div id="invoice-product-results" class="picker-results"></div></div>
-        <div><strong>Invoice items</strong><div id="invoice-lines" class="invoice-lines"></div></div>
+      <div class="dialog-head sticky-dialog-head"><div><span class="page-kicker">NEW SALE</span><h2>Create invoice</h2><p class="hint">Complete the three short sections below.</p></div><button value="cancel" class="secondary">Close</button></div>
+      <section class="form-section">
+        <div class="form-section-title"><span>1</span><div><strong>Customer &amp; dates</strong><small>Choose who is being billed</small></div></div>
+        <div class="invoice-customer-grid">
+          <label>Customer<select name="customer_id" id="invoice-customer" required><option value="">Select customer</option></select></label>
+          <label>Invoice date<input name="invoice_date" id="invoice-date" type="date" required></label>
+          <label>Due date<input name="due_date" id="invoice-due-date" type="date"></label>
+        </div>
       </section>
-      <div class="invoice-summary-grid">
-        <label>Discount (₹)<input name="discount" id="invoice-discount" type="number" min="0" step="0.01" value="0"></label>
-        <label>Amount received (₹)<input name="paid" id="invoice-paid" type="number" min="0" step="0.01" value="0"></label>
-        <label>Payment method<select name="payment_method"><option value="CREDIT">Credit</option><option value="CASH">Cash</option><option value="UPI">UPI</option><option value="BANK">Bank transfer</option><option value="CARD">Card</option><option value="OTHER">Other</option></select></label>
-        <div id="invoice-totals" class="invoice-totals"></div>
-      </div>
-      <label>Invoice note<textarea name="notes" maxlength="500" placeholder="Delivery, payment or customer note"></textarea></label>
-      <button value="submit" id="post-invoice">Post invoice &amp; deduct stock</button><p id="invoice-error" class="error"></p>
+      <section class="form-section">
+        <div class="form-section-title"><span>2</span><div><strong>Add products</strong><small>Search on the left, review quantities on the right</small></div></div>
+        <div class="invoice-builder">
+          <div class="invoice-product-picker"><label>Search available stock<input id="invoice-product-search" type="search" placeholder="Product name or code"></label><div id="invoice-product-results" class="picker-results"></div></div>
+          <div class="selected-invoice-items"><strong>Selected items</strong><div id="invoice-lines" class="invoice-lines"></div></div>
+        </div>
+      </section>
+      <section class="form-section">
+        <div class="form-section-title"><span>3</span><div><strong>Payment &amp; total</strong><small>Record any payment received now</small></div></div>
+        <div class="invoice-summary-grid">
+          <label>Discount (₹)<input name="discount" id="invoice-discount" type="number" min="0" step="0.01" value="0"></label>
+          <label>Amount received (₹)<input name="paid" id="invoice-paid" type="number" min="0" step="0.01" value="0"></label>
+          <label>Payment method<select name="payment_method"><option value="CREDIT">Credit</option><option value="CASH">Cash</option><option value="UPI">UPI</option><option value="BANK">Bank transfer</option><option value="CARD">Card</option><option value="OTHER">Other</option></select></label>
+          <div id="invoice-totals" class="invoice-totals"></div>
+        </div>
+        <label>Optional note<textarea name="notes" maxlength="500" placeholder="Delivery, payment or customer note"></textarea></label>
+      </section>
+      <div class="dialog-footer"><p id="invoice-error" class="error"></p><button value="submit" id="post-invoice">Post invoice &amp; deduct stock</button></div>
     </form>
   </dialog>
   <dialog id="invoice-view-dialog" class="wide-dialog">
