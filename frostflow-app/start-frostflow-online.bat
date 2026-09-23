@@ -6,6 +6,6 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-pwsh.exe -NoProfile -File "%~dp0scripts\start-cloudflare-online.ps1"
+pwsh.exe -NoProfile -File "%~dp0scripts\start-central.ps1"
 if errorlevel 1 pause
 endlocal

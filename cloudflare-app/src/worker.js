@@ -122,8 +122,8 @@ async function inventory(request, env) {
   const limit = Math.min(200, Math.max(1, Number(url.searchParams.get('limit') || 100)));
   const offset = Math.max(0, Number(url.searchParams.get('offset') || 0));
   const pattern = `%${query.replace(/[\\%_]/g, '\\$&')}%`;
-  const statement = env.DB.prepare(`SELECT product_id,sku,product_name,category,unit,stock_qty,reserved_qty,
-    MAX(0,stock_qty-reserved_qty) available_qty,mrp_paise,selling_price_paise,synced_at
+  const statement = env.DB.prepare(`SELECT product_id,sku,product_name,category,unit,stock_qty,reserved_qty,manual_out_of_stock,stock_note,
+    CASE WHEN manual_out_of_stock=1 THEN 0 ELSE MAX(0,stock_qty-reserved_qty) END available_qty,mrp_paise,selling_price_paise,synced_at
     FROM inventory WHERE active=1 AND (?1='' OR product_name LIKE ?2 ESCAPE '\\' OR sku LIKE ?2 ESCAPE '\\')
     ORDER BY available_qty>0 DESC,product_name LIMIT ?3 OFFSET ?4`).bind(query, pattern, limit, offset);
   const [items, total, sync] = await Promise.all([
@@ -132,6 +132,28 @@ async function inventory(request, env) {
     env.DB.prepare("SELECT value,updated_at FROM sync_state WHERE key='current_snapshot'").first(),
   ]);
   return json({ items: items.results || [], total: total?.count || 0, sync: sync || null });
+}
+
+async function publicAvailability(env) {
+  const sync = await env.DB.prepare("SELECT value,updated_at FROM sync_state WHERE key='current_snapshot'").first();
+  if (!sync) return json({ ready: false, items: [], message: 'Live stock is waiting for the first Amul PC sync.' });
+  const rows = await env.DB.prepare(`SELECT sku,
+    MAX(CASE WHEN active=1 AND manual_out_of_stock=0 THEN MAX(0,stock_qty-reserved_qty) ELSE 0 END) available_qty,
+    MAX(CASE WHEN active=1 AND manual_out_of_stock=0 THEN selling_price_paise ELSE 0 END) selling_price_paise
+    FROM inventory WHERE sku<>'' GROUP BY sku HAVING available_qty>0 ORDER BY sku`).all();
+  return json({ ready: true, items: rows.results || [], sync });
+}
+
+async function setInventoryAvailability(request, env, productId) {
+  const body = await readObject(request, 20_000);
+  if (typeof body.out_of_stock !== 'boolean') throw new Response('out_of_stock must be true or false', { status: 400 });
+  const note = cleanText(body.note, 'note', 300, false);
+  const result = await env.DB.prepare(`UPDATE inventory SET manual_out_of_stock=?1,stock_note=?2,stock_control_updated_at=CURRENT_TIMESTAMP
+    WHERE product_id=?3 AND active=1`).bind(body.out_of_stock ? 1 : 0, note, productId).run();
+  if (!result.meta?.changes) return json({ error: 'Product not found' }, 404);
+  await env.DB.prepare(`INSERT INTO operations_audit(action,entity_type,entity_id,detail_json)
+    VALUES('STOCK_VISIBILITY','INVENTORY',?1,?2)`).bind(productId, JSON.stringify({ out_of_stock: body.out_of_stock, note })).run();
+  return json({ product_id: productId, manual_out_of_stock: body.out_of_stock ? 1 : 0, available_qty: 0 });
 }
 
 async function acceptSnapshot(request, env) {
@@ -163,6 +185,8 @@ async function acceptSnapshot(request, env) {
     const count = await env.DB.prepare('SELECT COUNT(*) count FROM inventory WHERE source_device=?1 AND snapshot_id=?2').bind(deviceId, snapshotId).first();
     await env.DB.batch([
       env.DB.prepare('UPDATE inventory SET active=0 WHERE source_device=?1 AND snapshot_id<>?2').bind(deviceId, snapshotId),
+      env.DB.prepare(`UPDATE inventory SET active=0 WHERE source_device='catalog-seed' AND sku IN
+        (SELECT sku FROM inventory WHERE source_device=?1 AND snapshot_id=?2 AND active=1 AND sku<>'')`).bind(deviceId, snapshotId),
       env.DB.prepare('INSERT OR REPLACE INTO sync_runs(snapshot_id,device_id,captured_at,product_count,completed_at) VALUES(?1,?2,?3,?4,CURRENT_TIMESTAMP)').bind(snapshotId, deviceId, capturedAt, count?.count || 0),
       env.DB.prepare("INSERT INTO sync_state(key,value,updated_at) VALUES('current_snapshot',?1,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP").bind(JSON.stringify({ snapshot_id: snapshotId, device_id: deviceId, captured_at: capturedAt, product_count: count?.count || 0 })),
     ]);
@@ -250,15 +274,21 @@ async function createOrder(request, env, options = {}) {
   const existing = await env.DB.prepare('SELECT id,status,order_number,total_paise FROM orders WHERE request_id=?1').bind(requestId).first();
   if (existing) return json(existing, 200);
   const id = crypto.randomUUID();
-  const customerId = cleanText(body.customer_id, 'customer_id', 140, false);
-  const savedCustomer = customerId ? await env.DB.prepare('SELECT name,mobile,whatsapp_number,address,route_name FROM customers WHERE id=?1 AND active=1').bind(customerId).first() : null;
+  let customerId = cleanText(body.customer_id, 'customer_id', 140, false);
+  let savedCustomer = customerId ? await env.DB.prepare('SELECT id,name,mobile,whatsapp_number,address,route_name FROM customers WHERE id=?1 AND active=1').bind(customerId).first() : null;
   if (customerId && !savedCustomer) throw new Response('Selected customer is unavailable', { status: 400 });
   const phone = cleanPhone(body.phone || savedCustomer?.whatsapp_number || savedCustomer?.mobile);
+  if (!customerId && phone) {
+    const local = phone.slice(-10);
+    savedCustomer = await env.DB.prepare(`SELECT id,name,mobile,whatsapp_number,address,route_name FROM customers
+      WHERE active=1 AND (mobile IN (?1,?2) OR whatsapp_number IN (?1,?2)) ORDER BY source='AMUL' DESC LIMIT 1`).bind(phone, local).first();
+    if (savedCustomer) customerId = savedCustomer.id;
+  }
   if (options.publicCatalog && !phone) throw new Response('WhatsApp phone number is required', { status: 400 });
   const onlineProfile = phone ? await env.DB.prepare('SELECT * FROM whatsapp_customers WHERE phone=?1').bind(phone).first() : null;
   const customer = cleanText(body.shop_name || body.customer_name || onlineProfile?.shop_name || onlineProfile?.display_name || savedCustomer?.name, 'shop_name', 120);
   const contactName = cleanText(body.contact_name || onlineProfile?.contact_name, 'contact_name', 120, false);
-  const address = cleanText(body.address || onlineProfile?.address || savedCustomer?.address, 'address', 400, options.publicCatalog);
+  const address = cleanText(body.address || onlineProfile?.address || savedCustomer?.address, 'address', 400, !!options.publicCatalog);
   const gstin = cleanGstin(body.gstin || onlineProfile?.gstin);
   const latitude = cleanCoordinate(body.location_lat, 'latitude', -90, 90);
   const longitude = cleanCoordinate(body.location_lng, 'longitude', -180, 180);
@@ -296,8 +326,9 @@ async function createOrder(request, env, options = {}) {
     const requestedProductId = cleanText(line.product_id, 'product_id', 100);
     const prefixedProductId = requestedProductId.startsWith('AMUL:') ? requestedProductId : `AMUL:${requestedProductId}`;
     const product = await env.DB.prepare(`SELECT product_id,product_name,unit,selling_price_paise
-      FROM inventory WHERE active=1 AND (product_id=?1 OR product_id=?2 OR sku=?1) LIMIT 1`)
-      .bind(requestedProductId, prefixedProductId).first();
+      FROM inventory WHERE active=1 AND (product_id=?1 OR product_id=?2 OR sku=?1)
+      ORDER BY (manual_out_of_stock=0 AND stock_qty-reserved_qty>=?3) DESC,source_device<>'catalog-seed' DESC,stock_qty-reserved_qty DESC LIMIT 1`)
+      .bind(requestedProductId, prefixedProductId, quantity).first();
     if (!product) throw new Response(`Unknown product ${requestedProductId}`, { status: 400 });
     total += Math.round(quantity * Number(product.selling_price_paise || 0));
     preparedLines.push(env.DB.prepare('INSERT INTO order_lines(order_id,line_no,product_id,product_name,quantity,unit,price_paise) VALUES(?1,?2,?3,?4,?5,?6,?7)')
@@ -335,8 +366,116 @@ async function createOrder(request, env, options = {}) {
 async function listOrders(env, syncOnly = false) {
   const where = syncOnly ? "WHERE status='NEW'" : '';
   const orders = (await env.DB.prepare(`SELECT * FROM orders ${where} ORDER BY created_at DESC LIMIT 200`).all()).results || [];
-  for (const order of orders) order.lines = (await env.DB.prepare('SELECT line_no,product_id,product_name,quantity,unit,price_paise FROM order_lines WHERE order_id=?1 ORDER BY line_no').bind(order.id).all()).results || [];
+  for (const order of orders) order.lines = (await env.DB.prepare('SELECT line_no,product_id,product_name,quantity,unit,price_paise,picked_qty,crated_qty FROM order_lines WHERE order_id=?1 ORDER BY line_no').bind(order.id).all()).results || [];
   return orders;
+}
+
+async function updatePickedLine(request, env, id) {
+  const body = await readObject(request, 20_000);
+  const lineNo = cleanInteger(body.line_no, 'line_no', 1);
+  const pickedQty = cleanNumber(body.picked_qty, 'picked_qty', 0);
+  const order = await env.DB.prepare("SELECT id,status FROM orders WHERE id=?1 AND status IN ('NEW','SYNCED')").bind(id).first();
+  if (!order) return json({ error: 'Open order not found' }, 404);
+  const line = await env.DB.prepare('SELECT quantity FROM order_lines WHERE order_id=?1 AND line_no=?2').bind(id, lineNo).first();
+  if (!line) return json({ error: 'Order line not found' }, 404);
+  if (pickedQty > Number(line.quantity)) return json({ error: 'Picked quantity cannot exceed ordered quantity' }, 400);
+  await env.DB.batch([
+    env.DB.prepare('UPDATE order_lines SET picked_qty=?1,crated_qty=MIN(crated_qty,?1) WHERE order_id=?2 AND line_no=?3').bind(pickedQty, id, lineNo),
+    env.DB.prepare("UPDATE orders SET workflow_status='PICKING',picking_started_at=COALESCE(picking_started_at,CURRENT_TIMESTAMP),updated_at=CURRENT_TIMESTAMP WHERE id=?1").bind(id),
+    env.DB.prepare("INSERT INTO operations_audit(action,entity_type,entity_id,detail_json) VALUES('PICK','ORDER',?1,?2)").bind(id, JSON.stringify({ line_no: lineNo, picked_qty: pickedQty })),
+  ]);
+  return json({ id, line_no: lineNo, picked_qty: pickedQty, workflow_status: 'PICKING' });
+}
+
+async function crateOrder(request, env, id) {
+  const body = await readObject(request, 20_000);
+  const crateCode = cleanText(body.crate_code, 'crate_code', 40);
+  const order = await env.DB.prepare("SELECT id FROM orders WHERE id=?1 AND status IN ('NEW','SYNCED')").bind(id).first();
+  if (!order) return json({ error: 'Open order not found' }, 404);
+  const incomplete = await env.DB.prepare('SELECT COUNT(*) count FROM order_lines WHERE order_id=?1 AND picked_qty<>quantity').bind(id).first();
+  if (Number(incomplete?.count || 0)) return json({ error: 'Pick every ordered quantity before adding the order to a crate' }, 409);
+  await env.DB.batch([
+    env.DB.prepare('UPDATE order_lines SET crated_qty=picked_qty WHERE order_id=?1').bind(id),
+    env.DB.prepare("UPDATE orders SET crate_code=?1,workflow_status='PACKED',packed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?2").bind(crateCode, id),
+    env.DB.prepare("INSERT INTO operations_audit(action,entity_type,entity_id,detail_json) VALUES('CRATE','ORDER',?1,?2)").bind(id, JSON.stringify({ crate_code: crateCode })),
+  ]);
+  return json({ id, crate_code: crateCode, workflow_status: 'PACKED' });
+}
+
+async function queueInvoice(env, id) {
+  const existing = await env.DB.prepare('SELECT * FROM invoice_jobs WHERE order_id=?1').bind(id).first();
+  if (existing) {
+    if (existing.status === 'FAILED') {
+      await env.DB.batch([
+        env.DB.prepare("UPDATE invoice_jobs SET status='PENDING',last_error=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=?1").bind(existing.id),
+        env.DB.prepare("UPDATE orders SET workflow_status='INVOICE_QUEUED',updated_at=CURRENT_TIMESTAMP WHERE id=?1").bind(id),
+      ]);
+      return json({ ...existing, status: 'PENDING', last_error: null }, 200);
+    }
+    return json(existing, 200);
+  }
+  const order = await env.DB.prepare(`SELECT o.*,c.source customer_source,c.source_id customer_source_id,c.gstin customer_gstin
+    FROM orders o LEFT JOIN customers c ON c.id=o.customer_id WHERE o.id=?1 AND o.status IN ('NEW','SYNCED')`).bind(id).first();
+  if (!order) return json({ error: 'Open order not found' }, 404);
+  if (!order.crate_code || order.workflow_status !== 'PACKED') return json({ error: 'Add the completely picked order to a crate before making the invoice' }, 409);
+  const lines = (await env.DB.prepare('SELECT line_no,product_id,product_name,quantity,unit,price_paise,picked_qty,crated_qty FROM order_lines WHERE order_id=?1 ORDER BY line_no').bind(id).all()).results || [];
+  if (!lines.length || lines.some(line => Number(line.crated_qty) !== Number(line.quantity))) return json({ error: 'Every ordered item must be in the crate' }, 409);
+  const jobId = crypto.randomUUID();
+  const payload = { order: { ...order }, lines, requested_at: new Date().toISOString(), target: 'AMUL_SQL' };
+  await env.DB.batch([
+    env.DB.prepare(`INSERT INTO invoice_jobs(id,order_id,status,payload_json) VALUES(?1,?2,'PENDING',?3)`).bind(jobId, id, JSON.stringify(payload)),
+    env.DB.prepare("UPDATE orders SET invoice_job_id=?1,workflow_status='INVOICE_QUEUED',updated_at=CURRENT_TIMESTAMP WHERE id=?2").bind(jobId, id),
+    env.DB.prepare("INSERT INTO operations_audit(action,entity_type,entity_id,detail_json) VALUES('QUEUE_INVOICE','ORDER',?1,?2)").bind(id, JSON.stringify({ job_id: jobId, target: 'AMUL_SQL' })),
+  ]);
+  return json({ id: jobId, order_id: id, status: 'PENDING' }, 201);
+}
+
+async function listInvoiceJobs(env) {
+  const rows = await env.DB.prepare("SELECT id,order_id,status,payload_json,attempt_count,created_at,updated_at FROM invoice_jobs WHERE status IN ('PENDING','FAILED') ORDER BY created_at LIMIT 20").all();
+  return json({ jobs: rows.results || [] });
+}
+
+async function finishInvoiceJob(request, env, jobId) {
+  const body = await readObject(request, 30_000);
+  const job = await env.DB.prepare('SELECT * FROM invoice_jobs WHERE id=?1').bind(jobId).first();
+  if (!job) return json({ error: 'Invoice job not found' }, 404);
+  const success = body.success === true;
+  const invoiceNumber = cleanText(body.invoice_number, 'invoice_number', 100, false);
+  const externalId = cleanText(body.external_invoice_id, 'external_invoice_id', 100, false);
+  const error = cleanText(body.error, 'error', 800, false);
+  if (success && (!invoiceNumber || !externalId)) return json({ error: 'Successful invoice result requires invoice number and external id' }, 400);
+  await env.DB.batch([
+    env.DB.prepare(`UPDATE invoice_jobs SET status=?1,attempt_count=attempt_count+1,completed_at=CASE WHEN ?1='POSTED' THEN CURRENT_TIMESTAMP ELSE completed_at END,
+      external_invoice_id=?2,invoice_number=?3,last_error=?4,updated_at=CURRENT_TIMESTAMP WHERE id=?5`).bind(success ? 'POSTED' : 'FAILED', externalId, invoiceNumber, error, jobId),
+    env.DB.prepare(`UPDATE orders SET workflow_status=?1,invoice_number=CASE WHEN ?1='INVOICED' THEN ?2 ELSE invoice_number END,
+      status=CASE WHEN ?1='INVOICED' THEN 'FULFILLED' ELSE status END,completed_at=CASE WHEN ?1='INVOICED' THEN CURRENT_TIMESTAMP ELSE completed_at END,updated_at=CURRENT_TIMESTAMP WHERE id=?3`)
+      .bind(success ? 'INVOICED' : 'INVOICE_FAILED', invoiceNumber, job.order_id),
+    env.DB.prepare("INSERT INTO operations_audit(action,entity_type,entity_id,detail_json) VALUES('INVOICE_RESULT','INVOICE_JOB',?1,?2)").bind(jobId, JSON.stringify({ success, invoice_number: invoiceNumber, external_invoice_id: externalId, error })),
+  ]);
+  return json({ id: jobId, status: success ? 'POSTED' : 'FAILED', invoice_number: invoiceNumber });
+}
+
+async function purchaseTopups(env) {
+  const rows = await env.DB.prepare(`SELECT t.*,i.sku,i.product_name,i.unit FROM purchase_topups t JOIN inventory i ON i.product_id=t.product_id
+    WHERE t.status='ACTIVE' ORDER BY t.created_at DESC`).all();
+  return json({ topups: rows.results || [] });
+}
+
+async function createPurchaseTopup(request, env) {
+  const body = await readObject(request, 20_000);
+  const productId = cleanText(body.product_id, 'product_id', 100);
+  const quantity = cleanNumber(body.quantity, 'quantity', 0.000001);
+  const product = await env.DB.prepare('SELECT product_id FROM inventory WHERE product_id=?1 AND active=1').bind(productId).first();
+  if (!product) return json({ error: 'Product not found' }, 404);
+  const id = crypto.randomUUID();
+  const reference = cleanText(body.reference, 'reference', 100, false);
+  const note = cleanText(body.note, 'note', 300, false);
+  await env.DB.batch([
+    env.DB.prepare("UPDATE purchase_topups SET status='SUPERSEDED',updated_at=CURRENT_TIMESTAMP WHERE product_id=?1 AND status='ACTIVE'").bind(productId),
+    env.DB.prepare("INSERT INTO purchase_topups(id,product_id,requested_qty,reference,note,status) VALUES(?1,?2,?3,?4,?5,'ACTIVE')").bind(id, productId, quantity, reference, note),
+    env.DB.prepare("INSERT INTO operations_audit(action,entity_type,entity_id,detail_json) VALUES('TOPUP','INVENTORY',?1,?2)").bind(productId, JSON.stringify({ id, quantity, reference, note })),
+  ]);
+  return json({ id, product_id: productId, requested_qty: quantity, status: 'ACTIVE' }, 201);
 }
 
 async function updateOrder(request, env, id, action) {
@@ -355,7 +494,7 @@ async function updateOrder(request, env, id, action) {
 
 async function dashboard(env) {
   const [inventorySummary, orderSummary, accountSummary, customerSummary, whatsappCustomerSummary, syncRows] = await Promise.all([
-    env.DB.prepare('SELECT COUNT(*) products,COALESCE(SUM(stock_qty),0) stock_units,COALESCE(SUM(reserved_qty),0) reserved_units,COALESCE(SUM(CASE WHEN stock_qty-reserved_qty<=0 THEN 1 ELSE 0 END),0) out_of_stock FROM inventory WHERE active=1').first(),
+    env.DB.prepare('SELECT COUNT(*) products,COALESCE(SUM(stock_qty),0) stock_units,COALESCE(SUM(reserved_qty),0) reserved_units,COALESCE(SUM(CASE WHEN manual_out_of_stock=1 OR stock_qty-reserved_qty<=0 THEN 1 ELSE 0 END),0) out_of_stock FROM inventory WHERE active=1').first(),
     env.DB.prepare("SELECT COUNT(*) total,COALESCE(SUM(CASE WHEN status IN ('NEW','SYNCED') THEN 1 ELSE 0 END),0) open_orders,COALESCE(SUM(CASE WHEN date(created_at)=date('now') THEN total_paise ELSE 0 END),0) today_value_paise FROM orders").first(),
     env.DB.prepare("SELECT COALESCE(SUM(outstanding_paise),0) receivable_paise,COALESCE(SUM(CASE WHEN due_date<>'' AND date(due_date)<date('now') AND outstanding_paise>0 THEN outstanding_paise ELSE 0 END),0) overdue_paise,COALESCE(SUM(CASE WHEN substr(invoice_date,1,7)=substr(date('now'),1,7) THEN total_paise ELSE 0 END),0) month_sales_paise FROM invoices WHERE status<>'VOID'").first(),
     env.DB.prepare('SELECT COUNT(*) customers FROM customers WHERE active=1').first(),
@@ -775,9 +914,10 @@ async function sendWhatsAppTemplate(request, env) {
 async function route(request, env) {
   const url = new URL(request.url);
   const path = url.pathname;
-  if (path === '/api/health') return json({ ok: true, service: 'frostflow-online', version: '0.5.1' });
+  if (path === '/api/health') return json({ ok: true, service: 'frostflow-online', version: '0.6.0', database: 'cloudflare-d1-central' });
   if (path === '/webhooks/whatsapp' || path === '/webhooks/whatsapp/') return whatsappWebhook(request, env);
   if (path === '/api/catalog/orders' && request.method === 'POST') return createOrder(request, env, { publicCatalog: true });
+  if (path === '/api/catalog/availability' && request.method === 'GET') return publicAvailability(env);
   if (request.method === 'GET' && (path === '/catalog' || path === '/catalog/' || path === '/catalog.js' || path === '/catalog.css' || path === '/catalog-data.json' || path.startsWith('/images/'))) {
     if (path === '/catalog') return Response.redirect(new URL('/catalog/', request.url), 308);
     return env.ASSETS.fetch(request);
@@ -788,6 +928,9 @@ async function route(request, env) {
     if (path === '/api/sync/snapshot' && request.method === 'POST') return acceptSnapshot(request, env);
     if (path === '/api/sync/business' && request.method === 'POST') return acceptBusinessSnapshot(request, env);
     if (path === '/api/sync/orders' && request.method === 'GET') return json({ orders: await listOrders(env, true) });
+    if (path === '/api/sync/invoice-jobs' && request.method === 'GET') return listInvoiceJobs(env);
+    const invoiceResult = path.match(/^\/api\/sync\/invoice-jobs\/([^/]+)\/result$/);
+    if (invoiceResult && request.method === 'POST') return finishInvoiceJob(request, env, decodeURIComponent(invoiceResult[1]));
     const ack = path.match(/^\/api\/sync\/orders\/([^/]+)\/ack$/);
     if (ack && request.method === 'POST') return updateOrder(request, env, decodeURIComponent(ack[1]), 'ack');
     return json({ error: 'Sync endpoint not found' }, 404);
@@ -796,12 +939,22 @@ async function route(request, env) {
   if (!await appAuthorized(request, env)) return json({ error: 'Authentication required' }, 401, { 'WWW-Authenticate': 'Basic realm="FrostFlow Online", charset="UTF-8"' });
   if (path === '/api/dashboard' && request.method === 'GET') return dashboard(env);
   if (path === '/api/inventory' && request.method === 'GET') return inventory(request, env);
+  const stockControl = path.match(/^\/api\/inventory\/([^/]+)\/availability$/);
+  if (stockControl && request.method === 'PATCH') return setInventoryAvailability(request, env, decodeURIComponent(stockControl[1]));
+  if (path === '/api/purchase-topups' && request.method === 'GET') return purchaseTopups(env);
+  if (path === '/api/purchase-topups' && request.method === 'POST') return createPurchaseTopup(request, env);
   if (path === '/api/customers' && request.method === 'GET') return customers(request, env);
   if (path === '/api/distribution/orders' && request.method === 'GET') return distributionOrders(request, env);
   if (path === '/api/invoices' && request.method === 'GET') return invoices(request, env);
   if (path === '/api/payments' && request.method === 'GET') return payments(request, env);
   if (path === '/api/orders' && request.method === 'GET') return json({ orders: await listOrders(env) });
   if (path === '/api/orders' && request.method === 'POST') return createOrder(request, env);
+  const pickOrder = path.match(/^\/api\/orders\/([^/]+)\/pick$/);
+  if (pickOrder && request.method === 'PATCH') return updatePickedLine(request, env, decodeURIComponent(pickOrder[1]));
+  const crate = path.match(/^\/api\/orders\/([^/]+)\/crate$/);
+  if (crate && request.method === 'POST') return crateOrder(request, env, decodeURIComponent(crate[1]));
+  const invoice = path.match(/^\/api\/orders\/([^/]+)\/invoice$/);
+  if (invoice && request.method === 'POST') return queueInvoice(env, decodeURIComponent(invoice[1]));
   const orderAction = path.match(/^\/api\/orders\/([^/]+)\/(confirm|pack|dispatch|deliver|cancel|fulfil)$/);
   if (orderAction && request.method === 'POST') return updateOrder(request, env, decodeURIComponent(orderAction[1]), orderAction[2]);
   if (path === '/api/whatsapp/events' && request.method === 'GET') {

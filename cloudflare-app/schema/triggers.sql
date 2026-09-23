@@ -5,7 +5,7 @@ BEFORE INSERT ON order_lines
 BEGIN
   SELECT CASE WHEN COALESCE((
     SELECT CASE
-      WHEN source_device = 'catalog-seed' THEN NEW.quantity
+      WHEN manual_out_of_stock = 1 THEN 0
       ELSE stock_qty - reserved_qty
     END
     FROM inventory
@@ -15,7 +15,7 @@ BEGIN
   UPDATE inventory
   SET reserved_qty = reserved_qty + NEW.quantity
   WHERE product_id = NEW.product_id
-    AND source_device <> 'catalog-seed';
+    AND manual_out_of_stock = 0;
 END;
 
 CREATE TRIGGER IF NOT EXISTS release_order_reservation

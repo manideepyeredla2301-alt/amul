@@ -16,8 +16,8 @@
   </header>
   <nav aria-label="Main navigation">
     <button class="active" data-tab="dashboard">Overview</button>
-    <button data-tab="catalog">Catalogue</button>
-    <button data-tab="orders">Orders</button>
+    <button data-tab="catalog">Stock</button>
+    <button data-tab="orders">Picking &amp; orders</button>
     <button data-tab="customers">Customers</button>
     <button data-tab="accounts">Accounts</button>
     <button data-tab="whatsapp">WhatsApp</button>
@@ -30,13 +30,16 @@
     </section>
 
     <section id="catalog" class="tab">
-      <div class="section-head"><div><h2>Product catalogue</h2><p class="hint">Tap + for every product required. Stock is reserved when the order is saved.</p></div><button id="open-cart">Cart <span id="cart-count">0</span></button></div>
+      <div class="section-head"><div><h2>Central stock &amp; catalogue</h2><p class="hint">Cloudflare is the source of truth for customer visibility. Manual out-of-stock locks survive Amul refreshes.</p></div><button id="open-cart">Cart <span id="cart-count">0</span></button></div>
       <div class="toolbar"><input id="search" type="search" placeholder="Search product or code"><select id="category"><option value="">All categories</option></select><button id="refresh">Refresh</button></div>
       <div id="inventory-list" class="product-grid"></div>
+      <h3 class="subheading">Active purchase top-ups</h3>
+      <p class="hint">Only the newest top-up for each product remains active. Earlier requests are automatically superseded.</p>
+      <div id="topups-list" class="cards"></div>
     </section>
 
     <section id="orders" class="tab">
-      <div class="section-head"><div><h2>Order management</h2><p class="hint">Online orders queue safely until the Amul PC reconnects.</p></div><button id="new-order">New order</button></div>
+      <div class="section-head"><div><h2>Pick, crate &amp; invoice</h2><p class="hint">Confirm the order, pick each quantity, add the complete order to a crate, then queue the Amul invoice.</p></div><button id="new-order">New order</button></div>
       <div class="toolbar order-toolbar"><input id="order-search" type="search" placeholder="Search order, customer, phone or product"><button id="refresh-orders" class="secondary">Refresh</button></div>
       <h3>Online order queue</h3><div id="orders-list" class="cards"></div>
       <h3 class="subheading">Orders already in FrostFlow</h3><div id="distribution-orders-list" class="cards"></div>
@@ -98,6 +101,18 @@
       <label>Delivery note<textarea name="note" maxlength="400"></textarea></label>
       <button value="submit" id="submit-order">Reserve stock & save order</button>
       <p id="order-error" class="error"></p>
+    </form>
+  </dialog>
+  <dialog id="topup-dialog">
+    <form method="dialog" id="topup-form">
+      <div class="dialog-head"><div><h2>New purchase top-up</h2><p class="hint">This replaces the previous active request for the same product.</p></div><button value="cancel" class="secondary">Close</button></div>
+      <input name="product_id" type="hidden">
+      <p id="topup-product" class="topup-product"></p>
+      <label>Required quantity<input name="quantity" type="number" min="0.01" step="0.01" required></label>
+      <label>Purchase reference<input name="reference" maxlength="100" placeholder="Optional PO or supplier reference"></label>
+      <label>Note<textarea name="note" maxlength="300" placeholder="Reason or expected arrival"></textarea></label>
+      <button value="submit">Save latest top-up</button>
+      <p id="topup-error" class="error"></p>
     </form>
   </dialog>
   <div id="toast" role="status" aria-live="polite"></div>

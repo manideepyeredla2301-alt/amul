@@ -4,7 +4,7 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 
 const root=path.resolve(__dirname,'..');
-const databasePath=process.env.FROSTFLOW_DB || path.join(root,'data','frostflow.sqlite');
+const databasePath=process.env.FROSTFLOW_DB || path.join(root,'data','amul-cloud-cache.sqlite');
 const cloudUrl=String(process.env.FROSTFLOW_CLOUD_URL || '').replace(/\/$/,'');
 const secret=String(process.env.FROSTFLOW_SYNC_SECRET || '');
 const deviceId=String(process.env.FROSTFLOW_DEVICE_ID || 'amul-pc').trim();
@@ -15,7 +15,8 @@ if(secret.length<32)throw new Error('FROSTFLOW_SYNC_SECRET must contain at least
 function category(name){const n=String(name).toLowerCase();if(/tricone|tricon/.test(n))return'Tricones';if(/stick|kulfi|chocobar|frostik/.test(n))return'Sticks & Kulfi';if(/\b60\s*ml\b/.test(n))return'60 ml Cups';if(/\b100\s*ml\b/.test(n))return'100 ml Cups';if(/cup/.test(n))return'Cups';if(/750\s*ml|combo/.test(n))return'750 ml & Combos';if(/tub|family|bulk|\b[125]\s*l\b/.test(n))return'Tubs & Family Packs';if(/butter|cheese|paneer|milk|ghee|curd|lassi/.test(n))return'Dairy';if(/chocolate|wafer/.test(n))return'Chocolates';if(/snack|fries|patty|samosa|nugget/.test(n))return'Frozen Snacks';return'Other';}
 async function request(route,options={}){const response=await fetch(cloudUrl+route,{...options,headers:{authorization:'Bearer '+secret,...(options.body?{'content-type':'application/json'}:{}),...(options.headers||{})},signal:AbortSignal.timeout(30_000)});const body=await response.json().catch(()=>({}));if(!response.ok)throw new Error(`${route} failed: ${body.error || response.status}`);return body;}
 function hasTable(db,name){return !!db.prepare("SELECT 1 ok FROM sqlite_master WHERE type='table' AND name=?").get(name);}
-function ensureInbox(db){db.exec(`CREATE TABLE IF NOT EXISTS whatsapp_order_requests(message_id TEXT PRIMARY KEY,customer_phone TEXT NOT NULL,payload TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'REVIEW',received_at TEXT DEFAULT CURRENT_TIMESTAMP);`);}
+function ensureInbox(db){db.exec(`CREATE TABLE IF NOT EXISTS whatsapp_order_requests(message_id TEXT PRIMARY KEY,customer_phone TEXT NOT NULL,payload TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'REVIEW',received_at TEXT DEFAULT CURRENT_TIMESTAMP);
+ CREATE TABLE IF NOT EXISTS invoice_job_requests(job_id TEXT PRIMARY KEY,order_id TEXT NOT NULL,payload TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'PENDING',received_at TEXT DEFAULT CURRENT_TIMESTAMP,updated_at TEXT DEFAULT CURRENT_TIMESTAMP);`);}
 
 function inventoryRows(db){
  const rows=[];
@@ -49,8 +50,12 @@ async function syncOnce(){
   const {orders}=await request('/api/sync/orders');
   const insert=db.prepare('INSERT OR IGNORE INTO whatsapp_order_requests(message_id,customer_phone,payload,status) VALUES(?,?,?,\'REVIEW\')');
   for(const order of orders||[]){const result=insert.run('cloud:'+order.id,order.phone||'',JSON.stringify(order));if(result.changes)await request('/api/sync/orders/'+encodeURIComponent(order.id)+'/ack',{method:'POST'});}
+  const {jobs}=await request('/api/sync/invoice-jobs');
+  const putJob=db.prepare(`INSERT INTO invoice_job_requests(job_id,order_id,payload,status,updated_at) VALUES(?,?,?,'PENDING',CURRENT_TIMESTAMP)
+    ON CONFLICT(job_id) DO UPDATE SET payload=excluded.payload,updated_at=CURRENT_TIMESTAMP`);
+  for(const job of jobs||[])putJob.run(job.id,job.order_id,job.payload_json);
   const counts=Object.fromEntries(Object.entries(data).map(([name,rows])=>[name,rows.length]));
-  console.log(`[${new Date().toISOString()}] Cloud sync complete: ${products.length} products, ${JSON.stringify(counts)}, ${(orders||[]).length} queued orders.`);
+  console.log(`[${new Date().toISOString()}] Central sync complete: ${products.length} products, ${JSON.stringify(counts)}, ${(orders||[]).length} queued orders, ${(jobs||[]).length} invoice jobs.`);
  }finally{db.close();}
 }
 async function run(){for(;;){try{await syncOnce();}catch(error){console.error(`[${new Date().toISOString()}] Cloud sync postponed: ${error.message}`);}if(process.argv.includes('--once'))break;await new Promise(resolve=>setTimeout(resolve,interval));}}

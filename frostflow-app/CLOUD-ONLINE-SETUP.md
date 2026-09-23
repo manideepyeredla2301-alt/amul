@@ -1,18 +1,17 @@
-# FrostFlow PC-to-cloud setup
+# FrostFlow central Cloudflare setup
 
-The live SQLite file remains the source of truth on the Amul Windows PC. Do not
-upload `frostflow.sqlite`, its `-wal` file, credentials, or backups to GitHub.
-Cloudflare D1 receives only validated product, stock, customer, route, order,
-invoice and payment fields. Online orders are downloaded to the local review
-inbox when the PC reconnects.
+Cloudflare D1 is the operational source of truth used by the browser, tablet
+and Windows desktop launcher. Local `amul-cloud-cache.sqlite` is only a replaceable
+Amul read cache and protected job inbox. Do not upload it, its `-wal` file,
+credentials, or backups to GitHub. Amul SQL remains read-only and is refreshed
+before every cloud publication.
 
 ## Install on the Windows business PC
 
-1. In FrostFlow, create a backup. Close FrostFlow only while replacing program
-   files, and keep the existing `data` folder unchanged.
-2. Copy the updated `frostflow-app` files over the program folder. Do not replace
-   `data\frostflow.sqlite` with an empty database.
-3. Double-click `Install-Cloud-Sync.bat`.
+1. Back up the old local data before replacing program files.
+2. Copy the updated `frostflow-app` files over the program folder.
+3. Double-click `Install-Cloud-Sync.bat`. Enter the SELECT-only `amuluser`
+   credential when prompted.
 4. When asked for the sync secret, retrieve it on the deployment Mac with:
 
    ```sh
@@ -21,18 +20,19 @@ inbox when the PC reconnects.
 
    Paste it into the hidden Windows prompt. It is encrypted with Windows DPAPI
    for the current Windows user and is never added to Git.
-5. The first full sync runs immediately. Windows Task Scheduler then runs
-   `FrostFlow Cloud Sync` every five minutes whenever a network is available.
+5. The first full Amul-to-D1 sync runs immediately. Windows Task Scheduler then
+   runs `FrostFlow Cloud Sync` every five minutes whenever a network is available.
+   Double-click `start-frostflow-online.bat` for the desktop app; it opens the
+   same central Cloudflare application used by web and tablet users.
 
 You can also double-click `Sync-FrostFlow-Now.bat` at any time to run and
 verify a complete sync immediately.
 
-If the live database is in a different folder, open PowerShell 7 in the app
-folder and run:
+To place the replaceable cache in a different folder, run:
 
 ```powershell
 pwsh -NoProfile -File .\scripts\install-cloud-sync.ps1 `
-  -DatabasePath 'D:\FrostFlow\data\frostflow.sqlite' `
+  -DatabasePath 'D:\FrostFlow\data\amul-cloud-cache.sqlite' `
   -DeviceId 'amul-pc'
 ```
 

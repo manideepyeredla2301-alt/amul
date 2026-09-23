@@ -1,10 +1,17 @@
 # FrostFlow Online
 
-This Cloudflare Worker keeps the catalogue, inventory, customers, routes,
-distribution orders, invoices, payments and WhatsApp activity online when the
-Amul Windows PC is unavailable. Cloudflare D1 stores controlled snapshots. The
-Windows sync agent pushes up to 40 records per request and imports queued online
-orders into the existing local order inbox when the PC reconnects.
+Cloudflare D1 is the operational source of truth for the catalogue, customer
+availability controls, orders, picking, crates, invoice jobs, customers,
+routes, invoices, payments and WhatsApp activity. The Amul Windows PC is a
+read-only upstream bridge: every scheduled run refreshes Amul SQL into a
+replaceable cache and then publishes validated records to D1. The desktop
+launcher and web/tablet users open this same application.
+
+Manual out-of-stock locks live in D1 and survive Amul snapshots. The public
+catalogue fetches live availability and hides unavailable products. Staff can
+confirm an order, increment picked quantities, assign a crate and queue one
+idempotent Amul invoice job. Only the newest active purchase top-up per product
+is retained; older active requests are marked superseded.
 
 The protected Orders view searches both online and PC-synced orders by order
 number, customer, phone, product or status. Staff can also add a one-off custom
@@ -70,9 +77,16 @@ the same verification token. Do not commit any secret or business database.
 
 On the Windows business PC, place the updated `frostflow-app` folder beside the
 existing `data` folder and run `Install-Cloud-Sync.bat`. Enter the sync secret
-when prompted. It is protected with Windows DPAPI for that Windows user, the
-first full sync runs immediately, and Task Scheduler repeats it every five
-minutes whenever the network is available.
+and the SELECT-only Amul SQL credential when prompted. Both secrets are
+protected with Windows DPAPI for that Windows user. Every five-minute task
+refreshes Amul SQL first and publishes the result to D1. The SQLite file is now
+a replaceable bridge cache, not the operational database.
+
+`Make invoice` currently queues and delivers a validated invoice job to the
+Windows bridge. Posting it into Amul SQL must remain disabled until the Amul
+installation's supported sales-invoice stored procedure and a least-privilege
+write credential are supplied; do not insert directly into `SalesInvoice` and
+`SalesInvoiceProduct`.
 
 The Workers Free plan is the initial target. Static assets are free; Workers allow
 100,000 requests per day, and D1 includes 5 million rows read, 100,000 rows written
