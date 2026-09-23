@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {approvedTemplateMessage,catalogueInviteMessage,catalogueReply,catalogueRequested,cleanGstin,cleanLocationUrl,cleanPhone,equalSecret,invoiceLineAmounts,paymentStatus,supportsWhatsAppWebhook} from '../src/worker.js';
+import {approvedTemplateMessage,catalogueInviteMessage,catalogueReply,catalogueRequested,cleanGstin,cleanLocationUrl,cleanPhone,cleanStoredPhone,equalSecret,invoiceLineAmounts,paymentStatus,supportsWhatsAppWebhook} from '../src/worker.js';
 
 test('constant-time secret comparison and phone normalization',async()=>{
   assert.equal(await equalSecret('same','same'),true);
@@ -8,6 +8,11 @@ test('constant-time secret comparison and phone normalization',async()=>{
   assert.equal(cleanPhone('+91 90140 03991'),'919014003991');
   assert.equal(cleanPhone('9014003991'),'919014003991');
   assert.throws(()=>cleanPhone('123'));
+});
+
+test('malformed legacy phone values do not hide the customer directory',()=>{
+  assert.equal(cleanStoredPhone('old-number-not-available'),'');
+  assert.equal(cleanStoredPhone('9014003991'),'919014003991');
 });
 
 test('checkout profile validation keeps GST and map data usable',()=>{

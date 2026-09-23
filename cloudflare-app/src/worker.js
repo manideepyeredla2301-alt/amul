@@ -67,6 +67,11 @@ function cleanPhone(value) {
   return result;
 }
 
+function cleanStoredPhone(value) {
+  try { return cleanPhone(value); }
+  catch { return ''; }
+}
+
 function cleanGstin(value) {
   const result = String(value ?? '').trim().toUpperCase();
   if (result && !/^\d{2}[A-Z]{5}\d{4}[A-Z][A-Z0-9]Z[A-Z0-9]$/.test(result)) throw new Response('Invalid GSTIN', { status: 400 });
@@ -652,7 +657,11 @@ async function customers(request, env) {
       ORDER BY COALESCE(shop_name,display_name,phone) LIMIT ?3 OFFSET ?4`).bind(query, pattern, limit, offset).all(),
   ]);
   const result = (rows.results || []).map(row => ({ ...row, balance_paise: Number(row.display_balance_paise ?? row.balance_paise ?? 0), display_balance_paise: undefined }));
-  const knownPhones = new Set(result.flatMap(row => [row.mobile, row.whatsapp_number]).filter(Boolean).map(value => cleanPhone(value)));
+  // Imported FrostFlow records can contain old placeholders or incomplete phone
+  // values. They must remain visible for correction instead of breaking the
+  // complete customer directory. New and edited phone values still use the
+  // strict cleanPhone validator.
+  const knownPhones = new Set(result.flatMap(row => [row.mobile, row.whatsapp_number]).map(cleanStoredPhone).filter(Boolean));
   for (const profile of onlineRows.results || []) if (!knownPhones.has(profile.phone)) result.push({
     id: `WHATSAPP:${profile.phone}`, source: 'WHATSAPP', source_id: profile.phone, code: 'ONLINE',
     name: profile.shop_name || profile.display_name || profile.phone, mobile: profile.phone, whatsapp_number: profile.phone,
@@ -1440,4 +1449,4 @@ export default {
   },
 };
 
-export { equalSecret, cleanPhone, cleanGstin, cleanLocationUrl, catalogueReply, catalogueRequested, catalogueInviteMessage, approvedTemplateMessage, supportsWhatsAppWebhook, invoiceLineAmounts, paymentStatus };
+export { equalSecret, cleanPhone, cleanStoredPhone, cleanGstin, cleanLocationUrl, catalogueReply, catalogueRequested, catalogueInviteMessage, approvedTemplateMessage, supportsWhatsAppWebhook, invoiceLineAmounts, paymentStatus };
