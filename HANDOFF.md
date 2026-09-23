@@ -7,9 +7,9 @@ Cloudflare is intended to replace the local FrostFlow ERP as the operational sou
 ## Verified deployed state
 
 - Worker: https://frostflow-online.manideepyeredla2301.workers.dev
-- Latest deployment from this work: `21ef9645-5c82-4cd5-b7aa-b51fc5dd4fdf`.
+- Latest deployment: `6336716a-49a1-414f-a1b8-83854b1b1ee4`.
 - D1 binding and resource IDs are in `cloudflare-app/wrangler.jsonc`.
-- Migration `0009_source_stock.sql` was applied remotely.
+- Migrations `0009_source_stock.sql` and `0010_reconciliation_health.sql` were applied remotely.
 - `npm run check` in `cloudflare-app` passed all 8 tests, including the new SQLite stock-upsert regression test.
 - Health endpoint returned healthy. Unsigned webhook POST returned 403. This is **not** an end-to-end Meta delivery test.
 - No customer test messages were sent during this work.
@@ -44,7 +44,7 @@ No automatic sync task was enabled. No saved `cloud-sync.json`/SQL password was 
 
 ## Required next work
 
-1. Reconcile duplicate products and opening/current stock, invoices, tax, customer balances and source payment tracking. Do not infer pack conversions or tax rates from names/rounded values.
+1. Reconcile duplicate products and opening/current stock, invoices, tax, customer balances and source payment tracking. The protected Overview now has a read-only Data health report; its first production run found 1,157 duplicate SKU groups, 47 invoices without normalized lines, one duplicate phone group and zero source-stock differences. Do not infer pack conversions or tax rates from names/rounded values.
 2. Implement versioned/retry-safe reconciliation for existing Amul records. Current preservation guards intentionally prevent updates. Prevent check-then-upsert races and stale/out-of-order snapshot replacement before enabling concurrent sync.
 3. Extend normal invoice/ledger/purchase/return/expense APIs and UI to use migrated records; archive storage alone is not feature parity. POS history also remains archived rather than fully normalized.
 4. Configure a dedicated read-only Amul bridge on a PC with network access, encrypted credentials and a separate replaceable cache. Correct its dataset filtering and failure exit handling, test one complete run, then enable scheduling. Do not reuse the original business DB as a disposable cache.

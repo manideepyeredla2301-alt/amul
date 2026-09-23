@@ -31,6 +31,12 @@ printable invoice. Unpaid online invoices can be voided, which restores their
 stock exactly once. Synced PC/Amul invoices remain read-only so source records
 cannot be silently changed from the browser.
 
+The Overview includes a read-only Data health report for staged reconciliation.
+It identifies duplicate SKU groups, differences between central stock and the
+latest upstream observation, invoices still using archived line detail, and
+customers sharing a phone number. This report never merges or deletes records;
+the business must approve product, pack, tax and customer mappings first.
+
 WhatsApp conversations are stored independently in `whatsapp_events`; customer,
 stock and invoice operations never replace or delete message history. The admin
 continues to render saved conversations even if Meta's template-list endpoint

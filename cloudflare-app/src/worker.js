@@ -534,6 +534,59 @@ async function dashboard(env) {
   return json({ inventory: inventorySummary, orders: orderSummary, accounts: accountSummary, customers: { customers: Number(customerSummary?.customers || 0) + Number(whatsappCustomerSummary?.customers || 0) }, sync: syncRows.results || [] });
 }
 
+async function reconciliation(env) {
+  const [duplicateSummary, stockSummary, invoiceSummary, customerSummary, archiveSummary, duplicateSkus, stockDifferences, invoicesMissingLines, duplicatePhones] = await Promise.all([
+    env.DB.prepare(`SELECT COUNT(*) groups_count,COALESCE(SUM(records),0) records_count FROM (
+      SELECT COUNT(*) records FROM inventory
+      WHERE active=1 AND TRIM(COALESCE(sku,''))<>''
+      GROUP BY UPPER(TRIM(sku)) HAVING COUNT(*)>1
+    )`).first(),
+    env.DB.prepare(`SELECT COUNT(*) differences,COALESCE(SUM(ABS(stock_qty-source_stock_qty)),0) units_difference
+      FROM inventory WHERE source_stock_qty IS NOT NULL AND ABS(stock_qty-source_stock_qty)>0.0001`).first(),
+    env.DB.prepare(`SELECT COUNT(*) missing_lines FROM invoices i
+      WHERE i.status<>'VOID' AND NOT EXISTS(SELECT 1 FROM invoice_lines l WHERE l.invoice_id=i.id)`).first(),
+    env.DB.prepare(`SELECT COUNT(*) groups_count FROM (
+      SELECT COALESCE(NULLIF(whatsapp_number,''),NULLIF(mobile,'')) phone FROM customers
+      WHERE active=1 AND COALESCE(NULLIF(whatsapp_number,''),NULLIF(mobile,'')) IS NOT NULL
+      GROUP BY phone HAVING COUNT(*)>1
+    )`).first(),
+    env.DB.prepare('SELECT COUNT(*) archived_rows,COUNT(DISTINCT source_table) archived_tables FROM local_migration_archive').first(),
+    env.DB.prepare(`SELECT UPPER(TRIM(sku)) sku,COUNT(*) records,GROUP_CONCAT(DISTINCT source_device) sources,
+      GROUP_CONCAT(product_name,' · ') product_names
+      FROM inventory WHERE active=1 AND TRIM(COALESCE(sku,''))<>''
+      GROUP BY UPPER(TRIM(sku)) HAVING COUNT(*)>1 ORDER BY records DESC,sku LIMIT 12`).all(),
+    env.DB.prepare(`SELECT product_id,sku,product_name,unit,stock_qty,source_stock_qty,
+      ROUND(stock_qty-source_stock_qty,2) difference,source_stock_seen_at
+      FROM inventory WHERE source_stock_qty IS NOT NULL AND ABS(stock_qty-source_stock_qty)>0.0001
+      ORDER BY ABS(stock_qty-source_stock_qty) DESC,product_name LIMIT 12`).all(),
+    env.DB.prepare(`SELECT i.id,i.invoice_number,i.source,i.customer_name,i.invoice_date,i.total_paise
+      FROM invoices i WHERE i.status<>'VOID' AND NOT EXISTS(SELECT 1 FROM invoice_lines l WHERE l.invoice_id=i.id)
+      ORDER BY i.invoice_date DESC,i.id DESC LIMIT 12`).all(),
+    env.DB.prepare(`SELECT COALESCE(NULLIF(whatsapp_number,''),NULLIF(mobile,'')) phone,COUNT(*) records,
+      GROUP_CONCAT(name,' · ') customer_names
+      FROM customers WHERE active=1 AND COALESCE(NULLIF(whatsapp_number,''),NULLIF(mobile,'')) IS NOT NULL
+      GROUP BY phone HAVING COUNT(*)>1 ORDER BY records DESC,phone LIMIT 12`).all(),
+  ]);
+  return json({
+    summary: {
+      duplicate_sku_groups: Number(duplicateSummary?.groups_count || 0),
+      duplicate_product_records: Number(duplicateSummary?.records_count || 0),
+      stock_differences: Number(stockSummary?.differences || 0),
+      stock_units_difference: Number(stockSummary?.units_difference || 0),
+      invoices_missing_lines: Number(invoiceSummary?.missing_lines || 0),
+      duplicate_phone_groups: Number(customerSummary?.groups_count || 0),
+      archived_rows: Number(archiveSummary?.archived_rows || 0),
+      archived_tables: Number(archiveSummary?.archived_tables || 0),
+    },
+    duplicate_skus: duplicateSkus.results || [],
+    stock_differences: stockDifferences.results || [],
+    invoices_missing_lines: invoicesMissingLines.results || [],
+    duplicate_phones: duplicatePhones.results || [],
+    generated_at: new Date().toISOString(),
+    read_only: true,
+  });
+}
+
 function pageParams(request) {
   const url = new URL(request.url);
   return { query: String(url.searchParams.get('q') || '').trim().slice(0, 80), limit: Math.min(200, Math.max(1, Number(url.searchParams.get('limit') || 100))), offset: Math.max(0, Number(url.searchParams.get('offset') || 0)) };
@@ -1122,6 +1175,7 @@ async function route(request, env) {
 
   if (!await appAuthorized(request, env)) return json({ error: 'Authentication required' }, 401, { 'WWW-Authenticate': 'Basic realm="FrostFlow Online", charset="UTF-8"' });
   if (path === '/api/dashboard' && request.method === 'GET') return dashboard(env);
+  if (path === '/api/reconciliation' && request.method === 'GET') return reconciliation(env);
   if (path === '/api/inventory' && request.method === 'GET') return inventory(request, env);
   const stockControl = path.match(/^\/api\/inventory\/([^/]+)\/availability$/);
   if (stockControl && request.method === 'PATCH') return setInventoryAvailability(request, env, decodeURIComponent(stockControl[1]));
