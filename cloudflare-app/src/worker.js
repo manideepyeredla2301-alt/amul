@@ -144,12 +144,15 @@ async function inventory(request, env) {
 async function publicAvailability(env) {
   const sync = await env.DB.prepare("SELECT value,updated_at FROM sync_state WHERE key='current_snapshot'").first();
   if (!sync) return json({ ready: false, items: [], message: 'Live stock is waiting for the first Amul PC sync.' });
-  const rows = await env.DB.prepare(`SELECT sku,
-    MAX(CASE WHEN active=1 AND manual_out_of_stock=0 THEN MAX(0,stock_qty-reserved_qty) ELSE 0 END) available_qty,
-    MAX(CASE WHEN active=1 AND manual_out_of_stock=0 THEN selling_price_paise ELSE 0 END) selling_price_paise,
-    MAX(CASE WHEN active=1 AND manual_out_of_stock=0 THEN unit ELSE '' END) unit
-    FROM inventory WHERE sku<>'' GROUP BY sku HAVING available_qty>0 ORDER BY sku`).all();
-  return json({ ready: true, items: rows.results || [], sync });
+  const rows = await env.DB.prepare(`WITH available AS (
+      SELECT product_id,UPPER(TRIM(sku)) sku,unit,stock_qty-reserved_qty available_qty,selling_price_paise,
+        ROW_NUMBER() OVER (PARTITION BY UPPER(TRIM(sku))
+          ORDER BY selling_price_paise DESC,stock_qty-reserved_qty DESC,source_device<>'catalog-seed' DESC,product_id) price_rank
+      FROM inventory WHERE active=1 AND manual_out_of_stock=0 AND TRIM(COALESCE(sku,''))<>'' AND stock_qty-reserved_qty>0 AND selling_price_paise>0
+    ) SELECT product_id,sku,available_qty,selling_price_paise,
+      ROUND(selling_price_paise*1.05) unit_price_with_gst_paise,500 gst_bps,unit
+    FROM available WHERE price_rank=1 ORDER BY sku`).all();
+  return json({ ready: true, items: rows.results || [], gst_bps: 500, pricing: 'highest_available_price', sync });
 }
 
 async function setInventoryAvailability(request, env, productId) {
@@ -332,7 +335,8 @@ async function createOrder(request, env, options = {}) {
   const preparedLines = [];
   const customProducts = [];
   const hideCustomProducts = [];
-  let total = 0;
+  let subtotal = 0;
+  let tax = 0;
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
     const quantity = Number(line.quantity);
@@ -343,37 +347,51 @@ async function createOrder(request, env, options = {}) {
       const unit = cleanText(line.unit, 'unit', 20, false) || 'PCS';
       const price = cleanInteger(line.unit_price_paise, 'unit_price_paise');
       const productId = `CUSTOM:${id}:${index + 1}`;
-      total += Math.round(quantity * price);
+      const lineSubtotal = Math.round(quantity * price);
+      subtotal += lineSubtotal;
       customProducts.push(env.DB.prepare(`INSERT INTO inventory
         (product_id,sku,product_name,category,unit,stock_qty,reserved_qty,mrp_paise,selling_price_paise,active,source_device,snapshot_id,source_updated_at,synced_at)
         VALUES(?1,'',?2,'Custom',?3,?4,0,?5,?5,1,'manual-order',?6,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)`)
         .bind(productId, productName, unit, quantity, price, id));
-      preparedLines.push(env.DB.prepare('INSERT INTO order_lines(order_id,line_no,product_id,product_name,quantity,unit,price_paise) VALUES(?1,?2,?3,?4,?5,?6,?7)')
-        .bind(id, index + 1, productId, productName, quantity, unit, price));
+      preparedLines.push(env.DB.prepare(`INSERT INTO order_lines
+        (order_id,line_no,product_id,product_name,quantity,unit,price_paise,gst_bps,subtotal_paise,tax_paise,total_paise)
+        VALUES(?1,?2,?3,?4,?5,?6,?7,0,?8,0,?8)`)
+        .bind(id, index + 1, productId, productName, quantity, unit, price, lineSubtotal));
       hideCustomProducts.push(env.DB.prepare('UPDATE inventory SET active=0 WHERE product_id=?1').bind(productId));
       continue;
     }
     const requestedProductId = cleanText(line.product_id, 'product_id', 100);
     const prefixedProductId = requestedProductId.startsWith('AMUL:') ? requestedProductId : `AMUL:${requestedProductId}`;
     const product = await env.DB.prepare(`SELECT product_id,product_name,unit,selling_price_paise
-      FROM inventory WHERE active=1 AND (product_id=?1 OR product_id=?2 OR sku=?1)
-      ORDER BY (manual_out_of_stock=0 AND stock_qty-reserved_qty>=?3) DESC,source_device<>'catalog-seed' DESC,stock_qty-reserved_qty DESC LIMIT 1`)
-      .bind(requestedProductId, prefixedProductId, quantity).first();
+      FROM inventory WHERE active=1 AND (product_id=?1 OR product_id=?2 OR sku=?1) AND (?4=0 OR selling_price_paise>0)
+      ORDER BY (manual_out_of_stock=0 AND stock_qty-reserved_qty>=?3) DESC,
+        CASE WHEN ?4=1 THEN selling_price_paise ELSE 0 END DESC,
+        source_device<>'catalog-seed' DESC,stock_qty-reserved_qty DESC LIMIT 1`)
+      .bind(requestedProductId, prefixedProductId, quantity, options.publicCatalog ? 1 : 0).first();
     if (!product) throw new Response(`Unknown product ${requestedProductId}`, { status: 400 });
-    total += Math.round(quantity * Number(product.selling_price_paise || 0));
-    preparedLines.push(env.DB.prepare('INSERT INTO order_lines(order_id,line_no,product_id,product_name,quantity,unit,price_paise) VALUES(?1,?2,?3,?4,?5,?6,?7)')
-      .bind(id, index + 1, product.product_id, product.product_name, quantity, cleanText(line.unit, 'unit', 20, false) || product.unit, product.selling_price_paise || 0));
+    const lineSubtotal = Math.round(quantity * Number(product.selling_price_paise || 0));
+    const gstBps = options.publicCatalog ? 500 : 0;
+    const lineTax = Math.round(lineSubtotal * gstBps / 10_000);
+    const lineTotal = lineSubtotal + lineTax;
+    subtotal += lineSubtotal;
+    tax += lineTax;
+    preparedLines.push(env.DB.prepare(`INSERT INTO order_lines
+      (order_id,line_no,product_id,product_name,quantity,unit,price_paise,gst_bps,subtotal_paise,tax_paise,total_paise)
+      VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)`)
+      .bind(id, index + 1, product.product_id, product.product_name, quantity, cleanText(line.unit, 'unit', 20, false) || product.unit, product.selling_price_paise || 0, gstBps, lineSubtotal, lineTax, lineTotal));
   }
+  const total = subtotal + tax;
   const businessDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()).replaceAll('-', '');
   const source = options.source === 'WHATSAPP' ? 'WHATSAPP' : 'ONLINE';
   const orderNumber = `${source === 'WHATSAPP' ? 'WA' : 'WEB'}-${businessDate}-${id.slice(0, 6).toUpperCase()}`;
+  const routeName = cleanText(body.route_name || onlineProfile?.route_name || savedCustomer?.route_name, 'route_name', 150, false);
   const statements = [env.DB.prepare(`INSERT INTO orders
-    (id,request_id,source,customer_id,customer_name,phone,address,note,status,order_number,route_name,delivery_date,total_paise,workflow_status,updated_at,contact_name,gstin,location_url,location_lat,location_lng)
-    VALUES(?1,?2,?3,?4,?5,?6,?7,?8,'NEW',?9,?10,?11,?12,'RECEIVED',CURRENT_TIMESTAMP,?13,?14,?15,?16,?17)`)
-    .bind(id, requestId, source, customerId || (phone ? `WHATSAPP:${phone}` : null), customer, phone, address, cleanText(body.note, 'note', 400, false), orderNumber, cleanText(body.route_name || savedCustomer?.route_name, 'route_name', 150, false), deliveryDate, total, contactName, gstin, locationUrl, latitude, longitude), ...customProducts, ...preparedLines];
+    (id,request_id,source,customer_id,customer_name,phone,address,note,status,order_number,route_name,delivery_date,total_paise,workflow_status,updated_at,contact_name,gstin,location_url,location_lat,location_lng,subtotal_paise,tax_paise,gst_bps)
+    VALUES(?1,?2,?3,?4,?5,?6,?7,?8,'NEW',?9,?10,?11,?12,'RECEIVED',CURRENT_TIMESTAMP,?13,?14,?15,?16,?17,?18,?19,?20)`)
+    .bind(id, requestId, source, customerId || (phone ? `WHATSAPP:${phone}` : null), customer, phone, address, cleanText(body.note, 'note', 400, false), orderNumber, routeName, deliveryDate, total, contactName, gstin, locationUrl, latitude, longitude, subtotal, tax, options.publicCatalog ? 500 : 0), ...customProducts, ...preparedLines];
   if (phone) statements.push(env.DB.prepare(`INSERT INTO whatsapp_customers
-    (phone,display_name,shop_name,contact_name,gstin,address,location_url,location_lat,location_lng,last_order_id,last_order_at,updated_at)
-    VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+    (phone,display_name,shop_name,contact_name,gstin,address,location_url,location_lat,location_lng,last_order_id,last_order_at,route_name,updated_at)
+    VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,CURRENT_TIMESTAMP,?11,CURRENT_TIMESTAMP)
     ON CONFLICT(phone) DO UPDATE SET
       display_name=COALESCE(NULLIF(excluded.display_name,''),whatsapp_customers.display_name),
       shop_name=COALESCE(NULLIF(excluded.shop_name,''),whatsapp_customers.shop_name),
@@ -383,20 +401,21 @@ async function createOrder(request, env, options = {}) {
       location_url=COALESCE(NULLIF(excluded.location_url,''),whatsapp_customers.location_url),
       location_lat=COALESCE(excluded.location_lat,whatsapp_customers.location_lat),
       location_lng=COALESCE(excluded.location_lng,whatsapp_customers.location_lng),
+      route_name=COALESCE(NULLIF(excluded.route_name,''),whatsapp_customers.route_name),
       last_order_id=excluded.last_order_id,last_order_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP`)
-    .bind(phone, contactName || customer, customer, contactName, gstin, address, locationUrl, latitude, longitude, id));
+    .bind(phone, contactName || customer, customer, contactName, gstin, address, locationUrl, latitude, longitude, id, routeName));
   statements.push(...hideCustomProducts);
   try { await env.DB.batch(statements); } catch (error) {
     if (String(error).includes('INSUFFICIENT_STOCK')) throw new Response('Insufficient available stock', { status: 409 });
     throw error;
   }
-  return json({ id, request_id: requestId, order_number: orderNumber, status: 'NEW', workflow_status: 'RECEIVED', total_paise: total, delivery_date: deliveryDate }, 201);
+  return json({ id, request_id: requestId, order_number: orderNumber, status: 'NEW', workflow_status: 'RECEIVED', subtotal_paise: subtotal, tax_paise: tax, total_paise: total, gst_bps: options.publicCatalog ? 500 : 0, delivery_date: deliveryDate }, 201);
 }
 
 async function listOrders(env, syncOnly = false) {
   const where = syncOnly ? "WHERE status='NEW'" : '';
   const orders = (await env.DB.prepare(`SELECT * FROM orders ${where} ORDER BY created_at DESC LIMIT 200`).all()).results || [];
-  for (const order of orders) order.lines = (await env.DB.prepare('SELECT line_no,product_id,product_name,quantity,unit,price_paise,picked_qty,crated_qty FROM order_lines WHERE order_id=?1 ORDER BY line_no').bind(order.id).all()).results || [];
+  for (const order of orders) order.lines = (await env.DB.prepare('SELECT line_no,product_id,product_name,quantity,unit,price_paise,gst_bps,subtotal_paise,tax_paise,total_paise,picked_qty,crated_qty FROM order_lines WHERE order_id=?1 ORDER BY line_no').bind(order.id).all()).results || [];
   return orders;
 }
 
@@ -511,6 +530,13 @@ async function createPurchaseTopup(request, env) {
 async function updateOrder(request, env, id, action) {
   const workflow = { confirm: 'CONFIRMED', pack: 'PACKING', dispatch: 'OUT_FOR_DELIVERY', deliver: 'DELIVERED', fulfil: 'DELIVERED', cancel: 'CANCELLED', ack: null }[action];
   if (workflow === undefined) return json({ error: 'Unknown action' }, 404);
+  const order = await env.DB.prepare('SELECT id,order_number,customer_name,phone,delivery_date,status,workflow_status FROM orders WHERE id=?1').bind(id).first();
+  if (!order) return json({ error: 'Order not found' }, 404);
+  const currentWorkflow = String(order.workflow_status || 'RECEIVED');
+  if (action === 'confirm' && currentWorkflow !== 'RECEIVED') return json({ error: 'Only a received order can start picking.' }, 409);
+  if (action === 'dispatch' && currentWorkflow !== 'INVOICED') return json({ error: 'Create the invoice before dispatching this order.' }, 409);
+  if (['deliver', 'fulfil'].includes(action) && currentWorkflow !== 'OUT_FOR_DELIVERY') return json({ error: 'Dispatch the order before marking it delivered.' }, 409);
+  if (action === 'cancel' && ['INVOICED','OUT_FOR_DELIVERY','DELIVERED'].includes(currentWorkflow)) return json({ error: 'An invoiced or dispatched order cannot be cancelled.' }, 409);
   const target = action === 'cancel' ? 'CANCELLED' : ['deliver', 'fulfil'].includes(action) ? 'FULFILLED' : action === 'ack' ? 'SYNCED' : null;
   const allowed = action === 'ack' ? "status='NEW'" : "status IN ('NEW','SYNCED')";
   const result = await env.DB.prepare(`UPDATE orders SET
@@ -519,7 +545,26 @@ async function updateOrder(request, env, id, action) {
     completed_at=CASE WHEN ?1 IN ('FULFILLED','CANCELLED') THEN CURRENT_TIMESTAMP ELSE completed_at END
     WHERE id=?3 AND ${allowed}`).bind(target, workflow, id).run();
   if (!result.meta?.changes) return json({ error: 'Order not found or already completed' }, 409);
-  return json({ id, status: target, workflow_status: workflow });
+  let notification = null;
+  if (['dispatch','deliver'].includes(action) && order.phone) {
+    const statusText = action==='dispatch' ? 'Out for delivery' : 'Delivered';
+    try {
+      const templates = await fetchWhatsAppTemplates(env);
+      const template = templates.find(item=>item.name==='order_delivery_update'&&item.status==='APPROVED');
+      if(!template)throw new Error('Approved order_delivery_update template is unavailable');
+      const parameters=[order.customer_name||'Customer',order.order_number||id,statusText,order.delivery_date||'As scheduled'];
+      const sent=await sendMetaMessage(env,order.phone,approvedTemplateMessage(order.phone,'order_delivery_update',template.language||'en_US',parameters));
+      await env.DB.prepare(`INSERT OR IGNORE INTO whatsapp_events(event_id,event_type,from_number,customer_name,direction,message_type,body,raw_json,event_time,order_id)
+        VALUES(?1,'DELIVERY_UPDATE',?2,?3,'OUTBOUND','template',?4,?5,?6,?7)`).bind(`delivery:${sent.messageId}`,order.phone,order.customer_name,statusText,JSON.stringify(sent.result),String(Math.floor(Date.now()/1000)),id).run();
+      notification={sent:true,message_id:sent.messageId,status:statusText};
+    } catch(error) {
+      const message=(error instanceof Response ? await error.text() : String(error.message||error)).slice(0,500);
+      await env.DB.prepare(`INSERT OR IGNORE INTO whatsapp_events(event_id,event_type,from_number,customer_name,direction,message_type,body,raw_json,event_time,order_id)
+        VALUES(?1,'DELIVERY_UPDATE_FAILED',?2,?3,'SYSTEM','template',?4,?5,?6,?7)`).bind(`delivery-failed:${id}:${action}:${Date.now()}`,order.phone,order.customer_name,statusText,JSON.stringify({error:message}),String(Math.floor(Date.now()/1000)),id).run();
+      notification={sent:false,error:message,status:statusText};
+    }
+  }
+  return json({ id, status: target, workflow_status: workflow, notification });
 }
 
 async function dashboard(env) {
@@ -589,7 +634,7 @@ async function reconciliation(env) {
 
 function pageParams(request) {
   const url = new URL(request.url);
-  return { query: String(url.searchParams.get('q') || '').trim().slice(0, 80), limit: Math.min(200, Math.max(1, Number(url.searchParams.get('limit') || 100))), offset: Math.max(0, Number(url.searchParams.get('offset') || 0)) };
+  return { query: String(url.searchParams.get('q') || '').trim().slice(0, 80), limit: Math.min(500, Math.max(1, Number(url.searchParams.get('limit') || 100))), offset: Math.max(0, Number(url.searchParams.get('offset') || 0)) };
 }
 
 async function customers(request, env) {
@@ -600,18 +645,22 @@ async function customers(request, env) {
       c.balance_paise+COALESCE((SELECT SUM(i.outstanding_paise) FROM invoices i
         WHERE i.customer_id=c.id AND i.source_device='cloudflare-admin' AND i.status<>'VOID'),0) display_balance_paise
       FROM customers c WHERE c.active=1 AND (?1='' OR c.name LIKE ?2 ESCAPE '\\' OR c.code LIKE ?2 ESCAPE '\\' OR c.mobile LIKE ?2 ESCAPE '\\' OR c.route_name LIKE ?2 ESCAPE '\\')
-      ORDER BY c.name LIMIT ?3 OFFSET ?4`).bind(query, pattern, limit, offset).all(),
-    env.DB.prepare(`SELECT * FROM whatsapp_customers WHERE ?1='' OR shop_name LIKE ?2 ESCAPE '\\' OR display_name LIKE ?2 ESCAPE '\\' OR phone LIKE ?2 ESCAPE '\\' OR gstin LIKE ?2 ESCAPE '\\' ORDER BY COALESCE(shop_name,display_name,phone) LIMIT ?3 OFFSET ?4`).bind(query, pattern, limit, offset).all(),
+      ORDER BY CASE WHEN TRIM(COALESCE(c.route_name,''))='' THEN 1 ELSE 0 END,c.route_name,c.name LIMIT ?3 OFFSET ?4`).bind(query, pattern, limit, offset).all(),
+    env.DB.prepare(`SELECT w.*,COALESCE((SELECT SUM(i.outstanding_paise) FROM invoices i
+      WHERE i.customer_id='WHATSAPP:' || w.phone AND i.source_device='cloudflare-admin' AND i.status<>'VOID'),0) display_balance_paise
+      FROM whatsapp_customers w WHERE ?1='' OR shop_name LIKE ?2 ESCAPE '\\' OR display_name LIKE ?2 ESCAPE '\\' OR phone LIKE ?2 ESCAPE '\\' OR gstin LIKE ?2 ESCAPE '\\'
+      ORDER BY COALESCE(shop_name,display_name,phone) LIMIT ?3 OFFSET ?4`).bind(query, pattern, limit, offset).all(),
   ]);
   const result = (rows.results || []).map(row => ({ ...row, balance_paise: Number(row.display_balance_paise ?? row.balance_paise ?? 0), display_balance_paise: undefined }));
   const knownPhones = new Set(result.flatMap(row => [row.mobile, row.whatsapp_number]).filter(Boolean).map(value => cleanPhone(value)));
   for (const profile of onlineRows.results || []) if (!knownPhones.has(profile.phone)) result.push({
     id: `WHATSAPP:${profile.phone}`, source: 'WHATSAPP', source_id: profile.phone, code: 'ONLINE',
     name: profile.shop_name || profile.display_name || profile.phone, mobile: profile.phone, whatsapp_number: profile.phone,
-    gstin: profile.gstin || '', address: profile.address || '', city: '', route_id: '', route_name: '', credit_days: 0,
-    credit_limit_paise: 0, balance_paise: 0, active: 1, location_url: profile.location_url || '', last_order_at: profile.last_order_at,
+    gstin: profile.gstin || '', address: profile.address || '', city: profile.city || '', route_id: '', route_name: profile.route_name || '', credit_days: Number(profile.credit_days || 0),
+    credit_limit_paise: 0, balance_paise: Number(profile.display_balance_paise || 0), active: 1, location_url: profile.location_url || '', last_order_at: profile.last_order_at,
   });
-  return json({ customers: result.slice(0, limit) });
+  result.sort((a,b)=>String(a.route_name||'ZZZ Unassigned').localeCompare(String(b.route_name||'ZZZ Unassigned'))||String(a.name||'').localeCompare(String(b.name||'')));
+  return json({ customers: result.slice(0, limit), total: result.length });
 }
 
 async function createCustomer(request, env) {
@@ -640,12 +689,68 @@ async function createCustomer(request, env) {
     env.DB.prepare("INSERT INTO operations_audit(action,entity_type,entity_id,detail_json) VALUES('CREATE_CUSTOMER','CUSTOMER',?1,?2)")
       .bind(id, JSON.stringify({ name, phone, gstin, route_name: routeName })),
   ];
-  if (phone) statements.push(env.DB.prepare(`INSERT INTO whatsapp_customers(phone,display_name,shop_name,gstin,address,updated_at)
-    VALUES(?1,?2,?2,?3,?4,CURRENT_TIMESTAMP)
+  if (phone) statements.push(env.DB.prepare(`INSERT INTO whatsapp_customers(phone,display_name,shop_name,gstin,address,city,route_name,credit_days,updated_at)
+    VALUES(?1,?2,?2,?3,?4,?5,?6,?7,CURRENT_TIMESTAMP)
     ON CONFLICT(phone) DO UPDATE SET shop_name=excluded.shop_name,gstin=COALESCE(NULLIF(excluded.gstin,''),whatsapp_customers.gstin),
-      address=COALESCE(NULLIF(excluded.address,''),whatsapp_customers.address),updated_at=CURRENT_TIMESTAMP`).bind(phone, name, gstin, address));
+      address=COALESCE(NULLIF(excluded.address,''),whatsapp_customers.address),city=COALESCE(NULLIF(excluded.city,''),whatsapp_customers.city),
+      route_name=COALESCE(NULLIF(excluded.route_name,''),whatsapp_customers.route_name),credit_days=excluded.credit_days,updated_at=CURRENT_TIMESTAMP`).bind(phone, name, gstin, address, city, routeName, creditDays));
   await env.DB.batch(statements);
   return json({ id, code, name, mobile: phone, whatsapp_number: phone, gstin, address, city, route_name: routeName, credit_days: creditDays, balance_paise: 0, source: 'LOCAL' }, 201);
+}
+
+async function updateCustomer(request, env, id) {
+  if (id.startsWith('WHATSAPP:')) {
+    const existingPhone = cleanPhone(id.slice('WHATSAPP:'.length));
+    const current = await env.DB.prepare('SELECT * FROM whatsapp_customers WHERE phone=?1').bind(existingPhone).first();
+    if (!current) return json({ error: 'Customer not found' }, 404);
+    const body = await readObject(request, 30_000);
+    const name = cleanText(body.name ?? current.shop_name ?? current.display_name, 'name', 200);
+    const phone = cleanPhone(body.whatsapp_number ?? body.mobile ?? existingPhone);
+    const gstin = cleanGstin(body.gstin ?? current.gstin);
+    const address = cleanText(body.address ?? current.address, 'address', 500, false);
+    const city = cleanText(body.city ?? current.city, 'city', 100, false);
+    const routeName = cleanText(body.route_name ?? current.route_name, 'route_name', 150, false);
+    const creditDays = cleanInteger(body.credit_days ?? current.credit_days, 'credit_days');
+    if (creditDays > 365) throw new Response('credit_days is too large', { status: 400 });
+    if (phone !== existingPhone) return json({ error: 'Create a new customer for a different WhatsApp number so the existing chat history stays intact.' }, 409);
+    await env.DB.batch([
+      env.DB.prepare(`UPDATE whatsapp_customers SET phone=?1,display_name=?2,shop_name=?2,gstin=?3,address=?4,city=?5,route_name=?6,credit_days=?7,updated_at=CURRENT_TIMESTAMP WHERE phone=?8`)
+        .bind(phone, name, gstin, address, city, routeName, creditDays, existingPhone),
+      env.DB.prepare("INSERT INTO operations_audit(action,entity_type,entity_id,detail_json) VALUES('UPDATE_CUSTOMER','CUSTOMER',?1,?2)")
+        .bind(`WHATSAPP:${phone}`, JSON.stringify({ name, phone, gstin, route_name: routeName, previous_phone: existingPhone })),
+    ]);
+    return json({ id: `WHATSAPP:${phone}`, source: 'WHATSAPP', code: 'ONLINE', name, mobile: phone, whatsapp_number: phone, gstin, address, city, route_name: routeName, credit_days: creditDays, balance_paise: 0 });
+  }
+  const current = await env.DB.prepare('SELECT * FROM customers WHERE id=?1').bind(id).first();
+  if (!current) return json({ error: 'Customer not found' }, 404);
+  const body = await readObject(request, 30_000);
+  const name = cleanText(body.name ?? current.name, 'name', 200);
+  const phone = cleanPhone(body.whatsapp_number ?? body.mobile ?? current.whatsapp_number ?? current.mobile);
+  const gstin = cleanGstin(body.gstin ?? current.gstin);
+  const address = cleanText(body.address ?? current.address, 'address', 500, false);
+  const city = cleanText(body.city ?? current.city, 'city', 100, false);
+  const routeName = cleanText(body.route_name ?? current.route_name, 'route_name', 150, false);
+  const creditDays = cleanInteger(body.credit_days ?? current.credit_days, 'credit_days');
+  if (creditDays > 365) throw new Response('credit_days is too large', { status: 400 });
+  if (phone) {
+    const local = phone.slice(-10);
+    const duplicate = await env.DB.prepare(`SELECT id,name FROM customers WHERE id<>?1 AND active=1
+      AND (mobile IN (?2,?3) OR whatsapp_number IN (?2,?3)) LIMIT 1`).bind(id, phone, local).first();
+    if (duplicate) return json({ error: `This number already belongs to ${duplicate.name}.`, customer_id: duplicate.id }, 409);
+  }
+  const statements = [
+    env.DB.prepare(`UPDATE customers SET name=?1,mobile=?2,whatsapp_number=?2,gstin=?3,address=?4,city=?5,route_name=?6,
+      credit_days=?7,source_updated_at=CURRENT_TIMESTAMP,synced_at=CURRENT_TIMESTAMP WHERE id=?8`)
+      .bind(name, phone, gstin, address, city, routeName, creditDays, id),
+    env.DB.prepare("INSERT INTO operations_audit(action,entity_type,entity_id,detail_json) VALUES('UPDATE_CUSTOMER','CUSTOMER',?1,?2)")
+      .bind(id, JSON.stringify({ name, phone, gstin, route_name: routeName, previous: { name: current.name, phone: current.whatsapp_number || current.mobile, route_name: current.route_name } })),
+  ];
+  if (phone) statements.push(env.DB.prepare(`INSERT INTO whatsapp_customers(phone,display_name,shop_name,gstin,address,city,route_name,credit_days,updated_at)
+    VALUES(?1,?2,?2,?3,?4,?5,?6,?7,CURRENT_TIMESTAMP)
+    ON CONFLICT(phone) DO UPDATE SET shop_name=excluded.shop_name,gstin=excluded.gstin,address=excluded.address,city=excluded.city,
+      route_name=excluded.route_name,credit_days=excluded.credit_days,updated_at=CURRENT_TIMESTAMP`).bind(phone, name, gstin, address, city, routeName, creditDays));
+  await env.DB.batch(statements);
+  return json({ ...current, name, mobile: phone, whatsapp_number: phone, gstin, address, city, route_name: routeName, credit_days: creditDays });
 }
 
 async function whatsappConversations(env) {
@@ -744,12 +849,23 @@ async function createInvoice(request, env) {
   if (existing) return json(existing);
   const lines = Array.isArray(body.lines) ? body.lines : [];
   if (!lines.length || lines.length > 200) throw new Response('Choose 1 to 200 products', { status: 400 });
-  const customerId = cleanText(body.customer_id, 'customer_id', 140);
+  const orderId = cleanText(body.order_id, 'order_id', 100, false);
+  let order = null;
+  if (orderId) {
+    order = await env.DB.prepare(`SELECT * FROM orders WHERE id=?1 AND status IN ('NEW','SYNCED')
+      AND workflow_status IN ('CONFIRMED','PICKING','PACKING','PACKED')`).bind(orderId).first();
+    if (!order) return json({ error: 'This order is not ready for checkout or has already been invoiced.' }, 409);
+    const incomplete = await env.DB.prepare('SELECT COUNT(*) count FROM order_lines WHERE order_id=?1 AND picked_qty<>quantity').bind(orderId).first();
+    if (Number(incomplete?.count || 0)) return json({ error: 'Pick every ordered item before checkout.' }, 409);
+    const orderLineCount = await env.DB.prepare('SELECT COUNT(*) count FROM order_lines WHERE order_id=?1').bind(orderId).first();
+    if (Number(orderLineCount?.count || 0) !== lines.length) return json({ error: 'Checkout must include every item from the selected order.' }, 400);
+  }
+  const customerId = cleanText(body.customer_id || order?.customer_id, 'customer_id', 140);
   let customer = null;
   if (customerId.startsWith('WHATSAPP:')) {
     const phone = cleanPhone(customerId.slice('WHATSAPP:'.length));
     const profile = await env.DB.prepare('SELECT * FROM whatsapp_customers WHERE phone=?1').bind(phone).first();
-    if (profile) customer = { id: customerId, name: profile.shop_name || profile.display_name || phone, mobile: phone, whatsapp_number: phone, route_name: '', credit_days: 0 };
+    if (profile) customer = { id: customerId, name: profile.shop_name || profile.display_name || phone, mobile: phone, whatsapp_number: phone, route_name: profile.route_name || '', credit_days: Number(profile.credit_days || 0) };
   } else customer = await env.DB.prepare('SELECT id,name,mobile,whatsapp_number,route_name,credit_days FROM customers WHERE id=?1 AND active=1').bind(customerId).first();
   if (!customer) return json({ error: 'Select an available customer' }, 400);
   const phone = cleanPhone(customer.whatsapp_number || customer.mobile);
@@ -768,14 +884,24 @@ async function createInvoice(request, env) {
     const productId = cleanText(line.product_id, 'product_id', 100);
     if (seen.has(productId)) throw new Response('The same product cannot appear twice', { status: 400 });
     seen.add(productId);
-    const quantity = cleanNumber(line.quantity, 'quantity', 0.000001);
+    let quantity = cleanNumber(line.quantity, 'quantity', 0.000001);
     if (quantity > 10000) throw new Response('Quantity must not exceed 10,000', { status: 400 });
-    const price = cleanInteger(line.unit_price_paise, 'unit_price_paise');
-    const gstBps = cleanInteger(line.gst_bps, 'gst_bps');
+    let price = cleanInteger(line.unit_price_paise, 'unit_price_paise');
+    let gstBps = cleanInteger(line.gst_bps, 'gst_bps');
     if (gstBps > 5000) throw new Response('GST must not exceed 50%', { status: 400 });
+    let reservedForOrder = 0;
+    if (orderId) {
+      const orderLine = await env.DB.prepare(`SELECT quantity,picked_qty,price_paise,gst_bps FROM order_lines
+        WHERE order_id=?1 AND product_id=?2`).bind(orderId, productId).first();
+      if (!orderLine) throw new Response('Checkout products must match the selected order.', { status: 400 });
+      quantity = Number(orderLine.picked_qty);
+      reservedForOrder = Number(orderLine.quantity);
+      price = Number(orderLine.price_paise || 0);
+      gstBps = Number(orderLine.gst_bps || 0);
+    }
     const product = await env.DB.prepare(`SELECT product_id,sku,product_name,unit,stock_qty,reserved_qty,manual_out_of_stock
       FROM inventory WHERE product_id=?1 AND active=1`).bind(productId).first();
-    if (!product || product.manual_out_of_stock || Number(product.stock_qty) - Number(product.reserved_qty) < quantity) throw new Response(`Insufficient stock for ${product?.product_name || productId}`, { status: 409 });
+    if (!product || product.manual_out_of_stock || Number(product.stock_qty) - Number(product.reserved_qty) + reservedForOrder < quantity) throw new Response(`Insufficient stock for ${product?.product_name || productId}`, { status: 409 });
     const amounts = invoiceLineAmounts(quantity, price, gstBps);
     subtotal += amounts.subtotal_paise;
     tax += amounts.tax_paise;
@@ -790,10 +916,17 @@ async function createInvoice(request, env) {
   const businessDate = invoiceDate.replaceAll('-', '');
   const invoiceNumber = `WEBINV-${businessDate}-${idPart.slice(0, 6).toUpperCase()}`;
   const status = paymentStatus(total, paid);
-  const statements = [env.DB.prepare(`INSERT INTO invoices
-    (id,source,source_id,invoice_number,invoice_date,due_date,customer_id,customer_name,mobile,route_name,total_paise,paid_paise,outstanding_paise,payment_status,status,source_device,snapshot_id,source_updated_at,synced_at,request_id,subtotal_paise,tax_paise,discount_paise,payment_method,notes)
-    VALUES(?1,'LOCAL',?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,'POSTED','cloudflare-admin',?2,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,?14,?15,?16,?17,?18,?19)`)
-    .bind(id, idPart, invoiceNumber, invoiceDate, dueDate, customer.id, customer.name, phone, customer.route_name || '', total, paid, total - paid, status, requestId, subtotal, tax, discount, method, notes)];
+  const statements = [];
+  if (orderId) statements.push(
+    env.DB.prepare(`UPDATE inventory SET reserved_qty=MAX(0,reserved_qty-COALESCE((
+      SELECT SUM(quantity) FROM order_lines WHERE order_id=?1 AND product_id=inventory.product_id
+    ),0)) WHERE product_id IN (SELECT product_id FROM order_lines WHERE order_id=?1)`).bind(orderId),
+    env.DB.prepare("UPDATE orders SET reservation_released=1,updated_at=CURRENT_TIMESTAMP WHERE id=?1 AND reservation_released=0").bind(orderId),
+  );
+  statements.push(env.DB.prepare(`INSERT INTO invoices
+    (id,source,source_id,invoice_number,invoice_date,due_date,customer_id,customer_name,mobile,route_name,total_paise,paid_paise,outstanding_paise,payment_status,status,source_device,snapshot_id,source_updated_at,synced_at,request_id,subtotal_paise,tax_paise,discount_paise,payment_method,notes,order_id)
+    VALUES(?1,'LOCAL',?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,'POSTED','cloudflare-admin',?2,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,?14,?15,?16,?17,?18,?19,?20)`)
+    .bind(id, idPart, invoiceNumber, invoiceDate, dueDate, customer.id, customer.name, phone, customer.route_name || '', total, paid, total - paid, status, requestId, subtotal, tax, discount, method, notes, orderId || null));
   for (const line of preparedLines) statements.push(env.DB.prepare(`INSERT INTO invoice_lines
     (invoice_id,line_no,product_id,sku,product_name,quantity,unit,unit_price_paise,gst_bps,subtotal_paise,tax_paise,total_paise)
     VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)`).bind(id, line.line_no, line.product.product_id, line.product.sku || '', line.product.product_name, line.quantity, line.product.unit, line.price, line.gstBps, line.subtotal_paise, line.tax_paise, line.total_paise));
@@ -804,12 +937,13 @@ async function createInvoice(request, env) {
       VALUES(?1,'LOCAL',?2,?3,?4,?5,?6,'RECEIPT',?7,?8,?9,'cloudflare-admin',?2,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)`)
       .bind(`CLOUD:${paymentId}`, paymentId, `WEBRCPT-${businessDate}-${paymentId.slice(0, 6).toUpperCase()}`, invoiceDate, customer.id, customer.name, method, paid, invoiceNumber));
   }
+  if (orderId) statements.push(env.DB.prepare(`UPDATE orders SET workflow_status='INVOICED',invoice_number=?1,updated_at=CURRENT_TIMESTAMP WHERE id=?2`).bind(invoiceNumber, orderId));
   statements.push(env.DB.prepare("INSERT INTO operations_audit(action,entity_type,entity_id,detail_json) VALUES('CREATE_INVOICE','INVOICE',?1,?2)").bind(id, JSON.stringify({ invoice_number: invoiceNumber, customer_id: customer.id, total_paise: total, paid_paise: paid, line_count: preparedLines.length })));
   try { await env.DB.batch(statements); } catch (error) {
     if (String(error).includes('INSUFFICIENT_STOCK')) throw new Response('Stock changed while saving. Refresh and review the invoice.', { status: 409 });
     throw error;
   }
-  return json({ id, invoice_number: invoiceNumber, total_paise: total, paid_paise: paid, outstanding_paise: total - paid, payment_status: status }, 201);
+  return json({ id, invoice_number: invoiceNumber, order_id: orderId, total_paise: total, paid_paise: paid, outstanding_paise: total - paid, payment_status: status }, 201);
 }
 
 async function voidInvoice(env, id) {
@@ -823,6 +957,81 @@ async function voidInvoice(env, id) {
     env.DB.prepare("INSERT INTO operations_audit(action,entity_type,entity_id,detail_json) VALUES('VOID_INVOICE','INVOICE',?1,?2)").bind(id, JSON.stringify({ invoice_number: invoice.invoice_number })),
   ]);
   return json({ id, invoice_number: invoice.invoice_number, status: 'VOID' });
+}
+
+async function updateInvoice(request, env, id) {
+  const invoice = await env.DB.prepare('SELECT * FROM invoices WHERE id=?1').bind(id).first();
+  if (!invoice) return json({ error: 'Invoice not found' }, 404);
+  if (invoice.source_device !== 'cloudflare-admin') return json({ error: 'Synced Amul/PC invoices must be corrected on the source PC.' }, 409);
+  if (invoice.status === 'VOID') return json({ error: 'A void invoice cannot be edited.' }, 409);
+  if (Number(invoice.paid_paise || 0)>0) return json({ error: 'Paid invoices cannot be edited. Reverse the payment first.' }, 409);
+  if (invoice.order_id) return json({ error: 'Delete this order invoice to reopen the order, then checkout it again.' }, 409);
+  const body = await readObject(request, 150_000);
+  const lines = Array.isArray(body.lines) ? body.lines : [];
+  if (!lines.length || lines.length>200) throw new Response('Choose 1 to 200 products', { status: 400 });
+  const customerId = cleanText(body.customer_id, 'customer_id', 140);
+  let customer = null;
+  if (customerId.startsWith('WHATSAPP:')) {
+    const phoneId = cleanPhone(customerId.slice('WHATSAPP:'.length));
+    const profile = await env.DB.prepare('SELECT * FROM whatsapp_customers WHERE phone=?1').bind(phoneId).first();
+    if (profile) customer={ id:customerId,name:profile.shop_name||profile.display_name||phoneId,mobile:phoneId,whatsapp_number:phoneId,route_name:profile.route_name||'' };
+  } else customer=await env.DB.prepare('SELECT id,name,mobile,whatsapp_number,route_name FROM customers WHERE id=?1 AND active=1').bind(customerId).first();
+  if (!customer) return json({ error: 'Select an available customer' }, 400);
+  const oldRows=(await env.DB.prepare('SELECT product_id,quantity FROM invoice_lines WHERE invoice_id=?1').bind(id).all()).results||[];
+  const oldByProduct=new Map(oldRows.map(row=>[row.product_id,Number(row.quantity)]));
+  const prepared=[];
+  const seen=new Set();
+  let subtotal=0,tax=0;
+  for(let index=0;index<lines.length;index+=1){
+    const input=lines[index],productId=cleanText(input.product_id,'product_id',100);
+    if(seen.has(productId))throw new Response('The same product cannot appear twice',{status:400});
+    seen.add(productId);
+    const quantity=cleanNumber(input.quantity,'quantity',0.000001),price=cleanInteger(input.unit_price_paise,'unit_price_paise'),gstBps=cleanInteger(input.gst_bps,'gst_bps');
+    if(quantity>10000||gstBps>5000)throw new Response('Invalid invoice quantity or GST',{status:400});
+    const product=await env.DB.prepare(`SELECT product_id,sku,product_name,unit,stock_qty,reserved_qty,manual_out_of_stock FROM inventory WHERE product_id=?1 AND active=1`).bind(productId).first();
+    const available=Number(product?.stock_qty||0)-Number(product?.reserved_qty||0)+Number(oldByProduct.get(productId)||0);
+    if(!product||product.manual_out_of_stock||available<quantity)throw new Response(`Insufficient stock for ${product?.product_name||productId}`,{status:409});
+    const amounts=invoiceLineAmounts(quantity,price,gstBps);subtotal+=amounts.subtotal_paise;tax+=amounts.tax_paise;
+    prepared.push({line_no:index+1,product,quantity,price,gstBps,...amounts});
+  }
+  const discount=cleanInteger(body.discount_paise,'discount_paise'),gross=subtotal+tax;
+  if(discount>gross)throw new Response('Discount cannot exceed the invoice amount',{status:400});
+  const total=gross-discount,invoiceDate=cleanDate(body.invoice_date,'invoice_date',true),dueDate=cleanDate(body.due_date,'due_date',false)||invoiceDate;
+  const notes=cleanText(body.notes,'notes',500,false),method=cleanText(body.payment_method,'payment_method',40,false)||'CREDIT',phone=cleanPhone(customer.whatsapp_number||customer.mobile);
+  const statements=[
+    env.DB.prepare(`UPDATE inventory SET stock_qty=stock_qty+COALESCE((SELECT SUM(quantity) FROM invoice_lines WHERE invoice_id=?1 AND product_id=inventory.product_id),0),stock_control_updated_at=CURRENT_TIMESTAMP,synced_at=CURRENT_TIMESTAMP WHERE product_id IN (SELECT product_id FROM invoice_lines WHERE invoice_id=?1)`).bind(id),
+    env.DB.prepare('DELETE FROM invoice_lines WHERE invoice_id=?1').bind(id),
+    env.DB.prepare(`UPDATE invoices SET invoice_date=?1,due_date=?2,customer_id=?3,customer_name=?4,mobile=?5,route_name=?6,total_paise=?7,paid_paise=0,outstanding_paise=?7,payment_status='UNPAID',subtotal_paise=?8,tax_paise=?9,discount_paise=?10,payment_method=?11,notes=?12,source_updated_at=CURRENT_TIMESTAMP,synced_at=CURRENT_TIMESTAMP WHERE id=?13`)
+      .bind(invoiceDate,dueDate,customer.id,customer.name,phone,customer.route_name||'',total,subtotal,tax,discount,method,notes,id),
+  ];
+  for(const line of prepared)statements.push(env.DB.prepare(`INSERT INTO invoice_lines(invoice_id,line_no,product_id,sku,product_name,quantity,unit,unit_price_paise,gst_bps,subtotal_paise,tax_paise,total_paise) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)`).bind(id,line.line_no,line.product.product_id,line.product.sku||'',line.product.product_name,line.quantity,line.product.unit,line.price,line.gstBps,line.subtotal_paise,line.tax_paise,line.total_paise));
+  statements.push(env.DB.prepare("INSERT INTO operations_audit(action,entity_type,entity_id,detail_json) VALUES('UPDATE_INVOICE','INVOICE',?1,?2)").bind(id,JSON.stringify({invoice_number:invoice.invoice_number,total_paise:total,line_count:prepared.length})));
+  try{await env.DB.batch(statements)}catch(error){if(String(error).includes('INSUFFICIENT_STOCK'))throw new Response('Stock changed while updating. Refresh and review the invoice.',{status:409});throw error}
+  return json({id,invoice_number:invoice.invoice_number,total_paise:total,paid_paise:0,outstanding_paise:total,payment_status:'UNPAID'});
+}
+
+async function deleteInvoice(env,id){
+  const invoice=await env.DB.prepare('SELECT * FROM invoices WHERE id=?1').bind(id).first();
+  if(!invoice)return json({error:'Invoice not found'},404);
+  if(invoice.source_device!=='cloudflare-admin')return json({error:'Synced Amul/PC invoices must be deleted on the source PC.'},409);
+  if(invoice.status==='VOID')return json({error:'Void invoices are retained for the audit trail.'},409);
+  if(Number(invoice.paid_paise||0)>0)return json({error:'Paid invoices cannot be deleted. Reverse the payment first.'},409);
+  if(invoice.order_id){
+    const order=await env.DB.prepare('SELECT workflow_status FROM orders WHERE id=?1').bind(invoice.order_id).first();
+    if(order && order.workflow_status!=='INVOICED')return json({error:'This order has already moved to dispatch. Keep its invoice for the delivery audit trail.'},409);
+  }
+  const statements=[
+    env.DB.prepare(`UPDATE inventory SET stock_qty=stock_qty+COALESCE((SELECT SUM(quantity) FROM invoice_lines WHERE invoice_id=?1 AND product_id=inventory.product_id),0),stock_control_updated_at=CURRENT_TIMESTAMP,synced_at=CURRENT_TIMESTAMP WHERE product_id IN (SELECT product_id FROM invoice_lines WHERE invoice_id=?1)`).bind(id),
+    env.DB.prepare('DELETE FROM invoice_lines WHERE invoice_id=?1').bind(id),
+    env.DB.prepare('DELETE FROM invoices WHERE id=?1').bind(id),
+  ];
+  if(invoice.order_id)statements.push(
+    env.DB.prepare(`UPDATE inventory SET reserved_qty=reserved_qty+COALESCE((SELECT SUM(quantity) FROM order_lines WHERE order_id=?1 AND product_id=inventory.product_id),0) WHERE product_id IN (SELECT product_id FROM order_lines WHERE order_id=?1)`).bind(invoice.order_id),
+    env.DB.prepare("UPDATE orders SET reservation_released=0,workflow_status='PICKING',invoice_number=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=?1").bind(invoice.order_id),
+  );
+  statements.push(env.DB.prepare("INSERT INTO operations_audit(action,entity_type,entity_id,detail_json) VALUES('DELETE_INVOICE','INVOICE',?1,?2)").bind(id,JSON.stringify({invoice_number:invoice.invoice_number,order_id:invoice.order_id||null,total_paise:invoice.total_paise})));
+  await env.DB.batch(statements);
+  return json({id,invoice_number:invoice.invoice_number,deleted:true,reopened_order_id:invoice.order_id||null});
 }
 
 async function payments(request, env) {
@@ -1151,7 +1360,7 @@ async function sendWhatsAppTemplate(request, env) {
 async function route(request, env) {
   const url = new URL(request.url);
   const path = url.pathname;
-  if (path === '/api/health') return json({ ok: true, service: 'frostflow-online', version: '0.7.0', database: 'cloudflare-d1-central' });
+  if (path === '/api/health') return json({ ok: true, service: 'frostflow-online', version: '0.8.0', database: 'cloudflare-d1-central' });
   if (path === '/webhooks/whatsapp' || path === '/webhooks/whatsapp/') return whatsappWebhook(request, env);
   if (path === '/api/catalog/orders' && request.method === 'POST') return createOrder(request, env, { publicCatalog: true });
   if (path === '/api/catalog/availability' && request.method === 'GET') return publicAvailability(env);
@@ -1185,11 +1394,15 @@ async function route(request, env) {
   if (path === '/api/purchase-topups' && request.method === 'POST') return createPurchaseTopup(request, env);
   if (path === '/api/customers' && request.method === 'GET') return customers(request, env);
   if (path === '/api/customers' && request.method === 'POST') return createCustomer(request, env);
+  const customerDetailMatch = path.match(/^\/api\/customers\/([^/]+)$/);
+  if (customerDetailMatch && request.method === 'PUT') return updateCustomer(request, env, decodeURIComponent(customerDetailMatch[1]));
   if (path === '/api/distribution/orders' && request.method === 'GET') return distributionOrders(request, env);
   if (path === '/api/invoices' && request.method === 'GET') return invoices(request, env);
   if (path === '/api/invoices' && request.method === 'POST') return createInvoice(request, env);
   const invoiceDetailMatch = path.match(/^\/api\/invoices\/([^/]+)$/);
   if (invoiceDetailMatch && request.method === 'GET') return invoiceDetail(env, decodeURIComponent(invoiceDetailMatch[1]));
+  if (invoiceDetailMatch && request.method === 'PUT') return updateInvoice(request, env, decodeURIComponent(invoiceDetailMatch[1]));
+  if (invoiceDetailMatch && request.method === 'DELETE') return deleteInvoice(env, decodeURIComponent(invoiceDetailMatch[1]));
   const voidInvoiceMatch = path.match(/^\/api\/invoices\/([^/]+)\/void$/);
   if (voidInvoiceMatch && request.method === 'POST') return voidInvoice(env, decodeURIComponent(voidInvoiceMatch[1]));
   if (path === '/api/payments' && request.method === 'GET') return payments(request, env);

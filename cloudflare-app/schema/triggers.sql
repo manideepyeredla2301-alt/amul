@@ -20,7 +20,9 @@ END;
 
 CREATE TRIGGER IF NOT EXISTS release_order_reservation
 AFTER UPDATE OF status ON orders
-WHEN OLD.status IN ('NEW','SYNCED') AND NEW.status IN ('FULFILLED','CANCELLED')
+WHEN OLD.status IN ('NEW','SYNCED')
+  AND NEW.status IN ('FULFILLED','CANCELLED')
+  AND OLD.reservation_released=0
 BEGIN
   UPDATE inventory
   SET reserved_qty = MAX(0, reserved_qty - COALESCE((
@@ -28,6 +30,8 @@ BEGIN
     WHERE order_id = NEW.id AND product_id = inventory.product_id
   ), 0))
   WHERE product_id IN (SELECT product_id FROM order_lines WHERE order_id = NEW.id);
+
+  UPDATE orders SET reservation_released=1 WHERE id=NEW.id;
 END;
 
 DROP TRIGGER IF EXISTS consume_online_invoice_stock;

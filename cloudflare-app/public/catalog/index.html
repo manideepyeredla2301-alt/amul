@@ -25,6 +25,7 @@
     <form method="dialog">
       <div class="dialog-head"><div><small>YOUR ORDER</small><h2>Selected products</h2><p class="quantity-help">Tap the quantity number to type a larger quantity.</p></div><button value="cancel" class="icon-button" aria-label="Close">×</button></div>
       <div id="cart-lines" class="cart-lines"></div>
+      <section id="estimated-invoice" class="estimate-box" aria-live="polite" hidden></section>
       <div class="checkout-title"><strong>Delivery details</strong><span id="saved-profile-note">Saved here for your next order</span></div>
       <div class="form-grid">
         <label>Shop name<input id="shop-name" maxlength="120" autocomplete="organization" required></label>
@@ -50,13 +51,13 @@
       </label>
       <label>Note (optional)<textarea id="customer-note" maxlength="200" rows="2"></textarea></label>
       <p class="privacy-note">Your order is saved online first, then WhatsApp opens for a quick confirmation. These delivery details stay on this device for next time.</p>
-      <button id="send-order" type="button" class="whatsapp-button">Place order &amp; open WhatsApp</button>
+      <button id="send-order" type="button" class="whatsapp-button">Place estimated order &amp; open WhatsApp</button>
       <button id="clear-cart" type="button" class="text-button">Clear order</button>
       <p id="form-error" class="error" role="alert"></p>
     </form>
   </dialog>
   <template id="product-template">
-    <article class="product-card"><div class="product-art"><img alt="" loading="lazy"><span>AMUL</span></div><div class="product-copy"><span class="group"></span><h2></h2><p class="pack"></p></div><div class="stepper"><button type="button" data-minus aria-label="Reduce quantity">−</button><output>0</output><button type="button" data-plus aria-label="Increase quantity">+</button></div></article>
+    <article class="product-card"><div class="product-art"><img alt="" loading="lazy"><span>AMUL</span></div><div class="product-copy"><span class="group"></span><h2></h2><p class="pack"></p><p class="price"></p></div><div class="stepper"><button type="button" data-minus aria-label="Reduce quantity">−</button><output>0</output><button type="button" data-plus aria-label="Increase quantity">+</button></div></article>
   </template>
   <script type="module" src="/catalog.js"></script>
 </body>

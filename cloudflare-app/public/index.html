@@ -159,17 +159,18 @@
   </dialog>
   <dialog id="customer-dialog">
     <form method="dialog" id="customer-form">
-      <div class="dialog-head"><div><h2>Add customer</h2><p class="hint">Saved centrally and available for orders, invoices and WhatsApp.</p></div><button value="cancel" class="secondary">Close</button></div>
+      <div class="dialog-head"><div><h2 id="customer-dialog-title">Add customer</h2><p class="hint">Saved centrally and available for orders, invoices and WhatsApp.</p></div><button value="cancel" class="secondary">Close</button></div>
       <div class="form-grid"><label>Shop / customer name<input name="name" maxlength="200" required></label><label>WhatsApp number<input name="whatsapp_number" inputmode="tel" placeholder="919876543210"></label></div>
       <div class="form-grid"><label>GSTIN<input name="gstin" maxlength="15"></label><label>Route<input name="route_name" maxlength="150"></label></div>
       <div class="form-grid"><label>City<input name="city" maxlength="100"></label><label>Credit days<input name="credit_days" type="number" min="0" max="365" value="0"></label></div>
       <label>Address<textarea name="address" maxlength="500"></textarea></label>
-      <button value="submit">Save customer</button><p id="customer-error" class="error"></p>
+      <button value="submit" id="save-customer">Save customer</button><p id="customer-error" class="error"></p>
     </form>
   </dialog>
   <dialog id="invoice-dialog" class="wide-dialog">
     <form method="dialog" id="invoice-form">
-      <div class="dialog-head sticky-dialog-head"><div><span class="page-kicker">NEW SALE</span><h2>Create invoice</h2><p class="hint">Complete the three short sections below.</p></div><button value="cancel" class="secondary">Close</button></div>
+      <div class="dialog-head sticky-dialog-head"><div><span class="page-kicker" id="invoice-dialog-kicker">NEW SALE</span><h2 id="invoice-dialog-title">Create invoice</h2><p class="hint" id="invoice-dialog-copy">Complete the three short sections below.</p></div><button value="cancel" class="secondary">Close</button></div>
+      <p id="invoice-order-note" class="checkout-note" hidden></p>
       <section class="form-section">
         <div class="form-section-title"><span>1</span><div><strong>Customer &amp; dates</strong><small>Choose who is being billed</small></div></div>
         <div class="invoice-customer-grid">
@@ -178,7 +179,7 @@
           <label>Due date<input name="due_date" id="invoice-due-date" type="date"></label>
         </div>
       </section>
-      <section class="form-section">
+      <section class="form-section" id="invoice-product-section">
         <div class="form-section-title"><span>2</span><div><strong>Add products</strong><small>Search on the left, review quantities on the right</small></div></div>
         <div class="invoice-builder">
           <div class="invoice-product-picker"><label>Search available stock<input id="invoice-product-search" type="search" placeholder="Product name or code"></label><div id="invoice-product-results" class="picker-results"></div></div>
