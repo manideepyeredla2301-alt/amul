@@ -53,14 +53,21 @@
     </section>
 
     <section id="whatsapp" class="tab">
-      <div class="section-head"><div><h2>WhatsApp Business</h2><p class="hint">Use templates outside the 24-hour customer-service window.</p></div></div>
-      <form id="message-form" class="panel compact-form">
+      <div class="section-head"><div><h2>WhatsApp Business</h2><p class="hint">Invite a new customer with an approved template, then reply normally after they message you.</p></div></div>
+      <form id="invite-form" class="panel invite-form">
+        <div class="form-title"><h3>Invite a new customer to order</h3><p class="hint">Sends the approved catalogue message and order link. This works even when there is no open chat.</p></div>
+        <label>Customer / shop name<input name="customer_name" maxlength="120" placeholder="Optional"></label>
+        <label>WhatsApp number<input name="to" inputmode="tel" placeholder="919876543210" required></label>
+        <label class="consent-check"><input name="opt_in" type="checkbox" required><span>The customer agreed to receive WhatsApp messages</span></label>
+        <button id="send-invite">Send catalogue invite</button>
+        <p id="invite-result" class="hint"></p>
+        <p id="template-status" class="hint"></p>
+      </form>
+      <h3>Reply to an active chat</h3>
+      <form id="message-form" class="panel reply-form">
         <label>Customer number<input name="to" inputmode="tel" placeholder="919876543210" required></label>
         <label>Message<textarea name="text" maxlength="4096" placeholder="Reply while the 24-hour window is open"></textarea></label>
-        <label>Send type<select name="template_name" id="template-name"><option value="">Reply (within 24 hours)</option></select></label>
-        <label>Template language<input name="language" value="en_US" readonly></label>
         <button>Send WhatsApp</button><p id="message-result" class="hint"></p>
-        <p id="template-status" class="hint"></p>
       </form>
       <h3>Customer conversations</h3><div id="whatsapp-list" class="conversations"></div>
     </section>

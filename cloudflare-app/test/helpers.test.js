@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {catalogueReply,catalogueRequested,cleanGstin,cleanLocationUrl,cleanPhone,equalSecret,supportsWhatsAppWebhook} from '../src/worker.js';
+import {catalogueInviteMessage,catalogueReply,catalogueRequested,cleanGstin,cleanLocationUrl,cleanPhone,equalSecret,supportsWhatsAppWebhook} from '../src/worker.js';
 
 test('constant-time secret comparison and phone normalization',async()=>{
   assert.equal(await equalSecret('same','same'),true);
@@ -32,4 +32,14 @@ test('catalogue auto reply is explicit, useful and recognizes catalogue requests
   assert.equal(catalogueRequested('Please send catalogue'),true);
   assert.equal(catalogueRequested('menu'),true);
   assert.equal(catalogueRequested('My order is ready'),false);
+});
+
+test('new-customer invitations always use the approved catalogue template path',()=>{
+  assert.deepEqual(catalogueInviteMessage('919014003991'),{
+    messaging_product:'whatsapp',
+    recipient_type:'individual',
+    to:'919014003991',
+    type:'template',
+    template:{name:'amul_catalogue',language:{code:'en_US'}},
+  });
 });

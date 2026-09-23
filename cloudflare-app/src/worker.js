@@ -486,16 +486,19 @@ async function sendMetaMessage(env, to, message) {
   return { result, messageId: result.messages?.[0]?.id || crypto.randomUUID() };
 }
 
-async function whatsappTemplates(env) {
-  if (!env.META_ACCESS_TOKEN || !env.META_WABA_ID) return json({ error: 'WhatsApp templates are not configured yet.' }, 503);
+async function fetchWhatsAppTemplates(env) {
+  if (!env.META_ACCESS_TOKEN || !env.META_WABA_ID) throw new Response('WhatsApp templates are not configured yet.', { status: 503 });
   const version = /^v\d+\.\d+$/.test(env.META_GRAPH_VERSION || '') ? env.META_GRAPH_VERSION : 'v25.0';
   const response = await fetch(`https://graph.facebook.com/${version}/${encodeURIComponent(env.META_WABA_ID)}/message_templates?fields=id,name,status,category,language&limit=100`, {
     headers: { authorization: `Bearer ${env.META_ACCESS_TOKEN}` },
   });
   const result = await response.json().catch(() => ({}));
-  if (!response.ok) return json({ error: result.error?.message || 'Unable to load WhatsApp templates.' }, 502);
-  const templates = (result.data || []).map(({ id, name, status, category, language }) => ({ id, name, status, category, language }));
-  return json({ templates });
+  if (!response.ok) throw new Response(result.error?.message || 'Unable to load WhatsApp templates.', { status: 502 });
+  return (result.data || []).map(({ id, name, status, category, language }) => ({ id, name, status, category, language }));
+}
+
+async function whatsappTemplates(env) {
+  return json({ templates: await fetchWhatsAppTemplates(env) });
 }
 
 function messageBody(message) {
@@ -670,6 +673,40 @@ async function sendWhatsApp(request, env) {
   return json({ accepted: true, message_id: messageId, to, type: message.type }, 201);
 }
 
+function catalogueInviteMessage(to, language = 'en_US') {
+  return {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to,
+    type: 'template',
+    template: { name: 'amul_catalogue', language: { code: language } },
+  };
+}
+
+async function inviteWhatsAppCustomer(request, env) {
+  if (!env.META_ACCESS_TOKEN || !env.META_PHONE_ID || !env.META_WABA_ID) return json({ error: 'WhatsApp invitations are not configured yet.' }, 503);
+  const body = await readObject(request, 20_000);
+  if (body.opt_in !== true) return json({ error: 'Confirm that this customer agreed to receive WhatsApp messages.' }, 400);
+  const to = cleanPhone(body.to);
+  if (!to) throw new Response('Customer number is required', { status: 400 });
+  const customerName = cleanText(body.customer_name, 'customer_name', 120, false);
+  const language = cleanText(body.language, 'language', 20, false) || 'en_US';
+  const templates = await fetchWhatsAppTemplates(env);
+  const template = templates.find(item => item.name === 'amul_catalogue' && item.language === language);
+  if (!template) return json({ error: `The amul_catalogue ${language} template is not available in Meta.` }, 409);
+  if (template.status !== 'APPROVED') return json({ error: `Meta has not approved the catalogue invite yet (current status: ${template.status}).` }, 409);
+
+  let result, messageId;
+  try { ({ result, messageId } = await sendMetaMessage(env, to, catalogueInviteMessage(to, language))); }
+  catch (error) { return json({ error: String(error.message || error) }, 502); }
+  await env.DB.batch([
+    profileUpsert(env, to, customerName, false),
+    env.DB.prepare(`INSERT OR IGNORE INTO whatsapp_events(event_id,event_type,from_number,customer_name,direction,message_type,body,raw_json,event_time)
+      VALUES(?1,'INVITE',?2,?3,'OUTBOUND','template','amul_catalogue',?4,?5)`).bind(`invite:${messageId}`, to, customerName, JSON.stringify(result), String(Math.floor(Date.now() / 1000))),
+  ]);
+  return json({ accepted: true, message_id: messageId, to, template: 'amul_catalogue' }, 201);
+}
+
 async function route(request, env) {
   const url = new URL(request.url);
   const path = url.pathname;
@@ -708,6 +745,7 @@ async function route(request, env) {
   }
   if (path === '/api/whatsapp/conversations' && request.method === 'GET') return whatsappConversations(env);
   if (path === '/api/whatsapp/templates' && request.method === 'GET') return whatsappTemplates(env);
+  if (path === '/api/whatsapp/invite' && request.method === 'POST') return inviteWhatsAppCustomer(request, env);
   if (path === '/api/whatsapp/send' && request.method === 'POST') return sendWhatsApp(request, env);
   if (path.startsWith('/api/')) return json({ error: 'API endpoint not found' }, 404);
   return env.ASSETS.fetch(request);
@@ -724,4 +762,4 @@ export default {
   },
 };
 
-export { equalSecret, cleanPhone, cleanGstin, cleanLocationUrl, catalogueReply, catalogueRequested, supportsWhatsAppWebhook };
+export { equalSecret, cleanPhone, cleanGstin, cleanLocationUrl, catalogueReply, catalogueRequested, catalogueInviteMessage, supportsWhatsAppWebhook };

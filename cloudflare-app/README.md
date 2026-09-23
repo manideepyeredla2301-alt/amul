@@ -25,6 +25,10 @@ Every new WhatsApp sender receives the catalogue link automatically. Further
 messages do not trigger repeated replies for 24 hours, unless the customer
 explicitly sends `catalogue`, `catalog`, `menu`, `products`, or `price list`.
 The webhook records successful and failed automatic replies in D1.
+The protected WhatsApp dashboard also has a separate new-customer invite form.
+It only sends the `amul_catalogue` template after Meta reports that template as
+`APPROVED`, and requires confirmation that the recipient opted in. It does not
+change or replace the live webhook.
 It also safely stores the Coexistence webhook fields `account_update`,
 `history`, `smb_app_state_sync`, and `smb_message_echoes`, so the backend is
 ready when Meta approves the app for Tech Provider onboarding.
