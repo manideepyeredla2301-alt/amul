@@ -25,6 +25,9 @@ Every new WhatsApp sender receives the catalogue link automatically. Further
 messages do not trigger repeated replies for 24 hours, unless the customer
 explicitly sends `catalogue`, `catalog`, `menu`, `products`, or `price list`.
 The webhook records successful and failed automatic replies in D1.
+It also safely stores the Coexistence webhook fields `account_update`,
+`history`, `smb_app_state_sync`, and `smb_message_echoes`, so the backend is
+ready when Meta approves the app for Tech Provider onboarding.
 
 Deploy in this order:
 

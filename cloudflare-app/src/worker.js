@@ -330,6 +330,17 @@ function catalogueRequested(body) {
   return /\b(catalog|catalogue|menu|products?|price\s*list)\b/i.test(String(body || ''));
 }
 
+const coexistenceWebhookFields = new Set(['account_update', 'history', 'smb_app_state_sync', 'smb_message_echoes']);
+
+function supportsWhatsAppWebhook(field) {
+  return field === 'messages' || coexistenceWebhookFields.has(field);
+}
+
+async function webhookEventId(entryId, field, value) {
+  const bytes = await digest(`${entryId}:${field}:${JSON.stringify(value)}`);
+  return `coexist:${[...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('')}`;
+}
+
 async function sendMetaMessage(env, to, message) {
   if (!env.META_ACCESS_TOKEN || !env.META_PHONE_ID) throw new Error('WhatsApp sending is not configured yet.');
   const version = /^v\d+\.\d+$/.test(env.META_GRAPH_VERSION || '') ? env.META_GRAPH_VERSION : 'v25.0';
@@ -385,8 +396,14 @@ async function whatsappWebhook(request, env) {
   const statements = [];
   const newMessages = [];
   for (const entry of payload.entry || []) for (const change of entry.changes || []) {
-    if (change.field !== 'messages') continue;
+    if (!supportsWhatsAppWebhook(change.field)) continue;
     const value = change.value || {};
+    if (change.field !== 'messages') {
+      const genericId = await webhookEventId(entry.id || '', change.field, value);
+      statements.push(env.DB.prepare(`INSERT OR IGNORE INTO whatsapp_events(event_id,event_type,from_number,message_type,body,raw_json,event_time)
+        VALUES(?1,'COEXISTENCE',?2,?3,?4,?5,?6)`).bind(genericId, String(value.phone_number || value.from || ''), String(change.field), String(value.event || value.sync_type || ''), JSON.stringify(value), String(entry.time || '')));
+      continue;
+    }
     if (env.META_PHONE_ID && value.metadata?.phone_number_id !== env.META_PHONE_ID) continue;
     for (const message of value.messages || []) {
       if (!message.id) continue;
@@ -481,4 +498,4 @@ export default {
   },
 };
 
-export { equalSecret, cleanPhone, catalogueReply, catalogueRequested };
+export { equalSecret, cleanPhone, catalogueReply, catalogueRequested, supportsWhatsAppWebhook };

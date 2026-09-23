@@ -1,12 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {catalogueReply,catalogueRequested,cleanPhone,equalSecret} from '../src/worker.js';
+import {catalogueReply,catalogueRequested,cleanPhone,equalSecret,supportsWhatsAppWebhook} from '../src/worker.js';
 
 test('constant-time secret comparison and phone normalization',async()=>{
   assert.equal(await equalSecret('same','same'),true);
   assert.equal(await equalSecret('same','different'),false);
   assert.equal(cleanPhone('+91 90140 03991'),'919014003991');
   assert.throws(()=>cleanPhone('123'));
+});
+
+test('webhook accepts standard and coexistence event fields',()=>{
+  for(const field of ['messages','account_update','history','smb_app_state_sync','smb_message_echoes'])assert.equal(supportsWhatsAppWebhook(field),true);
+  assert.equal(supportsWhatsAppWebhook('unrelated_field'),false);
 });
 
 test('catalogue auto reply is explicit, useful and recognizes catalogue requests',()=>{
