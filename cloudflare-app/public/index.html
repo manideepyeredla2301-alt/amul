@@ -37,6 +37,7 @@
 
     <section id="orders" class="tab">
       <div class="section-head"><div><h2>Order management</h2><p class="hint">Online orders queue safely until the Amul PC reconnects.</p></div><button id="new-order">New order</button></div>
+      <div class="toolbar order-toolbar"><input id="order-search" type="search" placeholder="Search order, customer, phone or product"><button id="refresh-orders" class="secondary">Refresh</button></div>
       <h3>Online order queue</h3><div id="orders-list" class="cards"></div>
       <h3 class="subheading">Orders already in FrostFlow</h3><div id="distribution-orders-list" class="cards"></div>
     </section>
@@ -83,6 +84,17 @@
       <div class="form-grid"><label>Customer name<input name="customer_name" maxlength="120"></label><label>WhatsApp number<input name="phone" inputmode="tel" placeholder="919876543210"></label></div>
       <div class="form-grid"><label>Route<input name="route_name" maxlength="150"></label><label>Delivery date<input name="delivery_date" type="date"></label></div>
       <div><strong>Selected products</strong><div id="cart-lines" class="cart-lines"></div><p id="cart-total" class="cart-total"></p></div>
+      <section class="custom-product-panel">
+        <div><strong>Product not in the catalogue?</strong><p class="hint">Add it only to this order. The normal catalogue stays unchanged.</p></div>
+        <div class="custom-product-grid">
+          <label>Product name<input id="custom-product-name" maxlength="200" placeholder="Enter product name"></label>
+          <label>Quantity<input id="custom-product-quantity" type="number" min="0.01" max="1000" step="0.01" value="1"></label>
+          <label>Unit<select id="custom-product-unit"><option>PCS</option><option>BOX</option><option>CRT</option><option>KG</option><option>LTR</option><option>PACK</option></select></label>
+          <label>Unit price (₹)<input id="custom-product-price" type="number" min="0" max="10000000" step="0.01" value="0"></label>
+          <button id="add-custom-product" type="button" class="secondary">＋ Add custom product</button>
+        </div>
+        <p id="custom-product-error" class="error"></p>
+      </section>
       <label>Delivery note<textarea name="note" maxlength="400"></textarea></label>
       <button value="submit" id="submit-order">Reserve stock & save order</button>
       <p id="order-error" class="error"></p>

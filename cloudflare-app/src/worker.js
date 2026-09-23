@@ -269,12 +269,30 @@ async function createOrder(request, env, options = {}) {
     if (Number(recent?.count || 0) >= 4) throw new Response('Too many recent orders. Please wait a few minutes.', { status: 429 });
   }
   const preparedLines = [];
+  const customProducts = [];
+  const hideCustomProducts = [];
   let total = 0;
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
-    const requestedProductId = cleanText(line.product_id, 'product_id', 100);
     const quantity = Number(line.quantity);
     if (!Number.isFinite(quantity) || quantity <= 0 || quantity > 1000) throw new Response('Invalid quantity', { status: 400 });
+    if (line.custom === true) {
+      if (options.publicCatalog) throw new Response('Custom products are available only in the protected order app', { status: 400 });
+      const productName = cleanText(line.product_name, 'product_name', 200);
+      const unit = cleanText(line.unit, 'unit', 20, false) || 'PCS';
+      const price = cleanInteger(line.unit_price_paise, 'unit_price_paise');
+      const productId = `CUSTOM:${id}:${index + 1}`;
+      total += Math.round(quantity * price);
+      customProducts.push(env.DB.prepare(`INSERT INTO inventory
+        (product_id,sku,product_name,category,unit,stock_qty,reserved_qty,mrp_paise,selling_price_paise,active,source_device,snapshot_id,source_updated_at,synced_at)
+        VALUES(?1,'',?2,'Custom',?3,?4,0,?5,?5,1,'manual-order',?6,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)`)
+        .bind(productId, productName, unit, quantity, price, id));
+      preparedLines.push(env.DB.prepare('INSERT INTO order_lines(order_id,line_no,product_id,product_name,quantity,unit,price_paise) VALUES(?1,?2,?3,?4,?5,?6,?7)')
+        .bind(id, index + 1, productId, productName, quantity, unit, price));
+      hideCustomProducts.push(env.DB.prepare('UPDATE inventory SET active=0 WHERE product_id=?1').bind(productId));
+      continue;
+    }
+    const requestedProductId = cleanText(line.product_id, 'product_id', 100);
     const prefixedProductId = requestedProductId.startsWith('AMUL:') ? requestedProductId : `AMUL:${requestedProductId}`;
     const product = await env.DB.prepare(`SELECT product_id,product_name,unit,selling_price_paise
       FROM inventory WHERE active=1 AND (product_id=?1 OR product_id=?2 OR sku=?1) LIMIT 1`)
@@ -290,7 +308,7 @@ async function createOrder(request, env, options = {}) {
   const statements = [env.DB.prepare(`INSERT INTO orders
     (id,request_id,source,customer_id,customer_name,phone,address,note,status,order_number,route_name,delivery_date,total_paise,workflow_status,updated_at,contact_name,gstin,location_url,location_lat,location_lng)
     VALUES(?1,?2,?3,?4,?5,?6,?7,?8,'NEW',?9,?10,?11,?12,'RECEIVED',CURRENT_TIMESTAMP,?13,?14,?15,?16,?17)`)
-    .bind(id, requestId, source, customerId || (phone ? `WHATSAPP:${phone}` : null), customer, phone, address, cleanText(body.note, 'note', 400, false), orderNumber, cleanText(body.route_name || savedCustomer?.route_name, 'route_name', 150, false), deliveryDate, total, contactName, gstin, locationUrl, latitude, longitude), ...preparedLines];
+    .bind(id, requestId, source, customerId || (phone ? `WHATSAPP:${phone}` : null), customer, phone, address, cleanText(body.note, 'note', 400, false), orderNumber, cleanText(body.route_name || savedCustomer?.route_name, 'route_name', 150, false), deliveryDate, total, contactName, gstin, locationUrl, latitude, longitude), ...customProducts, ...preparedLines];
   if (phone) statements.push(env.DB.prepare(`INSERT INTO whatsapp_customers
     (phone,display_name,shop_name,contact_name,gstin,address,location_url,location_lat,location_lng,last_order_id,last_order_at,updated_at)
     VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
@@ -305,6 +323,7 @@ async function createOrder(request, env, options = {}) {
       location_lng=COALESCE(excluded.location_lng,whatsapp_customers.location_lng),
       last_order_id=excluded.last_order_id,last_order_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP`)
     .bind(phone, contactName || customer, customer, contactName, gstin, address, locationUrl, latitude, longitude, id));
+  statements.push(...hideCustomProducts);
   try { await env.DB.batch(statements); } catch (error) {
     if (String(error).includes('INSUFFICIENT_STOCK')) throw new Response('Insufficient available stock', { status: 409 });
     throw error;
@@ -755,7 +774,7 @@ async function sendWhatsAppTemplate(request, env) {
 async function route(request, env) {
   const url = new URL(request.url);
   const path = url.pathname;
-  if (path === '/api/health') return json({ ok: true, service: 'frostflow-online', version: '0.4.0' });
+  if (path === '/api/health') return json({ ok: true, service: 'frostflow-online', version: '0.5.0' });
   if (path === '/webhooks/whatsapp' || path === '/webhooks/whatsapp/') return whatsappWebhook(request, env);
   if (path === '/api/catalog/orders' && request.method === 'POST') return createOrder(request, env, { publicCatalog: true });
   if (request.method === 'GET' && (path === '/catalog' || path === '/catalog/' || path === '/catalog.js' || path === '/catalog.css' || path === '/catalog-data.json' || path.startsWith('/images/'))) {

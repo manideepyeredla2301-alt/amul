@@ -6,6 +6,11 @@ Amul Windows PC is unavailable. Cloudflare D1 stores controlled snapshots. The
 Windows sync agent pushes up to 40 records per request and imports queued online
 orders into the existing local order inbox when the PC reconnects.
 
+The protected Orders view searches both online and PC-synced orders by order
+number, customer, phone, product or status. Staff can also add a one-off custom
+product with quantity, unit and price when it is missing from the catalogue.
+Custom items remain attached to the order and do not pollute searchable stock.
+
 The Worker requires these encrypted secrets:
 
 - `APP_USER`
