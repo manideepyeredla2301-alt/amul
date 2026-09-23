@@ -192,6 +192,7 @@ async function acceptSnapshot(request, env) {
 
   const statements = items.map((item) => {
     const productId = cleanText(item.product_id, 'product_id', 100);
+    if(!productId.startsWith('AMUL:'))throw new Response('Sync accepts Amul products only; local and cloud records are protected.',{status:409});
     const productName = cleanText(item.product_name, 'product_name', 200);
     const stock = Number(item.stock_qty || 0);
     if (!Number.isFinite(stock) || stock < 0) throw new Response(`Invalid stock for ${productId}`, { status: 400 });
@@ -200,8 +201,9 @@ async function acceptSnapshot(request, env) {
     return env.DB.prepare(`INSERT INTO inventory(product_id,sku,product_name,category,unit,stock_qty,mrp_paise,selling_price_paise,active,source_device,snapshot_id,source_updated_at,synced_at)
       VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,CURRENT_TIMESTAMP)
       ON CONFLICT(product_id) DO UPDATE SET sku=excluded.sku,product_name=excluded.product_name,category=excluded.category,unit=excluded.unit,
-      stock_qty=excluded.stock_qty,mrp_paise=excluded.mrp_paise,selling_price_paise=excluded.selling_price_paise,active=excluded.active,
-      source_device=excluded.source_device,snapshot_id=excluded.snapshot_id,source_updated_at=excluded.source_updated_at,synced_at=CURRENT_TIMESTAMP`)
+      source_stock_qty=excluded.stock_qty,source_stock_seen_at=CURRENT_TIMESTAMP,
+      snapshot_id=excluded.snapshot_id,source_updated_at=excluded.source_updated_at,synced_at=CURRENT_TIMESTAMP
+      WHERE inventory.source_device<>'cloudflare-admin'`)
       .bind(productId, cleanText(item.sku, 'sku', 100, false), productName, cleanText(item.category, 'category', 100, false) || 'Other', cleanText(item.unit, 'unit', 20, false) || 'PCS', stock, mrp, selling, item.active === false ? 0 : 1, deviceId, snapshotId, cleanText(item.source_updated_at, 'source_updated_at', 40, false));
   });
   if (statements.length) await env.DB.batch(statements);
@@ -209,7 +211,7 @@ async function acceptSnapshot(request, env) {
   if (body.complete) {
     const count = await env.DB.prepare('SELECT COUNT(*) count FROM inventory WHERE source_device=?1 AND snapshot_id=?2').bind(deviceId, snapshotId).first();
     await env.DB.batch([
-      env.DB.prepare('UPDATE inventory SET active=0 WHERE source_device=?1 AND snapshot_id<>?2').bind(deviceId, snapshotId),
+      env.DB.prepare('SELECT COUNT(*) FROM inventory WHERE source_device=?1 AND snapshot_id<>?2').bind(deviceId, snapshotId),
       env.DB.prepare(`UPDATE inventory SET active=0 WHERE source_device='catalog-seed' AND sku IN
         (SELECT sku FROM inventory WHERE source_device=?1 AND snapshot_id=?2 AND active=1 AND sku<>'')`).bind(deviceId, snapshotId),
       env.DB.prepare('INSERT OR REPLACE INTO sync_runs(snapshot_id,device_id,captured_at,product_count,completed_at) VALUES(?1,?2,?3,?4,CURRENT_TIMESTAMP)').bind(snapshotId, deviceId, capturedAt, count?.count || 0),
@@ -276,11 +278,14 @@ async function acceptBusinessSnapshot(request, env) {
   const capturedAt = cleanText(body.captured_at, 'captured_at', 40);
   const items = Array.isArray(body.items) ? body.items : [];
   if (items.length > 40) throw new Response('Use at most 40 records per sync chunk', { status: 400 });
+  if(items.some(item=>item.source!=='AMUL'||!String(item.id).startsWith('AMUL:')))throw new Response('Only Amul source records may be synced.',{status:409});
   if (body.complete && items.length) throw new Response('Send completion as an empty final chunk', { status: 400 });
-  if (items.length) await env.DB.batch(items.map((item) => businessStatement(env, dataset, item, deviceId, snapshotId)));
+  // Preserve all existing operational balances/edits. Existing upstream records need reconciliation, not replacement.
+  const additions=[];
+  for(const item of items){const existing=await env.DB.prepare(`SELECT id FROM ${dataset} WHERE id=?1`).bind(item.id).first();if(!existing)additions.push(item);}
+  if (additions.length) await env.DB.batch(additions.map((item) => businessStatement(env, dataset, item, deviceId, snapshotId)));
   if (body.complete) {
     const statements = [];
-    if (dataset === 'customers' || dataset === 'routes') statements.push(env.DB.prepare(`UPDATE ${dataset} SET active=0 WHERE source_device=?1 AND snapshot_id<>?2`).bind(deviceId, snapshotId));
     const count = await env.DB.prepare(`SELECT COUNT(*) count FROM ${dataset} WHERE source_device=?1 AND snapshot_id=?2`).bind(deviceId, snapshotId).first();
     statements.push(env.DB.prepare('INSERT INTO sync_state(key,value,updated_at) VALUES(?1,?2,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP')
       .bind(`business:${dataset}`, JSON.stringify({ dataset, snapshot_id: snapshotId, device_id: deviceId, captured_at: capturedAt, record_count: count?.count || 0 })));
@@ -666,7 +671,16 @@ async function invoiceDetail(env, id) {
   const invoice = await env.DB.prepare('SELECT * FROM invoices WHERE id=?1').bind(id).first();
   if (!invoice) return json({ error: 'Invoice not found' }, 404);
   const lines = await env.DB.prepare('SELECT * FROM invoice_lines WHERE invoice_id=?1 ORDER BY line_no').bind(id).all();
-  return json({ invoice, lines: lines.results || [] });
+  let rows=lines.results || [];
+  if(!rows.length && invoice.source==='AMUL'){
+    const archived=await env.DB.prepare(`SELECT a.payload,p.product_name,p.sku FROM local_migration_archive a
+      LEFT JOIN inventory p ON p.product_id='AMUL:' || json_extract(a.payload,'$.product_id')
+      WHERE a.source_table='amul_sales_invoice_lines' AND CAST(json_extract(a.payload,'$.sal_id') AS TEXT)=?1
+      ORDER BY CAST(json_extract(a.payload,'$.line_no') AS INTEGER)`).bind(String(invoice.source_id)).all();
+    rows=(archived.results||[]).map(r=>{const p=JSON.parse(r.payload);return {line_no:p.line_no,product_id:'AMUL:'+p.product_id,product_name:r.product_name||String(p.product_id),sku:r.sku,quantity:p.quantity,unit:'base stock units',unit_price_paise:p.unit_rate_paise,gst_bps:null,tax_paise:p.tax_paise,total_paise:p.net_paise,subtotal_paise:p.net_paise-p.tax_paise};});
+    if(rows.length){invoice.tax_paise=rows.reduce((s,r)=>s+r.tax_paise,0);invoice.subtotal_paise=rows.reduce((s,r)=>s+r.subtotal_paise,0);}
+  }
+  return json({ invoice, lines: rows });
 }
 
 async function createInvoice(request, env) {
@@ -978,7 +992,8 @@ async function whatsappWebhook(request, env) {
         VALUES(?1,'STATUS',?2,'SYSTEM',?3,?4,?5,?6)`).bind(`${status.id}:${status.status}:${status.timestamp}`, cleanPhone(status.recipient_id || ''), String(status.status || ''), status.errors ? JSON.stringify(status.errors) : null, JSON.stringify(status), String(status.timestamp)));
     }
   }
-  if (statements.length) await env.DB.batch(statements.slice(0, 50));
+  // Acknowledge only after every event is stored. Retries are deduplicated by event ID.
+  for(let offset=0;offset<statements.length;offset+=50)await env.DB.batch(statements.slice(offset,offset+50));
   for (const incoming of newMessages.slice(0, 10)) await autoReplyWithCatalogue(env, request.url, incoming.message, incoming.body);
   return text('EVENT_RECEIVED');
 }
