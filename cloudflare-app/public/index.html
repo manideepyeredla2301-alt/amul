@@ -55,10 +55,11 @@
       <div class="section-head"><div><h2>WhatsApp Business</h2><p class="hint">Use templates outside the 24-hour customer-service window.</p></div></div>
       <form id="message-form" class="panel compact-form">
         <label>Customer number<input name="to" inputmode="tel" placeholder="919876543210" required></label>
-        <label>Message<textarea name="text" maxlength="4096" placeholder="Enter a reply"></textarea></label>
-        <label>Approved template (optional)<input name="template_name" placeholder="order_update"></label>
-        <label>Template language<input name="language" value="en"></label>
+        <label>Message<textarea name="text" maxlength="4096" placeholder="Reply while the 24-hour window is open"></textarea></label>
+        <label>Send type<select name="template_name" id="template-name"><option value="">Reply (within 24 hours)</option></select></label>
+        <label>Template language<input name="language" value="en_US" readonly></label>
         <button>Send WhatsApp</button><p id="message-result" class="hint"></p>
+        <p id="template-status" class="hint"></p>
       </form>
       <h3>Activity</h3><div id="whatsapp-list" class="cards"></div>
     </section>

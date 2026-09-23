@@ -350,8 +350,28 @@ async function sendMetaMessage(env, to, message) {
     body: JSON.stringify(message),
   });
   const result = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(result.error?.message || `Meta rejected the message (${response.status})`);
+  if (!response.ok) {
+    const code = Number(result.error?.code || 0);
+    const friendly = code === 131047
+      ? 'The 24-hour customer-service window has expired. Send an approved template to reopen the conversation.'
+      : code === 131030
+        ? 'This recipient is not available for WhatsApp API delivery. Check the country code and ask the customer to open the business chat first.'
+        : result.error?.message || `Meta rejected the message (${response.status})`;
+    throw new Error(`${friendly}${code ? ` (Meta ${code})` : ''}`);
+  }
   return { result, messageId: result.messages?.[0]?.id || crypto.randomUUID() };
+}
+
+async function whatsappTemplates(env) {
+  if (!env.META_ACCESS_TOKEN || !env.META_WABA_ID) return json({ error: 'WhatsApp templates are not configured yet.' }, 503);
+  const version = /^v\d+\.\d+$/.test(env.META_GRAPH_VERSION || '') ? env.META_GRAPH_VERSION : 'v25.0';
+  const response = await fetch(`https://graph.facebook.com/${version}/${encodeURIComponent(env.META_WABA_ID)}/message_templates?fields=id,name,status,category,language&limit=100`, {
+    headers: { authorization: `Bearer ${env.META_ACCESS_TOKEN}` },
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) return json({ error: result.error?.message || 'Unable to load WhatsApp templates.' }, 502);
+  const templates = (result.data || []).map(({ id, name, status, category, language }) => ({ id, name, status, category, language }));
+  return json({ templates });
 }
 
 async function autoReplyWithCatalogue(env, requestUrl, message, body) {
@@ -434,7 +454,7 @@ async function sendWhatsApp(request, env) {
   const templateName = cleanText(body.template_name, 'template_name', 120, false);
   let message;
   if (templateName) {
-    message = { messaging_product: 'whatsapp', recipient_type: 'individual', to, type: 'template', template: { name: templateName, language: { code: cleanText(body.language, 'language', 20, false) || 'en' } } };
+    message = { messaging_product: 'whatsapp', recipient_type: 'individual', to, type: 'template', template: { name: templateName, language: { code: cleanText(body.language, 'language', 20, false) || 'en_US' } } };
   } else {
     const content = cleanText(body.text, 'message', 4096);
     message = { messaging_product: 'whatsapp', recipient_type: 'individual', to, type: 'text', text: { preview_url: false, body: content } };
@@ -482,6 +502,7 @@ async function route(request, env) {
     const rows = await env.DB.prepare('SELECT event_id,event_type,from_number,message_type,body,event_time,received_at FROM whatsapp_events ORDER BY received_at DESC LIMIT 200').all();
     return json({ events: rows.results || [] });
   }
+  if (path === '/api/whatsapp/templates' && request.method === 'GET') return whatsappTemplates(env);
   if (path === '/api/whatsapp/send' && request.method === 'POST') return sendWhatsApp(request, env);
   if (path.startsWith('/api/')) return json({ error: 'API endpoint not found' }, 404);
   return env.ASSETS.fetch(request);
