@@ -313,13 +313,13 @@ async function createOrder(request, env, options = {}) {
   if (existing) return json(existing, 200);
   const id = crypto.randomUUID();
   let customerId = cleanText(body.customer_id, 'customer_id', 140, false);
-  let savedCustomer = customerId ? await env.DB.prepare('SELECT id,name,mobile,whatsapp_number,address,route_name FROM customers WHERE id=?1 AND active=1').bind(customerId).first() : null;
+  let savedCustomer = customerId ? await env.DB.prepare('SELECT id,name,mobile,whatsapp_number,address,route_name FROM customers WHERE id=?1 AND active=1 AND deleted_at IS NULL').bind(customerId).first() : null;
   if (customerId && !savedCustomer) throw new Response('Selected customer is unavailable', { status: 400 });
   const phone = cleanPhone(body.phone || savedCustomer?.whatsapp_number || savedCustomer?.mobile);
   if (!customerId && phone) {
     const local = phone.slice(-10);
     savedCustomer = await env.DB.prepare(`SELECT id,name,mobile,whatsapp_number,address,route_name FROM customers
-      WHERE active=1 AND (mobile IN (?1,?2) OR whatsapp_number IN (?1,?2)) ORDER BY source='AMUL' DESC LIMIT 1`).bind(phone, local).first();
+      WHERE active=1 AND deleted_at IS NULL AND (mobile IN (?1,?2) OR whatsapp_number IN (?1,?2)) ORDER BY source='AMUL' DESC LIMIT 1`).bind(phone, local).first();
     if (savedCustomer) customerId = savedCustomer.id;
   }
   if (options.publicCatalog && !phone) throw new Response('WhatsApp phone number is required', { status: 400 });
@@ -407,7 +407,7 @@ async function createOrder(request, env, options = {}) {
       location_lat=COALESCE(excluded.location_lat,whatsapp_customers.location_lat),
       location_lng=COALESCE(excluded.location_lng,whatsapp_customers.location_lng),
       route_name=COALESCE(NULLIF(excluded.route_name,''),whatsapp_customers.route_name),
-      last_order_id=excluded.last_order_id,last_order_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP`)
+      last_order_id=excluded.last_order_id,last_order_at=CURRENT_TIMESTAMP,deleted_at=NULL,updated_at=CURRENT_TIMESTAMP`)
     .bind(phone, contactName || customer, customer, contactName, gstin, address, locationUrl, latitude, longitude, id, routeName));
   statements.push(...hideCustomProducts);
   try { await env.DB.batch(statements); } catch (error) {
@@ -576,9 +576,9 @@ async function dashboard(env) {
   const [inventorySummary, orderSummary, accountSummary, customerSummary, whatsappCustomerSummary, syncRows] = await Promise.all([
     env.DB.prepare('SELECT COUNT(*) products,COALESCE(SUM(stock_qty),0) stock_units,COALESCE(SUM(reserved_qty),0) reserved_units,COALESCE(SUM(CASE WHEN manual_out_of_stock=1 OR stock_qty-reserved_qty<=0 THEN 1 ELSE 0 END),0) out_of_stock FROM inventory WHERE active=1').first(),
     env.DB.prepare("SELECT COUNT(*) total,COALESCE(SUM(CASE WHEN status IN ('NEW','SYNCED') THEN 1 ELSE 0 END),0) open_orders,COALESCE(SUM(CASE WHEN date(created_at)=date('now') THEN total_paise ELSE 0 END),0) today_value_paise FROM orders").first(),
-    env.DB.prepare("SELECT COALESCE(SUM(outstanding_paise),0) receivable_paise,COALESCE(SUM(CASE WHEN due_date<>'' AND date(due_date)<date('now') AND outstanding_paise>0 THEN outstanding_paise ELSE 0 END),0) overdue_paise,COALESCE(SUM(CASE WHEN substr(invoice_date,1,7)=substr(date('now'),1,7) THEN total_paise ELSE 0 END),0) month_sales_paise FROM invoices WHERE status<>'VOID'").first(),
-    env.DB.prepare('SELECT COUNT(*) customers FROM customers WHERE active=1').first(),
-    env.DB.prepare('SELECT COUNT(*) customers FROM whatsapp_customers').first(),
+    env.DB.prepare("SELECT COALESCE(SUM(outstanding_paise),0) receivable_paise,COALESCE(SUM(CASE WHEN due_date<>'' AND date(due_date)<date('now') AND outstanding_paise>0 THEN outstanding_paise ELSE 0 END),0) overdue_paise,COALESCE(SUM(CASE WHEN substr(invoice_date,1,7)=substr(date('now'),1,7) THEN total_paise ELSE 0 END),0) month_sales_paise FROM invoices WHERE status<>'VOID' AND deleted_at IS NULL").first(),
+    env.DB.prepare('SELECT COUNT(*) customers FROM customers WHERE active=1 AND deleted_at IS NULL').first(),
+    env.DB.prepare('SELECT COUNT(*) customers FROM whatsapp_customers WHERE deleted_at IS NULL').first(),
     env.DB.prepare("SELECT key,value,updated_at FROM sync_state WHERE key='current_snapshot' OR key LIKE 'business:%' ORDER BY key").all(),
   ]);
   return json({ inventory: inventorySummary, orders: orderSummary, accounts: accountSummary, customers: { customers: Number(customerSummary?.customers || 0) + Number(whatsappCustomerSummary?.customers || 0) }, sync: syncRows.results || [] });
@@ -594,10 +594,10 @@ async function reconciliation(env) {
     env.DB.prepare(`SELECT COUNT(*) differences,COALESCE(SUM(ABS(stock_qty-source_stock_qty)),0) units_difference
       FROM inventory WHERE source_stock_qty IS NOT NULL AND ABS(stock_qty-source_stock_qty)>0.0001`).first(),
     env.DB.prepare(`SELECT COUNT(*) missing_lines FROM invoices i
-      WHERE i.status<>'VOID' AND NOT EXISTS(SELECT 1 FROM invoice_lines l WHERE l.invoice_id=i.id)`).first(),
+      WHERE i.status<>'VOID' AND i.deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM invoice_lines l WHERE l.invoice_id=i.id)`).first(),
     env.DB.prepare(`SELECT COUNT(*) groups_count FROM (
       SELECT COALESCE(NULLIF(whatsapp_number,''),NULLIF(mobile,'')) phone FROM customers
-      WHERE active=1 AND COALESCE(NULLIF(whatsapp_number,''),NULLIF(mobile,'')) IS NOT NULL
+      WHERE active=1 AND deleted_at IS NULL AND COALESCE(NULLIF(whatsapp_number,''),NULLIF(mobile,'')) IS NOT NULL
       GROUP BY phone HAVING COUNT(*)>1
     )`).first(),
     env.DB.prepare('SELECT COUNT(*) archived_rows,COUNT(DISTINCT source_table) archived_tables FROM local_migration_archive').first(),
@@ -610,11 +610,11 @@ async function reconciliation(env) {
       FROM inventory WHERE source_stock_qty IS NOT NULL AND ABS(stock_qty-source_stock_qty)>0.0001
       ORDER BY ABS(stock_qty-source_stock_qty) DESC,product_name LIMIT 12`).all(),
     env.DB.prepare(`SELECT i.id,i.invoice_number,i.source,i.customer_name,i.invoice_date,i.total_paise
-      FROM invoices i WHERE i.status<>'VOID' AND NOT EXISTS(SELECT 1 FROM invoice_lines l WHERE l.invoice_id=i.id)
+      FROM invoices i WHERE i.status<>'VOID' AND i.deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM invoice_lines l WHERE l.invoice_id=i.id)
       ORDER BY i.invoice_date DESC,i.id DESC LIMIT 12`).all(),
     env.DB.prepare(`SELECT COALESCE(NULLIF(whatsapp_number,''),NULLIF(mobile,'')) phone,COUNT(*) records,
       GROUP_CONCAT(name,' · ') customer_names
-      FROM customers WHERE active=1 AND COALESCE(NULLIF(whatsapp_number,''),NULLIF(mobile,'')) IS NOT NULL
+      FROM customers WHERE active=1 AND deleted_at IS NULL AND COALESCE(NULLIF(whatsapp_number,''),NULLIF(mobile,'')) IS NOT NULL
       GROUP BY phone HAVING COUNT(*)>1 ORDER BY records DESC,phone LIMIT 12`).all(),
   ]);
   return json({
@@ -642,21 +642,102 @@ function pageParams(request) {
   return { query: String(url.searchParams.get('q') || '').trim().slice(0, 80), limit: Math.min(500, Math.max(1, Number(url.searchParams.get('limit') || 100))), offset: Math.max(0, Number(url.searchParams.get('offset') || 0)) };
 }
 
+function routeDisplayName(name, aliases) {
+  const source = String(name || '').trim();
+  return aliases.get(source.toLocaleLowerCase()) || source || 'Unassigned route';
+}
+
+async function routes(env) {
+  const [routeRows, customerRows, onlineRows, aliasRows] = await Promise.all([
+    env.DB.prepare('SELECT id,source,code,name FROM routes WHERE active=1 ORDER BY name').all(),
+    env.DB.prepare(`SELECT id,mobile,whatsapp_number,TRIM(COALESCE(route_name,'')) name FROM customers
+      WHERE active=1 AND deleted_at IS NULL`).all(),
+    env.DB.prepare(`SELECT phone,TRIM(COALESCE(route_name,'')) name FROM whatsapp_customers
+      WHERE deleted_at IS NULL`).all(),
+    env.DB.prepare('SELECT source_name,display_name FROM route_aliases').all(),
+  ]);
+  const aliases = new Map((aliasRows.results || []).map(row => [String(row.source_name || '').trim().toLocaleLowerCase(), row.display_name]));
+  const result = new Map();
+  const add = (rawName, count = 0, source = 'CUSTOMER') => {
+    const name = routeDisplayName(rawName, aliases);
+    const key = name.toLocaleLowerCase();
+    const current = result.get(key) || { name, customer_count: 0, sources: new Set() };
+    current.customer_count += Number(count || 0);
+    current.sources.add(source);
+    result.set(key, current);
+  };
+  for (const row of routeRows.results || []) add(row.name, 0, row.source);
+  const knownPhones = new Set();
+  for (const row of customerRows.results || []) {
+    add(row.name, 1);
+    for (const value of [row.mobile, row.whatsapp_number]) { const phone = cleanStoredPhone(value); if (phone) knownPhones.add(phone); }
+  }
+  for (const row of onlineRows.results || []) if (!knownPhones.has(cleanStoredPhone(row.phone))) add(row.name, 1, 'WHATSAPP');
+  return json({ routes: [...result.values()].map(row => ({ ...row, sources: [...row.sources] })).sort((a, b) => a.name === 'Unassigned route' ? 1 : b.name === 'Unassigned route' ? -1 : a.name.localeCompare(b.name)) });
+}
+
+async function createRoute(request, env) {
+  const body = await readObject(request, 10_000);
+  const name = cleanText(body.name, 'route name', 150);
+  if (name.toLocaleLowerCase() === 'unassigned route') return json({ error: 'Use a specific route name.' }, 400);
+  const duplicate = await env.DB.prepare(`SELECT id FROM routes WHERE active=1 AND LOWER(TRIM(name))=LOWER(TRIM(?1)) LIMIT 1`).bind(name).first();
+  if (duplicate) return json({ error: 'This route already exists.' }, 409);
+  const sourceId = crypto.randomUUID();
+  const id = `CLOUD:${sourceId}`;
+  await env.DB.batch([
+    env.DB.prepare(`INSERT INTO routes(id,source,source_id,code,name,active,source_device,snapshot_id,source_updated_at,synced_at)
+      VALUES(?1,'LOCAL',?2,?3,?4,1,'cloudflare-admin',?2,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)`).bind(id, sourceId, `WEB-${sourceId.slice(0, 6).toUpperCase()}`, name),
+    env.DB.prepare("INSERT INTO operations_audit(action,entity_type,entity_id,detail_json) VALUES('CREATE_ROUTE','ROUTE',?1,?2)").bind(id, JSON.stringify({ name })),
+  ]);
+  return json({ id, name, customer_count: 0, sources: ['LOCAL'] }, 201);
+}
+
+async function updateRoute(request, env) {
+  const body = await readObject(request, 20_000);
+  const oldName = cleanText(body.old_name, 'current route name', 150);
+  const name = cleanText(body.name, 'route name', 150);
+  if (name.toLocaleLowerCase() === 'unassigned route') return json({ error: 'Use a specific route name.' }, 400);
+  if (oldName.toLocaleLowerCase() === name.toLocaleLowerCase()) return json({ name, updated: 0 });
+  const aliasRows = await env.DB.prepare('SELECT source_name FROM route_aliases WHERE LOWER(display_name)=LOWER(?1)').bind(oldName).all();
+  const sourceNames = new Set([oldName, ...(aliasRows.results || []).map(row => row.source_name)]);
+  if (oldName === 'Unassigned route') sourceNames.add('');
+  const statements = [];
+  for (const sourceName of sourceNames) {
+    statements.push(
+      env.DB.prepare(`UPDATE customers SET route_name=?1,source_updated_at=CURRENT_TIMESTAMP,synced_at=CURRENT_TIMESTAMP
+        WHERE deleted_at IS NULL AND LOWER(TRIM(COALESCE(route_name,'')))=LOWER(TRIM(?2))`).bind(name, sourceName),
+      env.DB.prepare(`UPDATE whatsapp_customers SET route_name=?1,updated_at=CURRENT_TIMESTAMP
+        WHERE deleted_at IS NULL AND LOWER(TRIM(COALESCE(route_name,'')))=LOWER(TRIM(?2))`).bind(name, sourceName),
+      env.DB.prepare(`UPDATE routes SET name=?1,source_updated_at=CURRENT_TIMESTAMP,synced_at=CURRENT_TIMESTAMP
+        WHERE active=1 AND LOWER(TRIM(name))=LOWER(TRIM(?2))`).bind(name, sourceName),
+      env.DB.prepare(`INSERT INTO route_aliases(source_name,display_name,updated_at) VALUES(?1,?2,CURRENT_TIMESTAMP)
+        ON CONFLICT(source_name) DO UPDATE SET display_name=excluded.display_name,updated_at=CURRENT_TIMESTAMP`).bind(sourceName, name),
+    );
+  }
+  statements.push(
+    env.DB.prepare('UPDATE route_aliases SET display_name=?1,updated_at=CURRENT_TIMESTAMP WHERE LOWER(display_name)=LOWER(?2)').bind(name, oldName),
+    env.DB.prepare("INSERT INTO operations_audit(action,entity_type,entity_id,detail_json) VALUES('RENAME_ROUTE','ROUTE',?1,?2)").bind(oldName, JSON.stringify({ old_name: oldName, name })),
+  );
+  await env.DB.batch(statements);
+  return json({ old_name: oldName, name, updated: sourceNames.size });
+}
+
 async function customers(request, env) {
   const { query, limit, offset } = pageParams(request);
-  const pattern = `%${query.replace(/[\\%_]/g, '\\$&')}%`;
-  const [rows, onlineRows] = await Promise.all([
+  const [rows, onlineRows, aliasRows] = await Promise.all([
     env.DB.prepare(`SELECT c.*,
       c.balance_paise+COALESCE((SELECT SUM(i.outstanding_paise) FROM invoices i
-        WHERE i.customer_id=c.id AND i.source_device='cloudflare-admin' AND i.status<>'VOID'),0) display_balance_paise
-      FROM customers c WHERE c.active=1 AND (?1='' OR c.name LIKE ?2 ESCAPE '\\' OR c.code LIKE ?2 ESCAPE '\\' OR c.mobile LIKE ?2 ESCAPE '\\' OR c.route_name LIKE ?2 ESCAPE '\\')
-      ORDER BY CASE WHEN TRIM(COALESCE(c.route_name,''))='' THEN 1 ELSE 0 END,c.route_name,c.name LIMIT ?3 OFFSET ?4`).bind(query, pattern, limit, offset).all(),
+        WHERE i.customer_id=c.id AND i.source_device='cloudflare-admin' AND i.status<>'VOID' AND i.deleted_at IS NULL),0) display_balance_paise
+      FROM customers c WHERE c.active=1 AND c.deleted_at IS NULL
+      ORDER BY CASE WHEN TRIM(COALESCE(c.route_name,''))='' THEN 1 ELSE 0 END,c.route_name,c.name LIMIT 500`).all(),
     env.DB.prepare(`SELECT w.*,COALESCE((SELECT SUM(i.outstanding_paise) FROM invoices i
-      WHERE i.customer_id='WHATSAPP:' || w.phone AND i.source_device='cloudflare-admin' AND i.status<>'VOID'),0) display_balance_paise
-      FROM whatsapp_customers w WHERE ?1='' OR shop_name LIKE ?2 ESCAPE '\\' OR display_name LIKE ?2 ESCAPE '\\' OR phone LIKE ?2 ESCAPE '\\' OR gstin LIKE ?2 ESCAPE '\\'
-      ORDER BY COALESCE(shop_name,display_name,phone) LIMIT ?3 OFFSET ?4`).bind(query, pattern, limit, offset).all(),
+      WHERE i.customer_id='WHATSAPP:' || w.phone AND i.source_device='cloudflare-admin' AND i.status<>'VOID' AND i.deleted_at IS NULL),0) display_balance_paise
+      FROM whatsapp_customers w WHERE w.deleted_at IS NULL
+      ORDER BY COALESCE(shop_name,display_name,phone) LIMIT 500`).all(),
+    env.DB.prepare('SELECT source_name,display_name FROM route_aliases').all(),
   ]);
-  const result = (rows.results || []).map(row => ({ ...row, balance_paise: Number(row.display_balance_paise ?? row.balance_paise ?? 0), display_balance_paise: undefined }));
+  const aliases = new Map((aliasRows.results || []).map(row => [String(row.source_name || '').trim().toLocaleLowerCase(), row.display_name]));
+  const result = (rows.results || []).map(row => ({ ...row, route_name: routeDisplayName(row.route_name, aliases), balance_paise: Number(row.display_balance_paise ?? row.balance_paise ?? 0), display_balance_paise: undefined }));
   // Imported FrostFlow records can contain old placeholders or incomplete phone
   // values. They must remain visible for correction instead of breaking the
   // complete customer directory. New and edited phone values still use the
@@ -665,11 +746,13 @@ async function customers(request, env) {
   for (const profile of onlineRows.results || []) if (!knownPhones.has(profile.phone)) result.push({
     id: `WHATSAPP:${profile.phone}`, source: 'WHATSAPP', source_id: profile.phone, code: 'ONLINE',
     name: profile.shop_name || profile.display_name || profile.phone, mobile: profile.phone, whatsapp_number: profile.phone,
-    gstin: profile.gstin || '', address: profile.address || '', city: profile.city || '', route_id: '', route_name: profile.route_name || '', credit_days: Number(profile.credit_days || 0),
+    gstin: profile.gstin || '', address: profile.address || '', city: profile.city || '', route_id: '', route_name: routeDisplayName(profile.route_name, aliases), credit_days: Number(profile.credit_days || 0),
     credit_limit_paise: 0, balance_paise: Number(profile.display_balance_paise || 0), active: 1, location_url: profile.location_url || '', last_order_at: profile.last_order_at,
   });
-  result.sort((a,b)=>String(a.route_name||'ZZZ Unassigned').localeCompare(String(b.route_name||'ZZZ Unassigned'))||String(a.name||'').localeCompare(String(b.name||'')));
-  return json({ customers: result.slice(0, limit), total: result.length });
+  const term = query.toLocaleLowerCase();
+  const filtered = term ? result.filter(row => [row.name, row.code, row.mobile, row.whatsapp_number, row.route_name, row.gstin, row.city].some(value => String(value || '').toLocaleLowerCase().includes(term))) : result;
+  filtered.sort((a,b)=>String(a.route_name||'ZZZ Unassigned').localeCompare(String(b.route_name||'ZZZ Unassigned'))||String(a.name||'').localeCompare(String(b.name||'')));
+  return json({ customers: filtered.slice(offset, offset + limit), total: filtered.length });
 }
 
 async function createCustomer(request, env) {
@@ -684,7 +767,7 @@ async function createCustomer(request, env) {
   if (creditDays > 365) throw new Response('credit_days is too large', { status: 400 });
   if (phone) {
     const local = phone.slice(-10);
-    const duplicate = await env.DB.prepare(`SELECT id,name FROM customers WHERE active=1 AND (mobile IN (?1,?2) OR whatsapp_number IN (?1,?2)) LIMIT 1`).bind(phone, local).first();
+    const duplicate = await env.DB.prepare(`SELECT id,name FROM customers WHERE active=1 AND deleted_at IS NULL AND (mobile IN (?1,?2) OR whatsapp_number IN (?1,?2)) LIMIT 1`).bind(phone, local).first();
     if (duplicate) return json({ error: `This number already belongs to ${duplicate.name}.`, customer_id: duplicate.id }, 409);
   }
   const sourceId = crypto.randomUUID();
@@ -702,7 +785,7 @@ async function createCustomer(request, env) {
     VALUES(?1,?2,?2,?3,?4,?5,?6,?7,CURRENT_TIMESTAMP)
     ON CONFLICT(phone) DO UPDATE SET shop_name=excluded.shop_name,gstin=COALESCE(NULLIF(excluded.gstin,''),whatsapp_customers.gstin),
       address=COALESCE(NULLIF(excluded.address,''),whatsapp_customers.address),city=COALESCE(NULLIF(excluded.city,''),whatsapp_customers.city),
-      route_name=COALESCE(NULLIF(excluded.route_name,''),whatsapp_customers.route_name),credit_days=excluded.credit_days,updated_at=CURRENT_TIMESTAMP`).bind(phone, name, gstin, address, city, routeName, creditDays));
+      route_name=COALESCE(NULLIF(excluded.route_name,''),whatsapp_customers.route_name),credit_days=excluded.credit_days,deleted_at=NULL,updated_at=CURRENT_TIMESTAMP`).bind(phone, name, gstin, address, city, routeName, creditDays));
   await env.DB.batch(statements);
   return json({ id, code, name, mobile: phone, whatsapp_number: phone, gstin, address, city, route_name: routeName, credit_days: creditDays, balance_paise: 0, source: 'LOCAL' }, 201);
 }
@@ -710,7 +793,7 @@ async function createCustomer(request, env) {
 async function updateCustomer(request, env, id) {
   if (id.startsWith('WHATSAPP:')) {
     const existingPhone = cleanPhone(id.slice('WHATSAPP:'.length));
-    const current = await env.DB.prepare('SELECT * FROM whatsapp_customers WHERE phone=?1').bind(existingPhone).first();
+    const current = await env.DB.prepare('SELECT * FROM whatsapp_customers WHERE phone=?1 AND deleted_at IS NULL').bind(existingPhone).first();
     if (!current) return json({ error: 'Customer not found' }, 404);
     const body = await readObject(request, 30_000);
     const name = cleanText(body.name ?? current.shop_name ?? current.display_name, 'name', 200);
@@ -723,14 +806,14 @@ async function updateCustomer(request, env, id) {
     if (creditDays > 365) throw new Response('credit_days is too large', { status: 400 });
     if (phone !== existingPhone) return json({ error: 'Create a new customer for a different WhatsApp number so the existing chat history stays intact.' }, 409);
     await env.DB.batch([
-      env.DB.prepare(`UPDATE whatsapp_customers SET phone=?1,display_name=?2,shop_name=?2,gstin=?3,address=?4,city=?5,route_name=?6,credit_days=?7,updated_at=CURRENT_TIMESTAMP WHERE phone=?8`)
+      env.DB.prepare(`UPDATE whatsapp_customers SET phone=?1,display_name=?2,shop_name=?2,gstin=?3,address=?4,city=?5,route_name=?6,credit_days=?7,deleted_at=NULL,updated_at=CURRENT_TIMESTAMP WHERE phone=?8`)
         .bind(phone, name, gstin, address, city, routeName, creditDays, existingPhone),
       env.DB.prepare("INSERT INTO operations_audit(action,entity_type,entity_id,detail_json) VALUES('UPDATE_CUSTOMER','CUSTOMER',?1,?2)")
         .bind(`WHATSAPP:${phone}`, JSON.stringify({ name, phone, gstin, route_name: routeName, previous_phone: existingPhone })),
     ]);
     return json({ id: `WHATSAPP:${phone}`, source: 'WHATSAPP', code: 'ONLINE', name, mobile: phone, whatsapp_number: phone, gstin, address, city, route_name: routeName, credit_days: creditDays, balance_paise: 0 });
   }
-  const current = await env.DB.prepare('SELECT * FROM customers WHERE id=?1').bind(id).first();
+  const current = await env.DB.prepare('SELECT * FROM customers WHERE id=?1 AND deleted_at IS NULL').bind(id).first();
   if (!current) return json({ error: 'Customer not found' }, 404);
   const body = await readObject(request, 30_000);
   const name = cleanText(body.name ?? current.name, 'name', 200);
@@ -743,13 +826,13 @@ async function updateCustomer(request, env, id) {
   if (creditDays > 365) throw new Response('credit_days is too large', { status: 400 });
   if (phone) {
     const local = phone.slice(-10);
-    const duplicate = await env.DB.prepare(`SELECT id,name FROM customers WHERE id<>?1 AND active=1
+    const duplicate = await env.DB.prepare(`SELECT id,name FROM customers WHERE id<>?1 AND active=1 AND deleted_at IS NULL
       AND (mobile IN (?2,?3) OR whatsapp_number IN (?2,?3)) LIMIT 1`).bind(id, phone, local).first();
     if (duplicate) return json({ error: `This number already belongs to ${duplicate.name}.`, customer_id: duplicate.id }, 409);
   }
   const statements = [
     env.DB.prepare(`UPDATE customers SET name=?1,mobile=?2,whatsapp_number=?2,gstin=?3,address=?4,city=?5,route_name=?6,
-      credit_days=?7,source_updated_at=CURRENT_TIMESTAMP,synced_at=CURRENT_TIMESTAMP WHERE id=?8`)
+      credit_days=?7,deleted_at=NULL,source_updated_at=CURRENT_TIMESTAMP,synced_at=CURRENT_TIMESTAMP WHERE id=?8`)
       .bind(name, phone, gstin, address, city, routeName, creditDays, id),
     env.DB.prepare("INSERT INTO operations_audit(action,entity_type,entity_id,detail_json) VALUES('UPDATE_CUSTOMER','CUSTOMER',?1,?2)")
       .bind(id, JSON.stringify({ name, phone, gstin, route_name: routeName, previous: { name: current.name, phone: current.whatsapp_number || current.mobile, route_name: current.route_name } })),
@@ -757,9 +840,32 @@ async function updateCustomer(request, env, id) {
   if (phone) statements.push(env.DB.prepare(`INSERT INTO whatsapp_customers(phone,display_name,shop_name,gstin,address,city,route_name,credit_days,updated_at)
     VALUES(?1,?2,?2,?3,?4,?5,?6,?7,CURRENT_TIMESTAMP)
     ON CONFLICT(phone) DO UPDATE SET shop_name=excluded.shop_name,gstin=excluded.gstin,address=excluded.address,city=excluded.city,
-      route_name=excluded.route_name,credit_days=excluded.credit_days,updated_at=CURRENT_TIMESTAMP`).bind(phone, name, gstin, address, city, routeName, creditDays));
+      route_name=excluded.route_name,credit_days=excluded.credit_days,deleted_at=NULL,updated_at=CURRENT_TIMESTAMP`).bind(phone, name, gstin, address, city, routeName, creditDays));
   await env.DB.batch(statements);
   return json({ ...current, name, mobile: phone, whatsapp_number: phone, gstin, address, city, route_name: routeName, credit_days: creditDays });
+}
+
+async function deleteCustomer(env, id) {
+  if (id.startsWith('WHATSAPP:')) {
+    const phone = cleanPhone(id.slice('WHATSAPP:'.length));
+    const customer = await env.DB.prepare('SELECT COALESCE(shop_name,display_name,phone) name FROM whatsapp_customers WHERE phone=?1 AND deleted_at IS NULL').bind(phone).first();
+    if (!customer) return json({ error: 'Customer not found' }, 404);
+    await env.DB.batch([
+      env.DB.prepare('UPDATE whatsapp_customers SET deleted_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE phone=?1').bind(phone),
+      env.DB.prepare("INSERT INTO operations_audit(action,entity_type,entity_id,detail_json) VALUES('DELETE_CUSTOMER','CUSTOMER',?1,?2)").bind(id, JSON.stringify({ name: customer.name, phone, soft_delete: true })),
+    ]);
+    return json({ id, name: customer.name, deleted: true });
+  }
+  const customer = await env.DB.prepare('SELECT * FROM customers WHERE id=?1 AND deleted_at IS NULL').bind(id).first();
+  if (!customer) return json({ error: 'Customer not found' }, 404);
+  const phone = cleanStoredPhone(customer.whatsapp_number || customer.mobile);
+  const statements = [
+    env.DB.prepare('UPDATE customers SET deleted_at=CURRENT_TIMESTAMP,synced_at=CURRENT_TIMESTAMP WHERE id=?1').bind(id),
+    env.DB.prepare("INSERT INTO operations_audit(action,entity_type,entity_id,detail_json) VALUES('DELETE_CUSTOMER','CUSTOMER',?1,?2)").bind(id, JSON.stringify({ name: customer.name, phone, soft_delete: true })),
+  ];
+  if (phone) statements.push(env.DB.prepare('UPDATE whatsapp_customers SET deleted_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE phone=?1').bind(phone));
+  await env.DB.batch(statements);
+  return json({ id, name: customer.name, deleted: true });
 }
 
 async function whatsappConversations(env) {
@@ -820,7 +926,7 @@ async function distributionOrders(request, env) {
 async function invoices(request, env) {
   const { query, limit, offset } = pageParams(request);
   const pattern = `%${query.replace(/[\\%_]/g, '\\$&')}%`;
-  const rows = await env.DB.prepare(`SELECT * FROM invoices WHERE ?1='' OR invoice_number LIKE ?2 ESCAPE '\\' OR customer_name LIKE ?2 ESCAPE '\\' OR mobile LIKE ?2 ESCAPE '\\' ORDER BY invoice_date DESC,id DESC LIMIT ?3 OFFSET ?4`).bind(query, pattern, limit, offset).all();
+  const rows = await env.DB.prepare(`SELECT * FROM invoices WHERE deleted_at IS NULL AND (?1='' OR invoice_number LIKE ?2 ESCAPE '\\' OR customer_name LIKE ?2 ESCAPE '\\' OR mobile LIKE ?2 ESCAPE '\\') ORDER BY invoice_date DESC,id DESC LIMIT ?3 OFFSET ?4`).bind(query, pattern, limit, offset).all();
   return json({ invoices: rows.results || [] });
 }
 
@@ -835,7 +941,7 @@ function paymentStatus(total, paid) {
 }
 
 async function invoiceDetail(env, id) {
-  const invoice = await env.DB.prepare('SELECT * FROM invoices WHERE id=?1').bind(id).first();
+  const invoice = await env.DB.prepare('SELECT * FROM invoices WHERE id=?1 AND deleted_at IS NULL').bind(id).first();
   if (!invoice) return json({ error: 'Invoice not found' }, 404);
   const lines = await env.DB.prepare('SELECT * FROM invoice_lines WHERE invoice_id=?1 ORDER BY line_no').bind(id).all();
   let rows=lines.results || [];
@@ -873,9 +979,9 @@ async function createInvoice(request, env) {
   let customer = null;
   if (customerId.startsWith('WHATSAPP:')) {
     const phone = cleanPhone(customerId.slice('WHATSAPP:'.length));
-    const profile = await env.DB.prepare('SELECT * FROM whatsapp_customers WHERE phone=?1').bind(phone).first();
+    const profile = await env.DB.prepare('SELECT * FROM whatsapp_customers WHERE phone=?1 AND deleted_at IS NULL').bind(phone).first();
     if (profile) customer = { id: customerId, name: profile.shop_name || profile.display_name || phone, mobile: phone, whatsapp_number: phone, route_name: profile.route_name || '', credit_days: Number(profile.credit_days || 0) };
-  } else customer = await env.DB.prepare('SELECT id,name,mobile,whatsapp_number,route_name,credit_days FROM customers WHERE id=?1 AND active=1').bind(customerId).first();
+  } else customer = await env.DB.prepare('SELECT id,name,mobile,whatsapp_number,route_name,credit_days FROM customers WHERE id=?1 AND active=1 AND deleted_at IS NULL').bind(customerId).first();
   if (!customer) return json({ error: 'Select an available customer' }, 400);
   const phone = cleanPhone(customer.whatsapp_number || customer.mobile);
   const invoiceDate = cleanDate(body.invoice_date, 'invoice_date', true);
@@ -956,7 +1062,7 @@ async function createInvoice(request, env) {
 }
 
 async function voidInvoice(env, id) {
-  const invoice = await env.DB.prepare("SELECT id,invoice_number,status,source_device,paid_paise FROM invoices WHERE id=?1").bind(id).first();
+  const invoice = await env.DB.prepare("SELECT id,invoice_number,status,source_device,paid_paise FROM invoices WHERE id=?1 AND deleted_at IS NULL").bind(id).first();
   if (!invoice) return json({ error: 'Invoice not found' }, 404);
   if (invoice.source_device !== 'cloudflare-admin') return json({ error: 'Synced Amul/PC invoices must be corrected on the source PC.' }, 409);
   if (invoice.status === 'VOID') return json(invoice);
@@ -969,7 +1075,7 @@ async function voidInvoice(env, id) {
 }
 
 async function updateInvoice(request, env, id) {
-  const invoice = await env.DB.prepare('SELECT * FROM invoices WHERE id=?1').bind(id).first();
+  const invoice = await env.DB.prepare('SELECT * FROM invoices WHERE id=?1 AND deleted_at IS NULL').bind(id).first();
   if (!invoice) return json({ error: 'Invoice not found' }, 404);
   if (invoice.source_device !== 'cloudflare-admin') return json({ error: 'Synced Amul/PC invoices must be corrected on the source PC.' }, 409);
   if (invoice.status === 'VOID') return json({ error: 'A void invoice cannot be edited.' }, 409);
@@ -982,9 +1088,9 @@ async function updateInvoice(request, env, id) {
   let customer = null;
   if (customerId.startsWith('WHATSAPP:')) {
     const phoneId = cleanPhone(customerId.slice('WHATSAPP:'.length));
-    const profile = await env.DB.prepare('SELECT * FROM whatsapp_customers WHERE phone=?1').bind(phoneId).first();
+    const profile = await env.DB.prepare('SELECT * FROM whatsapp_customers WHERE phone=?1 AND deleted_at IS NULL').bind(phoneId).first();
     if (profile) customer={ id:customerId,name:profile.shop_name||profile.display_name||phoneId,mobile:phoneId,whatsapp_number:phoneId,route_name:profile.route_name||'' };
-  } else customer=await env.DB.prepare('SELECT id,name,mobile,whatsapp_number,route_name FROM customers WHERE id=?1 AND active=1').bind(customerId).first();
+  } else customer=await env.DB.prepare('SELECT id,name,mobile,whatsapp_number,route_name FROM customers WHERE id=?1 AND active=1 AND deleted_at IS NULL').bind(customerId).first();
   if (!customer) return json({ error: 'Select an available customer' }, 400);
   const oldRows=(await env.DB.prepare('SELECT product_id,quantity FROM invoice_lines WHERE invoice_id=?1').bind(id).all()).results||[];
   const oldByProduct=new Map(oldRows.map(row=>[row.product_id,Number(row.quantity)]));
@@ -1020,27 +1126,24 @@ async function updateInvoice(request, env, id) {
 }
 
 async function deleteInvoice(env,id){
-  const invoice=await env.DB.prepare('SELECT * FROM invoices WHERE id=?1').bind(id).first();
+  const invoice=await env.DB.prepare('SELECT * FROM invoices WHERE id=?1 AND deleted_at IS NULL').bind(id).first();
   if(!invoice)return json({error:'Invoice not found'},404);
-  if(invoice.source_device!=='cloudflare-admin')return json({error:'Synced Amul/PC invoices must be deleted on the source PC.'},409);
   if(invoice.status==='VOID')return json({error:'Void invoices are retained for the audit trail.'},409);
-  if(Number(invoice.paid_paise||0)>0)return json({error:'Paid invoices cannot be deleted. Reverse the payment first.'},409);
-  if(invoice.order_id){
+  const online=invoice.source_device==='cloudflare-admin';
+  if(online&&Number(invoice.paid_paise||0)>0)return json({error:'Paid online invoices cannot be deleted. Reverse the payment first.'},409);
+  if(online&&invoice.order_id){
     const order=await env.DB.prepare('SELECT workflow_status FROM orders WHERE id=?1').bind(invoice.order_id).first();
     if(order && order.workflow_status!=='INVOICED')return json({error:'This order has already moved to dispatch. Keep its invoice for the delivery audit trail.'},409);
   }
-  const statements=[
-    env.DB.prepare(`UPDATE inventory SET stock_qty=stock_qty+COALESCE((SELECT SUM(quantity) FROM invoice_lines WHERE invoice_id=?1 AND product_id=inventory.product_id),0),stock_control_updated_at=CURRENT_TIMESTAMP,synced_at=CURRENT_TIMESTAMP WHERE product_id IN (SELECT product_id FROM invoice_lines WHERE invoice_id=?1)`).bind(id),
-    env.DB.prepare('DELETE FROM invoice_lines WHERE invoice_id=?1').bind(id),
-    env.DB.prepare('DELETE FROM invoices WHERE id=?1').bind(id),
-  ];
-  if(invoice.order_id)statements.push(
+  const statements=[env.DB.prepare('UPDATE invoices SET deleted_at=CURRENT_TIMESTAMP,outstanding_paise=0,synced_at=CURRENT_TIMESTAMP WHERE id=?1').bind(id)];
+  if(online)statements.push(env.DB.prepare(`UPDATE inventory SET stock_qty=stock_qty+COALESCE((SELECT SUM(quantity) FROM invoice_lines WHERE invoice_id=?1 AND product_id=inventory.product_id),0),stock_control_updated_at=CURRENT_TIMESTAMP,synced_at=CURRENT_TIMESTAMP WHERE product_id IN (SELECT product_id FROM invoice_lines WHERE invoice_id=?1)`).bind(id));
+  if(online&&invoice.order_id)statements.push(
     env.DB.prepare(`UPDATE inventory SET reserved_qty=reserved_qty+COALESCE((SELECT SUM(quantity) FROM order_lines WHERE order_id=?1 AND product_id=inventory.product_id),0) WHERE product_id IN (SELECT product_id FROM order_lines WHERE order_id=?1)`).bind(invoice.order_id),
     env.DB.prepare("UPDATE orders SET reservation_released=0,workflow_status='PICKING',invoice_number=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=?1").bind(invoice.order_id),
   );
-  statements.push(env.DB.prepare("INSERT INTO operations_audit(action,entity_type,entity_id,detail_json) VALUES('DELETE_INVOICE','INVOICE',?1,?2)").bind(id,JSON.stringify({invoice_number:invoice.invoice_number,order_id:invoice.order_id||null,total_paise:invoice.total_paise})));
+  statements.push(env.DB.prepare("INSERT INTO operations_audit(action,entity_type,entity_id,detail_json) VALUES('DELETE_INVOICE','INVOICE',?1,?2)").bind(id,JSON.stringify({invoice_number:invoice.invoice_number,order_id:invoice.order_id||null,total_paise:invoice.total_paise,source_device:invoice.source_device,soft_delete:true})));
   await env.DB.batch(statements);
-  return json({id,invoice_number:invoice.invoice_number,deleted:true,reopened_order_id:invoice.order_id||null});
+  return json({id,invoice_number:invoice.invoice_number,deleted:true,reopened_order_id:online?invoice.order_id||null:null,stock_restored:online});
 }
 
 async function payments(request, env) {
@@ -1369,7 +1472,7 @@ async function sendWhatsAppTemplate(request, env) {
 async function route(request, env) {
   const url = new URL(request.url);
   const path = url.pathname;
-  if (path === '/api/health') return json({ ok: true, service: 'frostflow-online', version: '0.8.0', database: 'cloudflare-d1-central' });
+  if (path === '/api/health') return json({ ok: true, service: 'frostflow-online', version: '0.9.0', database: 'cloudflare-d1-central' });
   if (path === '/webhooks/whatsapp' || path === '/webhooks/whatsapp/') return whatsappWebhook(request, env);
   if (path === '/api/catalog/orders' && request.method === 'POST') return createOrder(request, env, { publicCatalog: true });
   if (path === '/api/catalog/availability' && request.method === 'GET') return publicAvailability(env);
@@ -1401,10 +1504,14 @@ async function route(request, env) {
   if (stockQuantity && request.method === 'PATCH') return setInventoryQuantity(request, env, decodeURIComponent(stockQuantity[1]));
   if (path === '/api/purchase-topups' && request.method === 'GET') return purchaseTopups(env);
   if (path === '/api/purchase-topups' && request.method === 'POST') return createPurchaseTopup(request, env);
+  if (path === '/api/routes' && request.method === 'GET') return routes(env);
+  if (path === '/api/routes' && request.method === 'POST') return createRoute(request, env);
+  if (path === '/api/routes' && request.method === 'PUT') return updateRoute(request, env);
   if (path === '/api/customers' && request.method === 'GET') return customers(request, env);
   if (path === '/api/customers' && request.method === 'POST') return createCustomer(request, env);
   const customerDetailMatch = path.match(/^\/api\/customers\/([^/]+)$/);
   if (customerDetailMatch && request.method === 'PUT') return updateCustomer(request, env, decodeURIComponent(customerDetailMatch[1]));
+  if (customerDetailMatch && request.method === 'DELETE') return deleteCustomer(env, decodeURIComponent(customerDetailMatch[1]));
   if (path === '/api/distribution/orders' && request.method === 'GET') return distributionOrders(request, env);
   if (path === '/api/invoices' && request.method === 'GET') return invoices(request, env);
   if (path === '/api/invoices' && request.method === 'POST') return createInvoice(request, env);
@@ -1449,4 +1556,4 @@ export default {
   },
 };
 
-export { equalSecret, cleanPhone, cleanStoredPhone, cleanGstin, cleanLocationUrl, catalogueReply, catalogueRequested, catalogueInviteMessage, approvedTemplateMessage, supportsWhatsAppWebhook, invoiceLineAmounts, paymentStatus };
+export { equalSecret, cleanPhone, cleanStoredPhone, cleanGstin, cleanLocationUrl, catalogueReply, catalogueRequested, catalogueInviteMessage, approvedTemplateMessage, supportsWhatsAppWebhook, invoiceLineAmounts, paymentStatus, routeDisplayName };

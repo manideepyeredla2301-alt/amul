@@ -72,8 +72,11 @@
     </section>
 
     <section id="customers" class="tab">
-      <div class="section-head"><div><span class="page-kicker">DIRECTORY</span><h2>Customers</h2><p class="hint">Retailer details, balance, route and conversation history.</p></div><button id="new-customer">＋ Add customer</button></div>
-      <div class="toolbar single-search"><input id="customer-search" type="search" placeholder="Search shop, phone number or route"></div>
+      <div class="section-head"><div><span class="page-kicker">DIRECTORY</span><h2>Customers</h2><p class="hint">Choose a route first, then manage its retailers.</p></div><button id="new-customer">＋ Add customer</button></div>
+      <div class="toolbar customer-toolbar"><input id="customer-search" type="search" placeholder="Search within customers"><button id="manage-routes" class="secondary">Edit routes</button></div>
+      <div class="content-heading"><h3>Routes</h3><span>Select one to show its customers</span></div>
+      <div id="customer-routes" class="route-picker"></div>
+      <div class="content-heading customer-selection-heading"><h3 id="customer-route-title">Select a route</h3><span id="customer-route-count"></span></div>
       <div id="customers-list" class="cards"></div>
     </section>
 
@@ -161,11 +164,20 @@
     <form method="dialog" id="customer-form">
       <div class="dialog-head"><div><h2 id="customer-dialog-title">Add customer</h2><p class="hint">Saved centrally and available for orders, invoices and WhatsApp.</p></div><button value="cancel" class="secondary">Close</button></div>
       <div class="form-grid"><label>Shop / customer name<input name="name" maxlength="200" required></label><label>WhatsApp number<input name="whatsapp_number" inputmode="tel" placeholder="919876543210"></label></div>
-      <div class="form-grid"><label>GSTIN<input name="gstin" maxlength="15"></label><label>Route<input name="route_name" maxlength="150"></label></div>
+      <div class="form-grid"><label>GSTIN<input name="gstin" maxlength="15"></label><label>Route<select name="route_name" id="customer-route"><option value="">Unassigned route</option></select></label></div>
       <div class="form-grid"><label>City<input name="city" maxlength="100"></label><label>Credit days<input name="credit_days" type="number" min="0" max="365" value="0"></label></div>
       <label>Address<textarea name="address" maxlength="500"></textarea></label>
       <button value="submit" id="save-customer">Save customer</button><p id="customer-error" class="error"></p>
     </form>
+  </dialog>
+  <dialog id="route-dialog" class="route-dialog">
+    <div class="dialog-head"><div><h2>Edit routes</h2><p class="hint">Add routes or rename them for all active customers.</p></div><button type="button" id="close-route-dialog" class="secondary">Close</button></div>
+    <form id="route-form" class="route-create-form">
+      <label>New route name<input name="name" maxlength="150" required placeholder="Example: Monday Route A"></label>
+      <button>Add route</button>
+    </form>
+    <p id="route-error" class="error"></p>
+    <div id="route-manager-list" class="route-manager-list"></div>
   </dialog>
   <dialog id="invoice-dialog" class="wide-dialog">
     <form method="dialog" id="invoice-form">
