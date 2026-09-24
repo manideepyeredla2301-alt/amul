@@ -72,6 +72,39 @@ function cleanStoredPhone(value) {
   catch { return ''; }
 }
 
+function defaultWholesaleUnit(value) {
+  return /(?:\bbulks?\b|\bcombos?\b|\b2\s*l(?:tr|itre|iter)?\b)/i.test(String(value || '')) ? 'PC' : 'BOX';
+}
+
+function cleanWholesaleUnit(value, fallback = 'BOX') {
+  const unit = String(value || fallback).trim().toUpperCase();
+  const normalized = unit === 'PCS' ? 'PC' : unit === 'BX' ? 'BOX' : unit;
+  if (!['PC', 'BOX'].includes(normalized)) throw new Response('Order unit must be PC or BOX', { status: 400 });
+  return normalized;
+}
+
+function baseOrderQuantity(requestedQuantity, unit, unitsPerBox) {
+  const quantity = Number(requestedQuantity);
+  const pack = Number(unitsPerBox);
+  if (!Number.isFinite(quantity) || quantity <= 0 || quantity > 10000) throw new Response('Quantity must be between 1 and 10,000', { status: 400 });
+  if (!Number.isInteger(quantity)) throw new Response('Wholesale quantity must be a whole number', { status: 400 });
+  if (unit === 'BOX' && (!Number.isInteger(pack) || pack < 1 || pack > 10000)) throw new Response('Invalid box pack size', { status: 400 });
+  const result = quantity * (unit === 'BOX' ? pack : 1);
+  if (result > 1000000) throw new Response('Total pieces must not exceed 1,000,000', { status: 400 });
+  return result;
+}
+
+async function publicCatalogueProducts(request, env) {
+  const response = await env.ASSETS.fetch(new Request(new URL('/catalog-data.json', request.url)));
+  if (!response.ok) throw new Response('Catalogue pack sizes are temporarily unavailable', { status: 503 });
+  const catalogue = await response.json();
+  const products = new Map();
+  for (const department of catalogue.departments || []) for (const category of department.categories || []) for (const group of category.groups || []) for (const product of group.products || []) {
+    products.set(String(product.id || '').toUpperCase(), { unitsPerBox: Number(product.unitsPerCase || 0), defaultUnit: defaultWholesaleUnit(`${group.name} ${product.name} ${product.description}`) });
+  }
+  return products;
+}
+
 function cleanGstin(value) {
   const result = String(value ?? '').trim().toUpperCase();
   if (result && !/^\d{2}[A-Z]{5}\d{4}[A-Z][A-Z0-9]Z[A-Z0-9]$/.test(result)) throw new Response('Invalid GSTIN', { status: 400 });
@@ -340,33 +373,40 @@ async function createOrder(request, env, options = {}) {
   const preparedLines = [];
   const customProducts = [];
   const hideCustomProducts = [];
+  const catalogueProducts = options.publicCatalog ? await publicCatalogueProducts(request, env) : new Map();
   let subtotal = 0;
   let tax = 0;
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
-    const quantity = Number(line.quantity);
-    if (!Number.isFinite(quantity) || quantity <= 0 || quantity > 10000) throw new Response('Quantity must be between 1 and 10,000', { status: 400 });
+    const requestedQuantity = Number(line.quantity);
+    if (!Number.isFinite(requestedQuantity) || requestedQuantity <= 0 || requestedQuantity > 10000) throw new Response('Quantity must be between 1 and 10,000', { status: 400 });
     if (line.custom === true) {
       if (options.publicCatalog) throw new Response('Custom products are available only in the protected order app', { status: 400 });
       const productName = cleanText(line.product_name, 'product_name', 200);
       const unit = cleanText(line.unit, 'unit', 20, false) || 'PCS';
       const price = cleanInteger(line.unit_price_paise, 'unit_price_paise');
       const productId = `CUSTOM:${id}:${index + 1}`;
-      const lineSubtotal = Math.round(quantity * price);
+      const lineSubtotal = Math.round(requestedQuantity * price);
       subtotal += lineSubtotal;
       customProducts.push(env.DB.prepare(`INSERT INTO inventory
         (product_id,sku,product_name,category,unit,stock_qty,reserved_qty,mrp_paise,selling_price_paise,active,source_device,snapshot_id,source_updated_at,synced_at)
         VALUES(?1,'',?2,'Custom',?3,?4,0,?5,?5,1,'manual-order',?6,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)`)
-        .bind(productId, productName, unit, quantity, price, id));
+        .bind(productId, productName, unit, requestedQuantity, price, id));
       preparedLines.push(env.DB.prepare(`INSERT INTO order_lines
-        (order_id,line_no,product_id,product_name,quantity,unit,price_paise,gst_bps,subtotal_paise,tax_paise,total_paise)
-        VALUES(?1,?2,?3,?4,?5,?6,?7,0,?8,0,?8)`)
-        .bind(id, index + 1, productId, productName, quantity, unit, price, lineSubtotal));
+        (order_id,line_no,product_id,product_name,quantity,unit,requested_quantity,requested_unit,units_per_box,price_paise,gst_bps,subtotal_paise,tax_paise,total_paise)
+        VALUES(?1,?2,?3,?4,?5,?6,?5,?6,1,?7,0,?8,0,?8)`)
+        .bind(id, index + 1, productId, productName, requestedQuantity, unit, price, lineSubtotal));
       hideCustomProducts.push(env.DB.prepare('UPDATE inventory SET active=0 WHERE product_id=?1').bind(productId));
       continue;
     }
     const requestedProductId = cleanText(line.product_id, 'product_id', 100);
     const prefixedProductId = requestedProductId.startsWith('AMUL:') ? requestedProductId : `AMUL:${requestedProductId}`;
+    const catalogueId = requestedProductId.replace(/^AMUL:/i, '').toUpperCase();
+    const catalogueProduct = catalogueProducts.get(catalogueId);
+    if (options.publicCatalog && !catalogueProduct) throw new Response(`Catalogue pack size missing for ${requestedProductId}`, { status: 400 });
+    const requestedUnit = options.publicCatalog ? cleanWholesaleUnit(line.unit, catalogueProduct.defaultUnit) : cleanText(line.unit, 'unit', 20, false);
+    const unitsPerBox = options.publicCatalog ? catalogueProduct.unitsPerBox : 1;
+    const quantity = options.publicCatalog ? baseOrderQuantity(requestedQuantity, requestedUnit, unitsPerBox) : requestedQuantity;
     const product = await env.DB.prepare(`SELECT product_id,product_name,unit,selling_price_paise
       FROM inventory WHERE active=1 AND (product_id=?1 OR product_id=?2 OR sku=?1) AND (?4=0 OR selling_price_paise>0)
       ORDER BY (manual_out_of_stock=0 AND stock_qty-reserved_qty>=?3) DESC,
@@ -381,9 +421,9 @@ async function createOrder(request, env, options = {}) {
     subtotal += lineSubtotal;
     tax += lineTax;
     preparedLines.push(env.DB.prepare(`INSERT INTO order_lines
-      (order_id,line_no,product_id,product_name,quantity,unit,price_paise,gst_bps,subtotal_paise,tax_paise,total_paise)
-      VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)`)
-      .bind(id, index + 1, product.product_id, product.product_name, quantity, cleanText(line.unit, 'unit', 20, false) || product.unit, product.selling_price_paise || 0, gstBps, lineSubtotal, lineTax, lineTotal));
+      (order_id,line_no,product_id,product_name,quantity,unit,requested_quantity,requested_unit,units_per_box,price_paise,gst_bps,subtotal_paise,tax_paise,total_paise)
+      VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)`)
+      .bind(id, index + 1, product.product_id, product.product_name, quantity, product.unit, requestedQuantity, requestedUnit || product.unit, unitsPerBox, product.selling_price_paise || 0, gstBps, lineSubtotal, lineTax, lineTotal));
   }
   const total = subtotal + tax;
   const businessDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()).replaceAll('-', '');
@@ -420,7 +460,7 @@ async function createOrder(request, env, options = {}) {
 async function listOrders(env, syncOnly = false) {
   const where = syncOnly ? "WHERE status='NEW'" : '';
   const orders = (await env.DB.prepare(`SELECT * FROM orders ${where} ORDER BY created_at DESC LIMIT 200`).all()).results || [];
-  for (const order of orders) order.lines = (await env.DB.prepare('SELECT line_no,product_id,product_name,quantity,unit,price_paise,gst_bps,subtotal_paise,tax_paise,total_paise,picked_qty,crated_qty FROM order_lines WHERE order_id=?1 ORDER BY line_no').bind(order.id).all()).results || [];
+  for (const order of orders) order.lines = (await env.DB.prepare('SELECT line_no,product_id,product_name,quantity,unit,requested_quantity,requested_unit,units_per_box,price_paise,gst_bps,subtotal_paise,tax_paise,total_paise,picked_qty,crated_qty FROM order_lines WHERE order_id=?1 ORDER BY line_no').bind(order.id).all()).results || [];
   return orders;
 }
 
@@ -1556,4 +1596,4 @@ export default {
   },
 };
 
-export { equalSecret, cleanPhone, cleanStoredPhone, cleanGstin, cleanLocationUrl, catalogueReply, catalogueRequested, catalogueInviteMessage, approvedTemplateMessage, supportsWhatsAppWebhook, invoiceLineAmounts, paymentStatus, routeDisplayName };
+export { equalSecret, cleanPhone, cleanStoredPhone, cleanGstin, cleanLocationUrl, catalogueReply, catalogueRequested, catalogueInviteMessage, approvedTemplateMessage, supportsWhatsAppWebhook, invoiceLineAmounts, paymentStatus, routeDisplayName, defaultWholesaleUnit, cleanWholesaleUnit, baseOrderQuantity };

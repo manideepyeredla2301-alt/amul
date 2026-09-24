@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {approvedTemplateMessage,catalogueInviteMessage,catalogueReply,catalogueRequested,cleanGstin,cleanLocationUrl,cleanPhone,cleanStoredPhone,equalSecret,invoiceLineAmounts,paymentStatus,routeDisplayName,supportsWhatsAppWebhook} from '../src/worker.js';
+import {approvedTemplateMessage,baseOrderQuantity,catalogueInviteMessage,catalogueReply,catalogueRequested,cleanGstin,cleanLocationUrl,cleanPhone,cleanStoredPhone,cleanWholesaleUnit,defaultWholesaleUnit,equalSecret,invoiceLineAmounts,paymentStatus,routeDisplayName,supportsWhatsAppWebhook} from '../src/worker.js';
 
 test('constant-time secret comparison and phone normalization',async()=>{
   assert.equal(await equalSecret('same','same'),true);
@@ -67,4 +67,16 @@ test('online invoice arithmetic stays in paise and derives payment status',()=>{
   assert.equal(paymentStatus(39533,0),'UNPAID');
   assert.equal(paymentStatus(39533,10000),'PART_PAID');
   assert.equal(paymentStatus(39533,39533),'PAID');
+});
+
+test('wholesale catalogue defaults and converts PC and BOX quantities',()=>{
+  assert.equal(defaultWholesaleUnit('750 ml Combos'),'PC');
+  assert.equal(defaultWholesaleUnit('2 L Family Packs'),'PC');
+  assert.equal(defaultWholesaleUnit('5 L Bulk Packs'),'PC');
+  assert.equal(defaultWholesaleUnit('Tricones'),'BOX');
+  assert.equal(cleanWholesaleUnit('BX'),'BOX');
+  assert.equal(cleanWholesaleUnit('PCS'),'PC');
+  assert.equal(baseOrderQuantity(2,'BOX',24),48);
+  assert.equal(baseOrderQuantity(3,'PC',24),3);
+  assert.throws(()=>baseOrderQuantity(1.5,'BOX',24));
 });
