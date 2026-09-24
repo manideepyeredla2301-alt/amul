@@ -262,6 +262,15 @@ async function acceptSnapshot(request, env) {
   return json({ accepted: true, complete: false, product_count: items.length });
 }
 
+// Amul-only route master fields (weekday flags, member count, full source row). Never edited in the cloud.
+function routeSourceDetails(item) {
+  return [
+    cleanText(item.visit_days, 'visit_days', 60, false),
+    cleanInteger(item.customer_count, 'customer_count'),
+    cleanText(JSON.stringify(item.details && typeof item.details === 'object' ? item.details : {}), 'details', 8000, false),
+  ];
+}
+
 function businessStatement(env, dataset, item, deviceId, snapshotId) {
   const source = sourceName(item.source);
   const id = cleanText(item.id, 'id', 140);
@@ -276,11 +285,17 @@ function businessStatement(env, dataset, item, deviceId, snapshotId) {
     active=excluded.active,source_device=excluded.source_device,snapshot_id=excluded.snapshot_id,source_updated_at=excluded.source_updated_at,synced_at=CURRENT_TIMESTAMP`)
     .bind(id, source, sourceId, cleanText(item.code, 'code', 80, false), cleanText(item.name, 'name', 200), cleanPhone(item.mobile), cleanPhone(item.whatsapp_number), cleanText(item.gstin, 'gstin', 30, false), cleanText(item.address, 'address', 500, false), cleanText(item.city, 'city', 100, false), cleanText(item.route_id, 'route_id', 100, false), cleanText(item.route_name, 'route_name', 150, false), cleanInteger(item.credit_days, 'credit_days'), cleanInteger(item.credit_limit_paise, 'credit_limit_paise'), Math.trunc(Number(item.balance_paise || 0)), item.active === false ? 0 : 1, deviceId, snapshotId, updated);
   if (dataset === 'routes') return env.DB.prepare(`INSERT INTO routes
-    (id,source,source_id,code,name,active,source_device,snapshot_id,source_updated_at,synced_at)
-    VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,CURRENT_TIMESTAMP)
+    (id,source,source_id,code,name,active,visit_days,customer_count,details_json,source_device,snapshot_id,source_updated_at,synced_at)
+    VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,CURRENT_TIMESTAMP)
     ON CONFLICT(id) DO UPDATE SET code=excluded.code,name=excluded.name,active=excluded.active,source_device=excluded.source_device,
     snapshot_id=excluded.snapshot_id,source_updated_at=excluded.source_updated_at,synced_at=CURRENT_TIMESTAMP`)
-    .bind(id, source, sourceId, cleanText(item.code, 'code', 80, false), cleanText(item.name, 'name', 150), item.active === false ? 0 : 1, deviceId, snapshotId, updated);
+    .bind(id, source, sourceId, cleanText(item.code, 'code', 80, false), cleanText(item.name, 'name', 150), item.active === false ? 0 : 1, ...routeSourceDetails(item), deviceId, snapshotId, updated);
+  if (dataset === 'customer_routes') return env.DB.prepare(`INSERT INTO customer_routes
+    (id,source,source_id,customer_id,route_id,active,source_device,snapshot_id,source_updated_at,synced_at)
+    VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,CURRENT_TIMESTAMP)
+    ON CONFLICT(id) DO UPDATE SET customer_id=excluded.customer_id,route_id=excluded.route_id,active=excluded.active,
+    source_device=excluded.source_device,snapshot_id=excluded.snapshot_id,source_updated_at=excluded.source_updated_at,synced_at=CURRENT_TIMESTAMP`)
+    .bind(id, source, sourceId, cleanText(item.customer_id, 'customer_id', 140), cleanText(item.route_id, 'route_id', 140), item.active === false ? 0 : 1, deviceId, snapshotId, updated);
   if (dataset === 'distribution_orders') return env.DB.prepare(`INSERT INTO distribution_orders
     (id,source,source_id,order_number,customer_id,customer_name,phone,route_name,order_date,delivery_date,status,total_paise,notes,lines_json,source_device,snapshot_id,source_updated_at,synced_at)
     VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,CURRENT_TIMESTAMP)
@@ -312,7 +327,7 @@ function businessStatement(env, dataset, item, deviceId, snapshotId) {
 async function acceptBusinessSnapshot(request, env) {
   const body = await readObject(request, 750_000);
   const dataset = cleanText(body.dataset, 'dataset', 40);
-  if (!['customers', 'routes', 'distribution_orders', 'invoices', 'payments'].includes(dataset)) throw new Response('Unsupported business dataset', { status: 400 });
+  if (!['customers', 'routes', 'customer_routes', 'distribution_orders', 'invoices', 'payments'].includes(dataset)) throw new Response('Unsupported business dataset', { status: 400 });
   const deviceId = cleanText(body.device_id, 'device_id', 80);
   const snapshotId = cleanText(body.snapshot_id, 'snapshot_id', 100);
   const capturedAt = cleanText(body.captured_at, 'captured_at', 40);
@@ -321,11 +336,23 @@ async function acceptBusinessSnapshot(request, env) {
   if(items.some(item=>item.source!=='AMUL'||!String(item.id).startsWith('AMUL:')))throw new Response('Only Amul source records may be synced.',{status:409});
   if (body.complete && items.length) throw new Response('Send completion as an empty final chunk', { status: 400 });
   // Preserve all existing operational balances/edits. Existing upstream records need reconciliation, not replacement.
+  // customer_routes is a pure Amul mapping with no cloud edits, so it is always upserted.
   const additions=[];
-  for(const item of items){const existing=await env.DB.prepare(`SELECT id FROM ${dataset} WHERE id=?1`).bind(item.id).first();if(!existing)additions.push(item);}
-  if (additions.length) await env.DB.batch(additions.map((item) => businessStatement(env, dataset, item, deviceId, snapshotId)));
+  const routeDetails=[];
+  for(const item of items){
+    const existing=dataset==='customer_routes'?null:await env.DB.prepare(`SELECT id FROM ${dataset} WHERE id=?1`).bind(item.id).first();
+    if(!existing)additions.push(item);
+    else if(dataset==='routes')routeDetails.push(env.DB.prepare('UPDATE routes SET visit_days=?1,customer_count=?2,details_json=?3 WHERE id=?4').bind(...routeSourceDetails(item),item.id));
+  }
+  const writes=[...additions.map((item) => businessStatement(env, dataset, item, deviceId, snapshotId)),...routeDetails];
+  if (writes.length) await env.DB.batch(writes);
   if (body.complete) {
     const statements = [];
+    // Retention window: hide (never hard-delete) Amul invoices dated before min_date.
+    if (dataset === 'invoices' && body.prune === true) {
+      const minDate = cleanDate(body.min_date, 'min_date', true);
+      statements.push(env.DB.prepare(`UPDATE invoices SET deleted_at=CURRENT_TIMESTAMP WHERE source='AMUL' AND deleted_at IS NULL AND invoice_date<>'' AND invoice_date<?1`).bind(minDate));
+    }
     const count = await env.DB.prepare(`SELECT COUNT(*) count FROM ${dataset} WHERE source_device=?1 AND snapshot_id=?2`).bind(deviceId, snapshotId).first();
     statements.push(env.DB.prepare('INSERT INTO sync_state(key,value,updated_at) VALUES(?1,?2,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP')
       .bind(`business:${dataset}`, JSON.stringify({ dataset, snapshot_id: snapshotId, device_id: deviceId, captured_at: capturedAt, record_count: count?.count || 0 })));
@@ -1612,4 +1639,4 @@ export default {
   },
 };
 
-export { equalSecret, cleanPhone, cleanStoredPhone, cleanGstin, cleanLocationUrl, catalogueReply, catalogueRequested, catalogueInviteMessage, approvedTemplateMessage, supportsWhatsAppWebhook, invoiceLineAmounts, orderEstimateLineAmounts, paymentStatus, routeDisplayName, defaultWholesaleUnit, cleanWholesaleUnit, baseOrderQuantity };
+export { acceptBusinessSnapshot, equalSecret, cleanPhone, cleanStoredPhone, cleanGstin, cleanLocationUrl, catalogueReply, catalogueRequested, catalogueInviteMessage, approvedTemplateMessage, supportsWhatsAppWebhook, invoiceLineAmounts, orderEstimateLineAmounts, paymentStatus, routeDisplayName, defaultWholesaleUnit, cleanWholesaleUnit, baseOrderQuantity };

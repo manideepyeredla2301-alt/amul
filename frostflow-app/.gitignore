@@ -4,6 +4,11 @@ data/backups/
 data/cloud-sync.json
 data/.cloud-sync-secret
 data/cloud-sync.log
+data/.cloud-sync-secret.bak*
+data/.amul-sql-secret
+data/.amul-read-secret
+data/amul-d1-connector.log
+data/amul-d1-preview.json
 node_modules/
 .env
 .env.*
