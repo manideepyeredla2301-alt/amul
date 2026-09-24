@@ -257,7 +257,8 @@ function Get-PriceMap($Prices, $Definitions) {
         if (-not $label) { continue }
         $paise = ConvertTo-Paise $p.PrdBatDetailValue
         if ($label.Contains('mrp')) { $map[$id].mrp = $paise }
-        if ($label.Contains('sel') -or $label.Contains('list')) { $map[$id].selling = $paise }
+        # 'List Price' is the distributor's purchase cost; only 'Selling Price' is the retailer rate.
+        if ($label.Contains('selling')) { $map[$id].selling = $paise }
     }
     return $map
 }

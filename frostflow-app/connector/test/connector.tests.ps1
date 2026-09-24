@@ -39,8 +39,9 @@ $data = @{
     products = @(@{ PrdId = 1; PrdDCode = 'ICCUVAN101'; PrdName = 'Vanilla Cup 100 ml'; PrdStatus = 1 }, @{ PrdId = 2; PrdDCode = 'X'; PrdName = 'Old Stick'; PrdStatus = 0 })
     batches = @(@{ PrdId = 1; PrdBatId = 10; DefaultPriceId = 100 }, @{ PrdId = 1; PrdBatId = 11; DefaultPriceId = 101 })
     stock = @(@{ PrdId = 1; PrdBatID = 10; LcnId = 1; PrdBatLcnSih = '12.000' }, @{ PrdId = 1; PrdBatID = 11; LcnId = 1; PrdBatLcnSih = '3' })
-    prices = @(@{ PriceId = 100; BatchSeqId = 1; SLNo = 1; PrdBatDetailValue = '25.00' }, @{ PriceId = 100; BatchSeqId = 1; SLNo = 2; PrdBatDetailValue = '21.455' })
-    price_definitions = @(@{ SlNo = 1; BatchSeqId = 1; FieldDesc = 'MRP' }, @{ SlNo = 2; BatchSeqId = 1; FieldDesc = 'Selling Rate' })
+    prices = @(@{ PriceId = 100; BatchSeqId = 1; SLNo = 1; PrdBatDetailValue = '25.00' }, @{ PriceId = 100; BatchSeqId = 1; SLNo = 3; PrdBatDetailValue = '21.455' }, @{ PriceId = 100; BatchSeqId = 1; SLNo = 2; PrdBatDetailValue = '19.00' })
+    # Real Amul layout: List Price (purchase cost) sits before Selling Price and must never become the retailer rate.
+    price_definitions = @(@{ SlNo = 1; BatchSeqId = 1; FieldDesc = 'MRP' }, @{ SlNo = 2; BatchSeqId = 1; FieldDesc = 'List Price' }, @{ SlNo = 3; BatchSeqId = 1; FieldDesc = 'Selling Price' })
     routes = @(@{ RMId = 7; RMCode = 'R7'; RMName = 'Gachibowli'; RMstatus = 1; Deleted = $false; RMMon = 1; RMThu = 'Y'; RMFri = 0 },
         @{ RMId = 8; RMCode = 'R8'; RMName = 'Closed route'; RMstatus = 0; Deleted = $false })
     customer_routes = @(@{ RtrId = 50; RMId = 7 }, @{ RtrId = 51; RMId = 7 }, @{ RtrId = 51; RMId = 8 })
