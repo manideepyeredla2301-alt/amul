@@ -32,7 +32,8 @@ const departments = (source.departments || []).map((department) => ({
       id: String(group.id),
       name: String(group.name),
       products: (group.products || []).map((product) => {
-        const imageName = `${product.id}.jpg`;
+        // imageId keeps the original photo when a product id was corrected to the Amul code.
+        const imageName = `${product.imageId || product.id}.jpg`;
         return {
           id: String(product.id),
           name: String(product.name),

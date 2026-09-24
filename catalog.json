@@ -79,7 +79,7 @@
                   }
                 },
                 {
-                  "id": "ICTRBCS24",
+                  "id": "ICTRBSC24",
                   "name": "Tricone Butterscotch 100ml",
                   "description": "Amul IC Tricone Butterscotch 100ml (20x6)",
                   "departmentId": "frozen",
@@ -99,10 +99,11 @@
                     "imageLinkTemplate": "https://manideepyeredla2301-alt.github.io/amul/images/ICTRBCS24.jpg",
                     "matchType": "verified_pdf_artwork",
                     "url": "https://manideepyeredla2301-alt.github.io/amul/images/ICTRBCS24.jpg"
-                  }
+                  },
+                  "imageId": "ICTRBCS24"
                 },
                 {
-                  "id": "ICTRBCS22",
+                  "id": "ICTRBSC22",
                   "name": "Tricone Butterscotch 120ml",
                   "description": "Amul IC Tricone Butterscotch 120ml (20x6)",
                   "departmentId": "frozen",
@@ -122,7 +123,8 @@
                     "imageLinkTemplate": "https://manideepyeredla2301-alt.github.io/amul/images/ICTRBCS22.jpg",
                     "matchType": "verified_pdf_artwork",
                     "url": "https://manideepyeredla2301-alt.github.io/amul/images/ICTRBCS22.jpg"
-                  }
+                  },
+                  "imageId": "ICTRBCS22"
                 },
                 {
                   "id": "ICTRCHB51",
@@ -291,7 +293,7 @@
                   "sourceInvoiceDate": "2026-08-18"
                 },
                 {
-                  "id": "ICTRTO42",
+                  "id": "ICTRTIO42",
                   "name": "Tricone Two In One 120ml",
                   "description": "Amul IC Tricone Two In One 120ml (20x6)",
                   "departmentId": "frozen",
@@ -311,7 +313,8 @@
                     "imageLinkTemplate": "https://manideepyeredla2301-alt.github.io/amul/images/ICTRTO42.jpg",
                     "matchType": "verified_pdf_artwork",
                     "url": "https://manideepyeredla2301-alt.github.io/amul/images/ICTRTO42.jpg"
-                  }
+                  },
+                  "imageId": "ICTRTO42"
                 },
                 {
                   "id": "ICTRVAN35",
@@ -342,6 +345,21 @@
                   "unitsPerCase": 120,
                   "sourceCategory": "Ice Cream",
                   "sourceInvoiceDate": "2026-08-26"
+                },
+                {
+                  "id": "ICTRBSC09",
+                  "name": "Tricone Butter Scotch 50ml(20x8)",
+                  "description": "Amul IC Tricone Butter Scotch 50ml(20x8)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "tricones",
+                  "group": "Tricones",
+                  "pack": "50ml(20x8)",
+                  "unitsPerCase": 160,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
                 }
               ]
             },
@@ -453,6 +471,21 @@
                     "matchType": "verified_pdf_artwork",
                     "url": "https://manideepyeredla2301-alt.github.io/amul/images/ICCUBS95.jpg"
                   }
+                },
+                {
+                  "id": "ICCUCHO107",
+                  "name": "Cup Chocolate 100ml (16x9)",
+                  "description": "Amul IC Cup Chocolate 100ml (16x9)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "cups_100ml",
+                  "group": "100 ml Cups",
+                  "pack": "100ml (16x9)",
+                  "unitsPerCase": 144,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
                 }
               ]
             },
@@ -575,7 +608,7 @@
                   "sourceInvoiceDate": "2026-08-18"
                 },
                 {
-                  "id": "ICCUFLO158",
+                  "id": "ICCUFLD158",
                   "name": "Jumbo Cup Falooda 125ml",
                   "description": "Amul IC Jumbo Cup Falooda 125ml (8x9)",
                   "departmentId": "frozen",
@@ -587,7 +620,8 @@
                   "pack": "125ml (8x9)",
                   "unitsPerCase": 72,
                   "sourceCategory": "Ice Cream",
-                  "sourceInvoiceDate": "2026-08-05"
+                  "sourceInvoiceDate": "2026-08-05",
+                  "imageId": "ICCUFLO158"
                 },
                 {
                   "id": "ICCUGFN160",
@@ -613,7 +647,7 @@
                   }
                 },
                 {
-                  "id": "ICCUGBC158",
+                  "id": "ICCUGBSC158",
                   "name": "Jumbo Cup Gold Butterscotch 1…",
                   "description": "Amul IC Jumbo Cup Gold Bsc 125ml (8x9)",
                   "departmentId": "frozen",
@@ -625,7 +659,8 @@
                   "pack": "125ml (8x9)",
                   "unitsPerCase": 72,
                   "sourceCategory": "Ice Cream",
-                  "sourceInvoiceDate": "2026-08-18"
+                  "sourceInvoiceDate": "2026-08-18",
+                  "imageId": "ICCUGBC158"
                 },
                 {
                   "id": "ICCUKAL131",
@@ -674,7 +709,7 @@
                   }
                 },
                 {
-                  "id": "ICCUSK148",
+                  "id": "ICCUSKU148",
                   "name": "Jumbo Cup Shahi Kulfi 125ml",
                   "description": "Amul IC Jumbo Cup Shahi Kulfi 125ml (8x9)",
                   "departmentId": "frozen",
@@ -686,22 +721,8 @@
                   "pack": "125ml (8x9)",
                   "unitsPerCase": 72,
                   "sourceCategory": "Ice Cream",
-                  "sourceInvoiceDate": "2026-08-26"
-                },
-                {
-                  "id": "ICCUSKUL148",
-                  "name": "Jumbo Cup Shahi Kulfi 125ml",
-                  "description": "Amul IC Jumbo Cup Shahi Kulfi 125ml (8x9)",
-                  "departmentId": "frozen",
-                  "department": "Frozen",
-                  "categoryId": "ice_creams",
-                  "category": "Ice Creams",
-                  "groupId": "cups_125ml",
-                  "group": "125 ml Cups",
-                  "pack": "125ml (8x9)",
-                  "unitsPerCase": 72,
-                  "sourceCategory": "Ice Cream",
-                  "sourceInvoiceDate": "2026-08-05"
+                  "sourceInvoiceDate": "2026-08-26",
+                  "imageId": "ICCUSK148"
                 },
                 {
                   "id": "ICCUPSB169",
@@ -815,6 +836,216 @@
                     "matchType": "verified_pdf_artwork",
                     "url": "https://manideepyeredla2301-alt.github.io/amul/images/ICSUCHO48.jpg"
                   }
+                },
+                {
+                  "id": "ICCUSHM126",
+                  "name": "Jumbo Cup Shalimar 125 Ml (8x9)",
+                  "description": "Amul IC Jumbo Cup Shalimar 125 Ml (8x9)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "cups_125ml",
+                  "group": "125 ml Cups",
+                  "pack": "125 Ml (8x9)",
+                  "unitsPerCase": 72,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICSFANJ21",
+                  "name": "Sugar Free Shahianjir 125ml(8x9)",
+                  "description": "Amul IC Sugar Free Shahianjir 125ml(8x9)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "cups_125ml",
+                  "group": "125 ml Cups",
+                  "pack": "125ml(8x9)",
+                  "unitsPerCase": 72,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICCUGPL125",
+                  "name": "Jumbo Cup Goldenpearl 125ml(8x9)",
+                  "description": "Amul IC Jumbo Cup Goldenpearl 125ml(8x9)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "cups_125ml",
+                  "group": "125 ml Cups",
+                  "pack": "125ml(8x9)",
+                  "unitsPerCase": 72,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICHSLFV01",
+                  "name": "Lactose Free Vanilla 125ml (8x9)",
+                  "description": "Amul IC Lactose Free Vanilla 125ml (8x9)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "cups_125ml",
+                  "group": "125 ml Cups",
+                  "pack": "125ml (8x9)",
+                  "unitsPerCase": 72,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICSFKAL27",
+                  "name": "Sugar Free Kesarbadam 125ml(8x9)",
+                  "description": "Amul IC Sugar Free Kesarbadam 125ml(8x9)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "cups_125ml",
+                  "group": "125 ml Cups",
+                  "pack": "125ml(8x9)",
+                  "unitsPerCase": 72,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICHSIGK02",
+                  "name": "Isabcool Kaju Anjir 125ml (8x9)",
+                  "description": "Amul IC Isabcool Kaju Anjir 125ml (8x9)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "cups_125ml",
+                  "group": "125 ml Cups",
+                  "pack": "125ml (8x9)",
+                  "unitsPerCase": 72,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICCUCML157",
+                  "name": "Jumbo Cup Choco Malt 125ml(8x9)",
+                  "description": "Amul IC Jumbo Cup Choco Malt 125ml(8x9)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "cups_125ml",
+                  "group": "125 ml Cups",
+                  "pack": "125ml(8x9)",
+                  "unitsPerCase": 72,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICCUSCA01",
+                  "name": "Jumbo SKYSCOP Almond 125ml(8x9)",
+                  "description": "Amul IC Jumbo SKYSCOP Almond 125ml(8x9)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "cups_125ml",
+                  "group": "125 ml Cups",
+                  "pack": "125ml(8x9)",
+                  "unitsPerCase": 72,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICCUSCC02",
+                  "name": "Jumbo SKYSCOP Cookies 125ml(8x9)",
+                  "description": "Amul IC Jumbo SKYSCOP Cookies 125ml(8x9)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "cups_125ml",
+                  "group": "125 ml Cups",
+                  "pack": "125ml(8x9)",
+                  "unitsPerCase": 72,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICCUSPB169",
+                  "name": "JC Sitaphal Bliss 125ml (8x9)",
+                  "description": "Amul IC JC Sitaphal Bliss 125ml (8x9)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "cups_125ml",
+                  "group": "125 ml Cups",
+                  "pack": "125ml (8x9)",
+                  "unitsPerCase": 72,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICCUSG175",
+                  "name": "JC Spicy Guava 125ml (8x9)",
+                  "description": "Amul IC JC Spicy Guava 125ml (8x9)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "cups_125ml",
+                  "group": "125 ml Cups",
+                  "pack": "125ml (8x9)",
+                  "unitsPerCase": 72,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICCULL167",
+                  "name": "JC Lovely Litchi 125ml (8x9)",
+                  "description": "Amul IC JC Lovely Litchi 125ml (8x9)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "cups_125ml",
+                  "group": "125 ml Cups",
+                  "pack": "125ml (8x9)",
+                  "unitsPerCase": 72,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICCUCC171",
+                  "name": "JC Chikoo Charm 125ml (8x9)",
+                  "description": "Amul IC JC Chikoo Charm 125ml (8x9)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "cups_125ml",
+                  "group": "125 ml Cups",
+                  "pack": "125ml (8x9)",
+                  "unitsPerCase": 72,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICCUTP174",
+                  "name": "JC Trop. Pineapple 125ml (8x9)",
+                  "description": "Amul IC JC Trop. Pineapple 125ml (8x9)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "cups_125ml",
+                  "group": "125 ml Cups",
+                  "pack": "125ml (8x9)",
+                  "unitsPerCase": 72,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
                 }
               ]
             },
@@ -838,7 +1069,7 @@
                   "sourceInvoiceDate": "2026-08-20"
                 },
                 {
-                  "id": "ICSTCB103",
+                  "id": "ICSTCFB103",
                   "name": "Stick Coffee Bar 60ml",
                   "description": "Amul IC STK Coffee Bar 60ml (20x8)",
                   "departmentId": "frozen",
@@ -850,7 +1081,8 @@
                   "pack": "60ml (20x8)",
                   "unitsPerCase": 160,
                   "sourceCategory": "Ice Cream",
-                  "sourceInvoiceDate": "2026-08-05"
+                  "sourceInvoiceDate": "2026-08-05",
+                  "imageId": "ICSTCB103"
                 },
                 {
                   "id": "ICSTDCH107",
@@ -906,7 +1138,7 @@
                   }
                 },
                 {
-                  "id": "ICSTRD056",
+                  "id": "ICSTRDO56",
                   "name": "Stick Duetz Raspberry 60ml",
                   "description": "Amul IC Stk Duetz Raspberry 60ml (20x8)",
                   "departmentId": "frozen",
@@ -926,7 +1158,8 @@
                     "imageLinkTemplate": "https://manideepyeredla2301-alt.github.io/amul/images/ICSTRD056.jpg",
                     "matchType": "verified_pdf_artwork",
                     "url": "https://manideepyeredla2301-alt.github.io/amul/images/ICSTRD056.jpg"
-                  }
+                  },
+                  "imageId": "ICSTRD056"
                 },
                 {
                   "id": "ICSTFRS53",
@@ -1081,7 +1314,7 @@
                   "sourceInvoiceDate": "2026-08-26"
                 },
                 {
-                  "id": "ICSTKMK62",
+                  "id": "ICSTKOM62",
                   "name": "Stick Kulfi Mawa Malai 60ml",
                   "description": "Amul IC Stk Kulfi Mawa Malai 60ml (20x8)",
                   "departmentId": "frozen",
@@ -1101,7 +1334,8 @@
                     "imageLinkTemplate": "https://manideepyeredla2301-alt.github.io/amul/images/ICSTKMK62.jpg",
                     "matchType": "verified_pdf_artwork",
                     "url": "https://manideepyeredla2301-alt.github.io/amul/images/ICSTKMK62.jpg"
-                  }
+                  },
+                  "imageId": "ICSTKMK62"
                 },
                 {
                   "id": "ICSTKOS59",
@@ -1150,7 +1384,7 @@
                   }
                 },
                 {
-                  "id": "ICSTRKB64",
+                  "id": "ICSTKRB64",
                   "name": "Stick Kulfi Raj Bhog 60ml",
                   "description": "Amul IC Stk Kulfi Raj Bhog 60ml (20x8)",
                   "departmentId": "frozen",
@@ -1170,7 +1404,8 @@
                     "imageLinkTemplate": "https://manideepyeredla2301-alt.github.io/amul/images/ICSTRKB64.jpg",
                     "matchType": "verified_pdf_artwork",
                     "url": "https://manideepyeredla2301-alt.github.io/amul/images/ICSTRKB64.jpg"
-                  }
+                  },
+                  "imageId": "ICSTRKB64"
                 },
                 {
                   "id": "ICSTRJK78",
@@ -1196,7 +1431,7 @@
                   }
                 },
                 {
-                  "id": "ICTRJVW85",
+                  "id": "ICSTRJW85",
                   "name": "Stick Kulfi Rajwadi 40ml",
                   "description": "Amul IC Stk Kulfi Rajwadi 40ml (20x8)",
                   "departmentId": "frozen",
@@ -1216,7 +1451,8 @@
                     "imageLinkTemplate": "https://manideepyeredla2301-alt.github.io/amul/images/ICTRJVW85.jpg",
                     "matchType": "verified_pdf_artwork",
                     "url": "https://manideepyeredla2301-alt.github.io/amul/images/ICTRJVW85.jpg"
-                  }
+                  },
+                  "imageId": "ICTRJVW85"
                 },
                 {
                   "id": "ICSTRGL88",
@@ -1300,6 +1536,111 @@
                   "unitsPerCase": 160,
                   "sourceCategory": "Ice Cream",
                   "sourceInvoiceDate": "2026-08-20"
+                },
+                {
+                  "id": "ICSTFLO57",
+                  "name": "Stk Froot Lickz Oran. 60ml(20x8)",
+                  "description": "Amul IC Stk Froot Lickz Oran. 60ml(20x8)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "sticks_kulfi",
+                  "group": "Sticks & Kulfi",
+                  "pack": "60ml(20x8)",
+                  "unitsPerCase": 160,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICSTFLM58",
+                  "name": "Stk Froot Lickz Man 60ml (20x8)",
+                  "description": "Amul IC Stk Froot Lickz Man 60ml (20x8)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "sticks_kulfi",
+                  "group": "Sticks & Kulfi",
+                  "pack": "60ml (20x8)",
+                  "unitsPerCase": 160,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICPBGCB23",
+                  "name": "STK Gold Pro Chocobar 60ml(20x8)",
+                  "description": "Amul IC STK Gold Pro Chocobar 60ml(20x8)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "sticks_kulfi",
+                  "group": "Sticks & Kulfi",
+                  "pack": "60ml(20x8)",
+                  "unitsPerCase": 160,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICNVMKU92",
+                  "name": "Matka Kulfi Pista 100ml (10x9)",
+                  "description": "Amul IC Matka Kulfi Pista 100ml (10x9)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "sticks_kulfi",
+                  "group": "Sticks & Kulfi",
+                  "pack": "100ml (10x9)",
+                  "unitsPerCase": 90,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICPBGCB22",
+                  "name": "STK Gold Pro Chocobar 60 ml(4x30",
+                  "description": "Amul IC STK Gold Pro Chocobar 60 ml(4x30",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "sticks_kulfi",
+                  "group": "Sticks & Kulfi",
+                  "pack": "60 ml(4x30",
+                  "unitsPerCase": 30,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICHSPKM10",
+                  "name": "Protein Kulfi Mango 60ml (1x36)",
+                  "description": "Amul IC Protein Kulfi Mango 60ml (1x36)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "sticks_kulfi",
+                  "group": "Sticks & Kulfi",
+                  "pack": "60ml (1x36)",
+                  "unitsPerCase": 36,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICNVSKR98",
+                  "name": "Shahi Kulfi Rjb 100ml (4x24)",
+                  "description": "Amul IC Shahi Kulfi Rjb 100ml (4x24)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "sticks_kulfi",
+                  "group": "Sticks & Kulfi",
+                  "pack": "100ml (4x24)",
+                  "unitsPerCase": 96,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
                 }
               ]
             },
@@ -1420,6 +1761,201 @@
                     "matchType": "verified_pdf_artwork",
                     "url": "https://manideepyeredla2301-alt.github.io/amul/images/ICNVSDV23.jpg"
                   }
+                },
+                {
+                  "id": "ICEXSAM15",
+                  "name": "Asli Aam 80ml (20x6)",
+                  "description": "Amul IC Asli Aam 80ml (20x6)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "sandwiches_novelties",
+                  "group": "Sandwiches & Novelties",
+                  "pack": "80ml (20x6)",
+                  "unitsPerCase": 120,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICEXBCS17",
+                  "name": "Fundoo Curly B Str 60ml (20x8)",
+                  "description": "Amul IC Fundoo Curly B Str 60ml (20x8)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "sandwiches_novelties",
+                  "group": "Sandwiches & Novelties",
+                  "pack": "60ml (20x8)",
+                  "unitsPerCase": 160,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICNVCAS17",
+                  "name": "Cassatta 150ml (8x8)",
+                  "description": "Amul IC Cassatta 150ml (8x8)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "sandwiches_novelties",
+                  "group": "Sandwiches & Novelties",
+                  "pack": "150ml (8x8)",
+                  "unitsPerCase": 64,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICNVVAN01",
+                  "name": "Novelties Vanilla 100ml (10x16)",
+                  "description": "Amul IC Novelties Vanilla 100ml (10x16)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "sandwiches_novelties",
+                  "group": "Sandwiches & Novelties",
+                  "pack": "100ml (10x16)",
+                  "unitsPerCase": 160,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICEXMST21",
+                  "name": "Fundoo Super Ms 60ml (20x8)",
+                  "description": "Amul IC Fundoo Super Ms 60ml (20x8)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "sandwiches_novelties",
+                  "group": "Sandwiches & Novelties",
+                  "pack": "60ml (20x8)",
+                  "unitsPerCase": 160,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICEXSGP18",
+                  "name": "Fundoo Chakri Str Gp 60ml (20x6)",
+                  "description": "Amul IC Fundoo Chakri Str Gp 60ml (20x6)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "sandwiches_novelties",
+                  "group": "Sandwiches & Novelties",
+                  "pack": "60ml (20x6)",
+                  "unitsPerCase": 120,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICEXGST28",
+                  "name": "Epic Str Twist Gold 80ml (10x9)",
+                  "description": "Amul IC Epic Str Twist Gold 80ml (10x9)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "sandwiches_novelties",
+                  "group": "Sandwiches & Novelties",
+                  "pack": "80ml (10x9)",
+                  "unitsPerCase": 90,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICNVGCS94",
+                  "name": "Cassatta Gold 150ml (12x6)",
+                  "description": "Amul IC Cassatta Gold 150ml (12x6)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "sandwiches_novelties",
+                  "group": "Sandwiches & Novelties",
+                  "pack": "150ml (12x6)",
+                  "unitsPerCase": 72,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICHSIMM09",
+                  "name": "Ice Malai Mango 500ml (3x10)",
+                  "description": "Amul IC Ice Malai Mango 500ml (3x10)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "sandwiches_novelties",
+                  "group": "Sandwiches & Novelties",
+                  "pack": "500ml (3x10)",
+                  "unitsPerCase": 30,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICNVCGF103",
+                  "name": "Cake Magic Gol Fant 500ml (1x18)",
+                  "description": "Amul IC Cake Magic Gol Fant 500ml (1x18)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "sandwiches_novelties",
+                  "group": "Sandwiches & Novelties",
+                  "pack": "500ml (1x18)",
+                  "unitsPerCase": 18,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICNVCBF105",
+                  "name": "Cake Magic Blk For 500ml (1x18)",
+                  "description": "Amul IC Cake Magic Blk For 500ml (1x18)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "sandwiches_novelties",
+                  "group": "Sandwiches & Novelties",
+                  "pack": "500ml (1x18)",
+                  "unitsPerCase": 18,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICNVCAS109",
+                  "name": "Cassatta 150ml (12x6)",
+                  "description": "Amul IC Cassatta 150ml (12x6)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "sandwiches_novelties",
+                  "group": "Sandwiches & Novelties",
+                  "pack": "150ml (12x6)",
+                  "unitsPerCase": 72,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICHSPBF15",
+                  "name": "Protein Bar Coffee 60ml (20x6)",
+                  "description": "Amul IC Protein Bar Coffee 60ml (20x6)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "sandwiches_novelties",
+                  "group": "Sandwiches & Novelties",
+                  "pack": "60ml (20x6)",
+                  "unitsPerCase": 120,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
                 }
               ]
             },
@@ -1428,7 +1964,7 @@
               "name": "1 L Tubs",
               "products": [
                 {
-                  "id": "ICPTBSB95",
+                  "id": "ICPPBSC95",
                   "name": "Tub Butterscotch Bliss 1 L",
                   "description": "Amul IC Tub Butterscotch Bliss 1 L (3x6)",
                   "departmentId": "frozen",
@@ -1448,10 +1984,11 @@
                     "imageLinkTemplate": "https://manideepyeredla2301-alt.github.io/amul/images/ICPTBSB95.jpg",
                     "matchType": "verified_pdf_artwork",
                     "url": "https://manideepyeredla2301-alt.github.io/amul/images/ICPTBSB95.jpg"
-                  }
+                  },
+                  "imageId": "ICPTBSB95"
                 },
                 {
-                  "id": "ICPTCCH98",
+                  "id": "ICPPCCH98",
                   "name": "Tub Choco Chips 1 L",
                   "description": "Amul IC Tub Choco Chips 1 L (3x6)",
                   "departmentId": "frozen",
@@ -1471,10 +2008,11 @@
                     "imageLinkTemplate": "https://manideepyeredla2301-alt.github.io/amul/images/ICPTCCH98.jpg",
                     "matchType": "verified_pdf_artwork",
                     "url": "https://manideepyeredla2301-alt.github.io/amul/images/ICPTCCH98.jpg"
-                  }
+                  },
+                  "imageId": "ICPTCCH98"
                 },
                 {
-                  "id": "ICPTCB99",
+                  "id": "ICPPCHB99",
                   "name": "Tub Chocolate Brownie 1 L",
                   "description": "Amul IC Tub Chocolate Brownie 1 L (3x6)",
                   "departmentId": "frozen",
@@ -1494,10 +2032,11 @@
                     "imageLinkTemplate": "https://manideepyeredla2301-alt.github.io/amul/images/ICPTCB99.jpg",
                     "matchType": "verified_pdf_artwork",
                     "url": "https://manideepyeredla2301-alt.github.io/amul/images/ICPTCB99.jpg"
-                  }
+                  },
+                  "imageId": "ICPTCB99"
                 },
                 {
-                  "id": "ICPTGBS09",
+                  "id": "ICPPBSG109",
                   "name": "Tub Gold Butter Scotch 1 L",
                   "description": "Amul IC Tub Gold Butter Scotch 1 L (3x6)",
                   "departmentId": "frozen",
@@ -1509,10 +2048,11 @@
                   "pack": "1L (3x6)",
                   "unitsPerCase": 18,
                   "sourceCategory": "Ice Cream",
-                  "sourceInvoiceDate": "2026-08-18"
+                  "sourceInvoiceDate": "2026-08-18",
+                  "imageId": "ICPTGBS09"
                 },
                 {
-                  "id": "ICPTVNG117",
+                  "id": "ICPPVNG117",
                   "name": "Tub Gold Vanilla 1 L",
                   "description": "Amul IC Tub Gold Vanilla 1 L (3x6)",
                   "departmentId": "frozen",
@@ -1524,7 +2064,8 @@
                   "pack": "1L (3x6)",
                   "unitsPerCase": 18,
                   "sourceCategory": "Ice Cream",
-                  "sourceInvoiceDate": "2026-08-18"
+                  "sourceInvoiceDate": "2026-08-18",
+                  "imageId": "ICPTVNG117"
                 },
                 {
                   "id": "ICPPSG146",
@@ -1542,7 +2083,7 @@
                   "sourceInvoiceDate": "2026-08-13"
                 },
                 {
-                  "id": "ICPTVAN94",
+                  "id": "ICPPVAN94",
                   "name": "Tub Vanilla Magic 1 L",
                   "description": "Amul IC Tub Vanilla Magic 1 L (3x6)",
                   "departmentId": "frozen",
@@ -1562,7 +2103,218 @@
                     "imageLinkTemplate": "https://manideepyeredla2301-alt.github.io/amul/images/ICPTVAN94.jpg",
                     "matchType": "verified_pdf_artwork",
                     "url": "https://manideepyeredla2301-alt.github.io/amul/images/ICPTVAN94.jpg"
-                  }
+                  },
+                  "imageId": "ICPTVAN94"
+                },
+                {
+                  "id": "ICPPRJB101",
+                  "name": "Tub Rajbhog 1 Ltr (3x6)",
+                  "description": "Amul IC Tub Rajbhog 1 Ltr (3x6)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "tubs_1l",
+                  "group": "1 L Tubs",
+                  "pack": "1 Ltr (3x6)",
+                  "unitsPerCase": 18,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICPPKAM106",
+                  "name": "Tub King Alphonso 1 L (3x6)",
+                  "description": "Amul IC Tub King Alphonso 1 L (3x6)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "tubs_1l",
+                  "group": "1 L Tubs",
+                  "pack": "1 L (3x6)",
+                  "unitsPerCase": 18,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICSUCKB42",
+                  "name": "Tub Sundae K Badam 1 L (3x6)",
+                  "description": "Amul IC Tub Sundae K Badam 1 L (3x6)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "tubs_1l",
+                  "group": "1 L Tubs",
+                  "pack": "1 L (3x6)",
+                  "unitsPerCase": 18,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICPPRAL102",
+                  "name": "Tub Roasted Almond 1 Ltr (3x6)",
+                  "description": "Amul IC Tub Roasted Almond 1 Ltr (3x6)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "tubs_1l",
+                  "group": "1 L Tubs",
+                  "pack": "1 Ltr (3x6)",
+                  "unitsPerCase": 18,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICSUCCG43",
+                  "name": "Tub Sundae Gold Car Choc 1l(3x6)",
+                  "description": "Amul IC Tub Sundae Gold Car Choc 1l(3x6)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "tubs_1l",
+                  "group": "1 L Tubs",
+                  "pack": "1l(3x6)",
+                  "unitsPerCase": 18,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICPPCCG111",
+                  "name": "Tub Gold Cookies N Cr 1 L (3x6)",
+                  "description": "Amul IC Tub Gold Cookies N Cr 1 L (3x6)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "tubs_1l",
+                  "group": "1 L Tubs",
+                  "pack": "1 L (3x6)",
+                  "unitsPerCase": 18,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICPPMDF100",
+                  "name": "Tub Moroccan Dry Fruit 1 L (3x6)",
+                  "description": "Amul IC Tub Moroccan Dry Fruit 1 L (3x6)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "tubs_1l",
+                  "group": "1 L Tubs",
+                  "pack": "1 L (3x6)",
+                  "unitsPerCase": 18,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICSUVMS40",
+                  "name": "Tub Sundae Str. Magic 1 L (3x6)",
+                  "description": "Amul IC Tub Sundae Str. Magic 1 L (3x6)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "tubs_1l",
+                  "group": "1 L Tubs",
+                  "pack": "1 L (3x6)",
+                  "unitsPerCase": 18,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICPPKAG112",
+                  "name": "Tub Gold King Alphonso 1 L (3x6)",
+                  "description": "Amul IC Tub Gold King Alphonso 1 L (3x6)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "tubs_1l",
+                  "group": "1 L Tubs",
+                  "pack": "1 L (3x6)",
+                  "unitsPerCase": 18,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICPPTCN119",
+                  "name": "TubTender Coconut 1 L (3X6)",
+                  "description": "Amul IC TubTender Coconut 1 L (3X6)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "tubs_1l",
+                  "group": "1 L Tubs",
+                  "pack": "1 L (3X6)",
+                  "unitsPerCase": 18,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICPPFNF97",
+                  "name": "Tub Fruit N Nut Fantasy 1 L(3x6)",
+                  "description": "Amul IC Tub Fruit N Nut Fantasy 1 L(3x6)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "tubs_1l",
+                  "group": "1 L Tubs",
+                  "pack": "1 L(3x6)",
+                  "unitsPerCase": 18,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICSUVMC39",
+                  "name": "Tub Sundae Choc Magic 1 L (3x6)",
+                  "description": "Amul IC Tub Sundae Choc Magic 1 L (3x6)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "tubs_1l",
+                  "group": "1 L Tubs",
+                  "pack": "1 L (3x6)",
+                  "unitsPerCase": 18,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICPPSPB133",
+                  "name": "Tub Sitaphal 1L (3X6)",
+                  "description": "Amul IC Tub Sitaphal 1L (3X6)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "tubs_1l",
+                  "group": "1 L Tubs",
+                  "pack": "1L (3X6)",
+                  "unitsPerCase": 18,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICPPMM134",
+                  "name": "Tub Mango Mania 1L (3X6)",
+                  "description": "Amul IC Tub Mango Mania 1L (3X6)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "tubs_1l",
+                  "group": "1 L Tubs",
+                  "pack": "1L (3X6)",
+                  "unitsPerCase": 18,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
                 }
               ]
             },
@@ -1594,7 +2346,7 @@
                   }
                 },
                 {
-                  "id": "ICFPBC",
+                  "id": "ICFPBCU41",
                   "name": "Family Pack Black Currant 750…",
                   "description": "Amul IC FP Black Currant 750ml (1x38)",
                   "departmentId": "frozen",
@@ -1614,7 +2366,8 @@
                     "imageLinkTemplate": "https://manideepyeredla2301-alt.github.io/amul/images/ICFPBC.jpg",
                     "matchType": "verified_pdf_artwork",
                     "url": "https://manideepyeredla2301-alt.github.io/amul/images/ICFPBC.jpg"
-                  }
+                  },
+                  "imageId": "ICFPBC"
                 },
                 {
                   "id": "ICFPCCM46",
@@ -1638,6 +2391,36 @@
                     "matchType": "verified_pdf_artwork",
                     "url": "https://manideepyeredla2301-alt.github.io/amul/images/ICFPCCM46.jpg"
                   }
+                },
+                {
+                  "id": "ICFPTFR43",
+                  "name": "FP Tutti Fruity 750ml (1X38)",
+                  "description": "Amul FP Tutti Fruity 750ml (1X38)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "family_packs_750ml",
+                  "group": "750 ml Family Packs",
+                  "pack": "750ml (1X38)",
+                  "unitsPerCase": 38,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICFPRFS51",
+                  "name": "FP Refreshing Strawberry 750ml(1x38",
+                  "description": "Amul FP Refreshing Strawberry 750ml(1x38",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "family_packs_750ml",
+                  "group": "750 ml Family Packs",
+                  "pack": "750ml(1x38",
+                  "unitsPerCase": 38,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
                 }
               ]
             },
@@ -1805,6 +2588,36 @@
                     "matchType": "verified_pdf_artwork",
                     "url": "https://manideepyeredla2301-alt.github.io/amul/images/ICCOVAN21.jpg"
                   }
+                },
+                {
+                  "id": "ICCOAMA03",
+                  "name": "Combo Al. Mango 750ml (1+1f)X19)",
+                  "description": "Amul IC Combo Al. Mango 750ml (1+1f)X19)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "combos_750ml",
+                  "group": "750 ml Combos",
+                  "pack": "750ml (1+1f)X19)",
+                  "unitsPerCase": 19,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICCOCHO08",
+                  "name": "Combo Chocolate 750ml (1+1f)X19)",
+                  "description": "Amul IC Combo Chocolate 750ml (1+1f)X19)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "combos_750ml",
+                  "group": "750 ml Combos",
+                  "pack": "750ml (1+1f)X19)",
+                  "unitsPerCase": 19,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
                 }
               ]
             },
@@ -1857,6 +2670,207 @@
                     "matchType": "verified_pdf_artwork",
                     "url": "https://manideepyeredla2301-alt.github.io/amul/images/ICPPVAN61SPL.jpg"
                   }
+                },
+                {
+                  "id": "ICPPCHO57",
+                  "name": "Pp Chocolate Passion 2 L (1x15)",
+                  "description": "Amul IC Pp Chocolate Passion 2 L (1x15)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "family_packs_2l",
+                  "group": "2 L Family Packs",
+                  "pack": "2 L (1x15)",
+                  "unitsPerCase": 15,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICPPTIO59",
+                  "name": "Pp 2in1 (Van/Str) 2 L (1x15)",
+                  "description": "Amul IC Pp 2in1 (Van/Str) 2 L (1x15)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "family_packs_2l",
+                  "group": "2 L Family Packs",
+                  "pack": "2 L (1x15)",
+                  "unitsPerCase": 15,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICPPAMA55",
+                  "name": "Pp Alphonso Mango 2 L (1x15)",
+                  "description": "Amul IC Pp Alphonso Mango 2 L (1x15)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "family_packs_2l",
+                  "group": "2 L Family Packs",
+                  "pack": "2 L (1x15)",
+                  "unitsPerCase": 15,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICPPFNF58",
+                  "name": "Pp Fruit N Nut Fantasy 2 L(1x15)",
+                  "description": "Amul IC Pp Fruit N Nut Fantasy 2 L(1x15)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "family_packs_2l",
+                  "group": "2 L Family Packs",
+                  "pack": "2 L(1x15)",
+                  "unitsPerCase": 15,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                }
+              ]
+            },
+            {
+              "id": "bulk_packs_4l",
+              "name": "4 L Bulk Packs",
+              "products": [
+                {
+                  "id": "ICMFBSC17",
+                  "name": "Med Fat Butter Scotch 4 L (1x6)",
+                  "description": "Amul IC Med Fat Butter Scotch 4 L (1x6)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "bulk_packs_4l",
+                  "group": "4 L Bulk Packs",
+                  "pack": "4 L (1x6)",
+                  "unitsPerCase": 6,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICSCBSC04",
+                  "name": "SC Butter Scotch 4 L (1x6)",
+                  "description": "Amul IC SC Butter Scotch 4 L (1x6)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "bulk_packs_4l",
+                  "group": "4 L Bulk Packs",
+                  "pack": "4 L (1x6)",
+                  "unitsPerCase": 6,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICSCMAN16",
+                  "name": "SC Alphonso Mango 4 L (1x6)",
+                  "description": "Amul IC SC Alphonso Mango 4 L (1x6)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "bulk_packs_4l",
+                  "group": "4 L Bulk Packs",
+                  "pack": "4 L (1x6)",
+                  "unitsPerCase": 6,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICSCCCH10",
+                  "name": "SC Choco Chips 4 L (1x6)",
+                  "description": "Amul IC SC Choco Chips 4 L (1x6)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "bulk_packs_4l",
+                  "group": "4 L Bulk Packs",
+                  "pack": "4 L (1x6)",
+                  "unitsPerCase": 6,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICSCCHO11",
+                  "name": "SC Chocolate 4 L (1x6)",
+                  "description": "Amul IC SC Chocolate 4 L (1x6)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "bulk_packs_4l",
+                  "group": "4 L Bulk Packs",
+                  "pack": "4 L (1x6)",
+                  "unitsPerCase": 6,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICSCAMN06",
+                  "name": "SC American Nuts 4 L (1x6)",
+                  "description": "Amul IC SC American Nuts 4 L (1x6)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "bulk_packs_4l",
+                  "group": "4 L Bulk Packs",
+                  "pack": "4 L (1x6)",
+                  "unitsPerCase": 6,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICSCCCM21",
+                  "name": "SC Cookies n Cream 4 L (1x6)",
+                  "description": "Amul IC SC Cookies n Cream 4 L (1x6)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "bulk_packs_4l",
+                  "group": "4 L Bulk Packs",
+                  "pack": "4 L (1x6)",
+                  "unitsPerCase": 6,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICSCCHB22",
+                  "name": "SC Chocolate Brownie 4 L (1x6)",
+                  "description": "Amul IC SC Chocolate Brownie 4 L (1x6)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "bulk_packs_4l",
+                  "group": "4 L Bulk Packs",
+                  "pack": "4 L (1x6)",
+                  "unitsPerCase": 6,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICSCPGU30",
+                  "name": "SC Pink Guava 4 L (1x6)",
+                  "description": "Amul IC SC Pink Guava 4 L (1x6)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "bulk_packs_4l",
+                  "group": "4 L Bulk Packs",
+                  "pack": "4 L (1x6)",
+                  "unitsPerCase": 6,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
                 }
               ]
             },
@@ -1895,7 +2909,7 @@
                   "sourceInvoiceDate": "2026-08-05"
                 },
                 {
-                  "id": "ICBPCM42",
+                  "id": "ICBPCCM42",
                   "name": "Bulk Pack Cookies N Cream 5 L",
                   "description": "Amul IC BP Cookies N Cream 5 L (1x6)",
                   "departmentId": "frozen",
@@ -1907,7 +2921,8 @@
                   "pack": "5L (1x6)",
                   "unitsPerCase": 6,
                   "sourceCategory": "Ice Cream",
-                  "sourceInvoiceDate": "2026-08-20"
+                  "sourceInvoiceDate": "2026-08-20",
+                  "imageId": "ICBPCM42"
                 },
                 {
                   "id": "ICBPVAN01",
@@ -1923,6 +2938,66 @@
                   "unitsPerCase": 6,
                   "sourceCategory": "Ice Cream",
                   "sourceInvoiceDate": "2026-08-20"
+                },
+                {
+                  "id": "ICBPCHO02",
+                  "name": "BP Chocolate 5 L (1x6)",
+                  "description": "Amul IC BP Chocolate 5 L (1x6)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "bulk_packs_5l",
+                  "group": "5 L Bulk Packs",
+                  "pack": "5 L (1x6)",
+                  "unitsPerCase": 6,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICBPBCU08",
+                  "name": "BP Black Currant 5 L (1x6)",
+                  "description": "Amul IC BP Black Currant 5 L (1x6)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "bulk_packs_5l",
+                  "group": "5 L Bulk Packs",
+                  "pack": "5 L (1x6)",
+                  "unitsPerCase": 6,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICBPMAN04",
+                  "name": "BP Mango 5 L (1x6)",
+                  "description": "Amul IC BP Mango 5 L (1x6)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "bulk_packs_5l",
+                  "group": "5 L Bulk Packs",
+                  "pack": "5 L (1x6)",
+                  "unitsPerCase": 6,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ICBPSTR05",
+                  "name": "BP Strawberry 5 L (1x6)",
+                  "description": "Amul IC BP Strawberry 5 L (1x6)",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "ice_creams",
+                  "category": "Ice Creams",
+                  "groupId": "bulk_packs_5l",
+                  "group": "5 L Bulk Packs",
+                  "pack": "5 L (1x6)",
+                  "unitsPerCase": 6,
+                  "sourceCategory": "Ice Cream",
+                  "source": "amul-product-master"
                 }
               ]
             }
@@ -2012,6 +3087,42 @@
                   "sourceInvoiceDate": "2026-09-08"
                 }
               ]
+            },
+            {
+              "id": "veg_patties",
+              "name": "Veg Patties",
+              "products": [
+                {
+                  "id": "FPSIP14",
+                  "name": "Happy Treats VegBurgPatty 12x1.2kg",
+                  "description": "Amul Happy Treats VegBurgPatty 12x1.2kg",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "frozen_snacks",
+                  "category": "Frozen Snacks",
+                  "groupId": "veg_patties",
+                  "group": "Veg Patties",
+                  "pack": "1.2kg",
+                  "unitsPerCase": 12,
+                  "sourceCategory": "Potato Products",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "FPSCP07",
+                  "name": "Happy Treats VegBurgerPatty 30x360g",
+                  "description": "Amul Happy Treats VegBurgerPatty 30x360g",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "frozen_snacks",
+                  "category": "Frozen Snacks",
+                  "groupId": "veg_patties",
+                  "group": "Veg Patties",
+                  "pack": "360g",
+                  "unitsPerCase": 30,
+                  "sourceCategory": "Potato Products",
+                  "source": "amul-product-master"
+                }
+              ]
             }
           ]
         }
@@ -2058,6 +3169,21 @@
                   "unitsPerCase": 12,
                   "sourceCategory": "Milk",
                   "sourceInvoiceDate": "2026-08-14"
+                },
+                {
+                  "id": "BTMCP02",
+                  "name": "Masti Buttermilk 12x1 Ltr TP",
+                  "description": "Amul Masti Buttermilk 12x1 Ltr TP",
+                  "departmentId": "dairy",
+                  "department": "Dairy",
+                  "categoryId": "milk_drinks",
+                  "category": "Milk & Drinks",
+                  "groupId": "milk_buttermilk",
+                  "group": "Milk & Buttermilk",
+                  "pack": "1 Ltr TP",
+                  "unitsPerCase": 12,
+                  "sourceCategory": "Beverage",
+                  "source": "amul-product-master"
                 }
               ]
             },
@@ -2220,6 +3346,96 @@
                   "unitsPerCase": 30,
                   "sourceCategory": "Beverage",
                   "sourceInvoiceDate": "2026-08-14"
+                },
+                {
+                  "id": "TRUCP19",
+                  "name": "TRU Litchi 30x150 ML TP",
+                  "description": "AMUL TRU Litchi 30x150 ML TP",
+                  "departmentId": "dairy",
+                  "department": "Dairy",
+                  "categoryId": "milk_drinks",
+                  "category": "Milk & Drinks",
+                  "groupId": "milkshakes_kool",
+                  "group": "Milkshakes & Kool",
+                  "pack": "150 ML TP",
+                  "unitsPerCase": 30,
+                  "sourceCategory": "Beverage",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "TRUCP16",
+                  "name": "TRU Mango 30x150 ML TP",
+                  "description": "AMUL TRU Mango 30x150 ML TP",
+                  "departmentId": "dairy",
+                  "department": "Dairy",
+                  "categoryId": "milk_drinks",
+                  "category": "Milk & Drinks",
+                  "groupId": "milkshakes_kool",
+                  "group": "Milkshakes & Kool",
+                  "pack": "150 ML TP",
+                  "unitsPerCase": 30,
+                  "sourceCategory": "Beverage",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "TRUCP17",
+                  "name": "TRU Orange 30x150 ML TP",
+                  "description": "AMUL TRU Orange 30x150 ML TP",
+                  "departmentId": "dairy",
+                  "department": "Dairy",
+                  "categoryId": "milk_drinks",
+                  "category": "Milk & Drinks",
+                  "groupId": "milkshakes_kool",
+                  "group": "Milkshakes & Kool",
+                  "pack": "150 ML TP",
+                  "unitsPerCase": 30,
+                  "sourceCategory": "Beverage",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "TRUCP18",
+                  "name": "TRU Apple 30x150 ML TP",
+                  "description": "AMUL TRU Apple 30x150 ML TP",
+                  "departmentId": "dairy",
+                  "department": "Dairy",
+                  "categoryId": "milk_drinks",
+                  "category": "Milk & Drinks",
+                  "groupId": "milkshakes_kool",
+                  "group": "Milkshakes & Kool",
+                  "pack": "150 ML TP",
+                  "unitsPerCase": 30,
+                  "sourceCategory": "Beverage",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "FMPCP24",
+                  "name": "Kool Classic 30x180ml Pet Btl",
+                  "description": "Amul Kool Classic 30x180ml Pet Btl",
+                  "departmentId": "dairy",
+                  "department": "Dairy",
+                  "categoryId": "milk_drinks",
+                  "category": "Milk & Drinks",
+                  "groupId": "milkshakes_kool",
+                  "group": "Milkshakes & Kool",
+                  "pack": "180ml Pet Btl",
+                  "unitsPerCase": 30,
+                  "sourceCategory": "Beverage",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "CAFCP10",
+                  "name": "Kool Cafe 30x200ml Can",
+                  "description": "Amul Kool Cafe 30x200ml Can",
+                  "departmentId": "dairy",
+                  "department": "Dairy",
+                  "categoryId": "milk_drinks",
+                  "category": "Milk & Drinks",
+                  "groupId": "milkshakes_kool",
+                  "group": "Milkshakes & Kool",
+                  "pack": "200ml Can",
+                  "unitsPerCase": 30,
+                  "sourceCategory": "Beverage",
+                  "source": "amul-product-master"
                 }
               ]
             }
@@ -2277,6 +3493,81 @@
                   "unitsPerCase": 12,
                   "sourceCategory": "Dairy",
                   "sourceInvoiceDate": "2026-08-14"
+                },
+                {
+                  "id": "WBTCP01",
+                  "name": "Unsalted Cooking Butter 30x500 Gm",
+                  "description": "Amul Unsalted Cooking Butter 30x500 Gm",
+                  "departmentId": "dairy",
+                  "department": "Dairy",
+                  "categoryId": "cooking_dairy",
+                  "category": "Cooking Dairy",
+                  "groupId": "butter_ghee",
+                  "group": "Butter & Ghee",
+                  "pack": "500 Gm",
+                  "unitsPerCase": 30,
+                  "sourceCategory": "Fat Spread",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "GHECP66",
+                  "name": "High Aroma Cow Ghee 24x500 Ml JAR",
+                  "description": "Amul High Aroma Cow Ghee 24x500 Ml JAR",
+                  "departmentId": "dairy",
+                  "department": "Dairy",
+                  "categoryId": "cooking_dairy",
+                  "category": "Cooking Dairy",
+                  "groupId": "butter_ghee",
+                  "group": "Butter & Ghee",
+                  "pack": "500 Ml JAR",
+                  "unitsPerCase": 24,
+                  "sourceCategory": "Ghee",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "GHECP65",
+                  "name": "HIGH AROMA COW GHEE 60x200mL JAR",
+                  "description": "AMUL HIGH AROMA COW GHEE 60x200mL JAR",
+                  "departmentId": "dairy",
+                  "department": "Dairy",
+                  "categoryId": "cooking_dairy",
+                  "category": "Cooking Dairy",
+                  "groupId": "butter_ghee",
+                  "group": "Butter & Ghee",
+                  "pack": "200mL JAR",
+                  "unitsPerCase": 60,
+                  "sourceCategory": "Ghee",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "GHECP76",
+                  "name": "High Aroma Cow Ghee 20x500 mL Pouch",
+                  "description": "Amul High Aroma Cow Ghee 20x500 mL Pouch",
+                  "departmentId": "dairy",
+                  "department": "Dairy",
+                  "categoryId": "cooking_dairy",
+                  "category": "Cooking Dairy",
+                  "groupId": "butter_ghee",
+                  "group": "Butter & Ghee",
+                  "pack": "500 mL Pouch",
+                  "unitsPerCase": 20,
+                  "sourceCategory": "Ghee",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "GHECP68",
+                  "name": "High Aroma Cow Ghee 12x1 Ltr TIN",
+                  "description": "Amul High Aroma Cow Ghee 12x1 Ltr TIN",
+                  "departmentId": "dairy",
+                  "department": "Dairy",
+                  "categoryId": "cooking_dairy",
+                  "category": "Cooking Dairy",
+                  "groupId": "butter_ghee",
+                  "group": "Butter & Ghee",
+                  "pack": "1 Ltr TIN",
+                  "unitsPerCase": 12,
+                  "sourceCategory": "Ghee",
+                  "source": "amul-product-master"
                 }
               ]
             },
@@ -2343,6 +3634,111 @@
                   "unitsPerCase": 60,
                   "sourceCategory": "Dairy",
                   "sourceInvoiceDate": "2026-08-14"
+                },
+                {
+                  "id": "MCHCP03",
+                  "name": "Diced Mozzarella 12x1 kg",
+                  "description": "Amul Diced Mozzarella 12x1 kg",
+                  "departmentId": "dairy",
+                  "department": "Dairy",
+                  "categoryId": "cooking_dairy",
+                  "category": "Cooking Dairy",
+                  "groupId": "cheese_cream",
+                  "group": "Cheese & Cream",
+                  "pack": "1 kg",
+                  "unitsPerCase": 12,
+                  "sourceCategory": "Cheese",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "MCHCP08",
+                  "name": "Diced Cheese Blend 50x200 Gm",
+                  "description": "Amul Diced Cheese Blend 50x200 Gm",
+                  "departmentId": "dairy",
+                  "department": "Dairy",
+                  "categoryId": "cooking_dairy",
+                  "category": "Cooking Dairy",
+                  "groupId": "cheese_cream",
+                  "group": "Cheese & Cream",
+                  "pack": "200 Gm",
+                  "unitsPerCase": 50,
+                  "sourceCategory": "Cheese",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "PCHIP14",
+                  "name": "Processed Cheese Slices 16x50x15 Gm",
+                  "description": "Amul Processed Cheese Slices 16x50x15 Gm",
+                  "departmentId": "dairy",
+                  "department": "Dairy",
+                  "categoryId": "cooking_dairy",
+                  "category": "Cooking Dairy",
+                  "groupId": "cheese_cream",
+                  "group": "Cheese & Cream",
+                  "pack": "15 Gm",
+                  "unitsPerCase": 16,
+                  "sourceCategory": "Cheese",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "MCHCP02",
+                  "name": "Mozzarella Pizza Cheese 50x200 Gm",
+                  "description": "Amul Mozzarella Pizza Cheese 50x200 Gm",
+                  "departmentId": "dairy",
+                  "department": "Dairy",
+                  "categoryId": "cooking_dairy",
+                  "category": "Cooking Dairy",
+                  "groupId": "cheese_cream",
+                  "group": "Cheese & Cream",
+                  "pack": "200 Gm",
+                  "unitsPerCase": 50,
+                  "sourceCategory": "Cheese",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "AFCCP01",
+                  "name": "Fresh Cream 12x1 Ltr TP",
+                  "description": "Amul Fresh Cream 12x1 Ltr TP",
+                  "departmentId": "dairy",
+                  "department": "Dairy",
+                  "categoryId": "cooking_dairy",
+                  "category": "Cooking Dairy",
+                  "groupId": "cheese_cream",
+                  "group": "Cheese & Cream",
+                  "pack": "1 Ltr TP",
+                  "unitsPerCase": 12,
+                  "sourceCategory": "Cream UHT Processed",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "KHOCP10",
+                  "name": "Khoa plain 24x200gm Tray",
+                  "description": "Amul Khoa plain 24x200gm Tray",
+                  "departmentId": "dairy",
+                  "department": "Dairy",
+                  "categoryId": "cooking_dairy",
+                  "category": "Cooking Dairy",
+                  "groupId": "cheese_cream",
+                  "group": "Cheese & Cream",
+                  "pack": "200gm Tray",
+                  "unitsPerCase": 24,
+                  "sourceCategory": "Mithaee",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "PNRCP09",
+                  "name": "Malai Paneer Diced 40x250 Gm",
+                  "description": "Amul Malai Paneer Diced 40x250 Gm",
+                  "departmentId": "dairy",
+                  "department": "Dairy",
+                  "categoryId": "cooking_dairy",
+                  "category": "Cooking Dairy",
+                  "groupId": "cheese_cream",
+                  "group": "Cheese & Cream",
+                  "pack": "250 Gm",
+                  "unitsPerCase": 40,
+                  "sourceCategory": "Paneer",
+                  "source": "amul-product-master"
                 }
               ]
             },
@@ -2364,6 +3760,57 @@
                   "unitsPerCase": 2,
                   "sourceCategory": "Dairy",
                   "sourceInvoiceDate": "2026-08-14"
+                },
+                {
+                  "id": "SCMCP06",
+                  "name": "Mithai Mate 96x200 g Pack",
+                  "description": "Amul Mithai Mate 96x200 g Pack",
+                  "departmentId": "dairy",
+                  "department": "Dairy",
+                  "categoryId": "cooking_dairy",
+                  "category": "Cooking Dairy",
+                  "groupId": "condensed_milk",
+                  "group": "Condensed Milk",
+                  "pack": "200 g Pack",
+                  "unitsPerCase": 96,
+                  "sourceCategory": "Sweetened Condensed",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "SCMCP05",
+                  "name": "Mithai Mate EOE 48x400 Gm Tin",
+                  "description": "Amul Mithai Mate EOE 48x400 Gm Tin",
+                  "departmentId": "dairy",
+                  "department": "Dairy",
+                  "categoryId": "cooking_dairy",
+                  "category": "Cooking Dairy",
+                  "groupId": "condensed_milk",
+                  "group": "Condensed Milk",
+                  "pack": "400 Gm Tin",
+                  "unitsPerCase": 48,
+                  "sourceCategory": "Sweetened Condensed",
+                  "source": "amul-product-master"
+                }
+              ]
+            },
+            {
+              "id": "spreads",
+              "name": "Spreads",
+              "products": [
+                {
+                  "id": "PEACP03",
+                  "name": "Peanut Spread Creamy 12x900 Gm",
+                  "description": "Amul Peanut Spread Creamy 12x900 Gm",
+                  "departmentId": "dairy",
+                  "department": "Dairy",
+                  "categoryId": "cooking_dairy",
+                  "category": "Cooking Dairy",
+                  "groupId": "spreads",
+                  "group": "Spreads",
+                  "pack": "900 Gm",
+                  "unitsPerCase": 12,
+                  "sourceCategory": "Peanut Spread",
+                  "source": "amul-product-master"
                 }
               ]
             }
@@ -2565,6 +4012,81 @@
                   "unitsPerCase": 40,
                   "sourceCategory": "Chocolate",
                   "sourceInvoiceDate": "2026-08-14"
+                },
+                {
+                  "id": "CHTCP70",
+                  "name": "Milk Chocolate 40x150g - HBD pack",
+                  "description": "Amul Milk Chocolate 40x150g - HBD pack",
+                  "departmentId": "chocolates",
+                  "department": "Chocolates",
+                  "categoryId": "chocolate_range",
+                  "category": "Chocolate Range",
+                  "groupId": "chocolate_bars",
+                  "group": "Chocolate Bars",
+                  "pack": "150g - HBD pack",
+                  "unitsPerCase": 40,
+                  "sourceCategory": "Chocolate",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "CHTCP71",
+                  "name": "Fruit n Nut chocolate 40x150g-ILU",
+                  "description": "Amul Fruit n Nut chocolate 40x150g-ILU",
+                  "departmentId": "chocolates",
+                  "department": "Chocolates",
+                  "categoryId": "chocolate_range",
+                  "category": "Chocolate Range",
+                  "groupId": "chocolate_bars",
+                  "group": "Chocolate Bars",
+                  "pack": "150g-ILU",
+                  "unitsPerCase": 40,
+                  "sourceCategory": "Chocolate",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "CHTCP81",
+                  "name": "Bitter 90% Chocolate 40x150 Gm",
+                  "description": "Amul Bitter 90% Chocolate 40x150 Gm",
+                  "departmentId": "chocolates",
+                  "department": "Chocolates",
+                  "categoryId": "chocolate_range",
+                  "category": "Chocolate Range",
+                  "groupId": "chocolate_bars",
+                  "group": "Chocolate Bars",
+                  "pack": "150 Gm",
+                  "unitsPerCase": 40,
+                  "sourceCategory": "Chocolate",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "CHTCP47",
+                  "name": "Dark Chocolate 40x150g pack",
+                  "description": "Amul Dark Chocolate 40x150g pack",
+                  "departmentId": "chocolates",
+                  "department": "Chocolates",
+                  "categoryId": "chocolate_range",
+                  "category": "Chocolate Range",
+                  "groupId": "chocolate_bars",
+                  "group": "Chocolate Bars",
+                  "pack": "150g pack",
+                  "unitsPerCase": 40,
+                  "sourceCategory": "Chocolate",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "CHTCP128",
+                  "name": "Milk Chocolate 12x20x35 Gm",
+                  "description": "Amul Milk Chocolate 12x20x35 Gm",
+                  "departmentId": "chocolates",
+                  "department": "Chocolates",
+                  "categoryId": "chocolate_range",
+                  "category": "Chocolate Range",
+                  "groupId": "chocolate_bars",
+                  "group": "Chocolate Bars",
+                  "pack": "35 Gm",
+                  "unitsPerCase": 240,
+                  "sourceCategory": "Chocolate",
+                  "source": "amul-product-master"
                 }
               ]
             },
@@ -2700,6 +4222,72 @@
                   "unitsPerCase": 24,
                   "sourceCategory": "Bakery",
                   "sourceInvoiceDate": "2026-08-14"
+                },
+                {
+                  "id": "ATTCP07",
+                  "name": "TEA SPECIAL RUSK 42x65 GM",
+                  "description": "AMUL TEA SPECIAL RUSK 42x65 GM",
+                  "departmentId": "snacks",
+                  "department": "Snacks",
+                  "categoryId": "bakery_snacks",
+                  "category": "Bakery Snacks",
+                  "groupId": "rusks",
+                  "group": "Rusks",
+                  "pack": "65 GM",
+                  "unitsPerCase": 42,
+                  "sourceCategory": "Amul Rusk",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ATTCP15",
+                  "name": "T-SPECIAL RUSK 108x24 GM",
+                  "description": "AMUL T-SPECIAL RUSK 108x24 GM",
+                  "departmentId": "snacks",
+                  "department": "Snacks",
+                  "categoryId": "bakery_snacks",
+                  "category": "Bakery Snacks",
+                  "groupId": "rusks",
+                  "group": "Rusks",
+                  "pack": "24 GM",
+                  "unitsPerCase": 108,
+                  "sourceCategory": "Amul Rusk",
+                  "source": "amul-product-master"
+                }
+              ]
+            },
+            {
+              "id": "cakes",
+              "name": "Cakes",
+              "products": [
+                {
+                  "id": "ABCCP01",
+                  "name": "Butter Cake Classic 24x150 Gm",
+                  "description": "Amul Butter Cake Classic 24x150 Gm",
+                  "departmentId": "snacks",
+                  "department": "Snacks",
+                  "categoryId": "bakery_snacks",
+                  "category": "Bakery Snacks",
+                  "groupId": "cakes",
+                  "group": "Cakes",
+                  "pack": "150 Gm",
+                  "unitsPerCase": 24,
+                  "sourceCategory": "Amul Cake",
+                  "source": "amul-product-master"
+                },
+                {
+                  "id": "ABCCP04",
+                  "name": "Butter Cake Fruit Nut 24x150 Gm",
+                  "description": "Amul Butter Cake Fruit  Nut 24x150 Gm",
+                  "departmentId": "snacks",
+                  "department": "Snacks",
+                  "categoryId": "bakery_snacks",
+                  "category": "Bakery Snacks",
+                  "groupId": "cakes",
+                  "group": "Cakes",
+                  "pack": "150 Gm",
+                  "unitsPerCase": 24,
+                  "sourceCategory": "Amul Cake",
+                  "source": "amul-product-master"
                 }
               ]
             }

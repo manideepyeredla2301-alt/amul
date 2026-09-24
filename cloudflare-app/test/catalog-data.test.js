@@ -9,7 +9,7 @@ test('catalogue distinguishes inner boxes from full crates', () => {
   assert.deepEqual([products.get('ICTRBCH45').unitsPerBox, products.get('ICTRBCH45').unitsPerCase], [20, 120]);
   assert.deepEqual([products.get('ICCUBSC95').unitsPerBox, products.get('ICCUBSC95').unitsPerCase], [16, 144]);
   assert.deepEqual([products.get('ICSTFRS53').unitsPerBox, products.get('ICSTFRS53').unitsPerCase], [20, 160]);
-  assert.deepEqual([products.get('ICPTBSB95').unitsPerBox, products.get('ICPTBSB95').unitsPerCase], [3, 18]);
+  assert.deepEqual([products.get('ICPPBSC95').unitsPerBox, products.get('ICPPBSC95').unitsPerCase], [3, 18]);
   assert.deepEqual([products.get('CHTCP102').unitsPerBox, products.get('CHTCP102').unitsPerCase], [20, 360]);
   assert.deepEqual([products.get('WCHCP17').unitsPerBox, products.get('WCHCP17').unitsPerCase], [75, 450]);
   assert.deepEqual([products.get('DWRCP70').unitsPerBox, products.get('DWRCP70').unitsPerCase], [240, 480]);
