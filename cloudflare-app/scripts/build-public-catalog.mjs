@@ -11,6 +11,17 @@ const publicImages = path.join(appRoot, 'public', 'images');
 await mkdir(publicImages, { recursive: true });
 const imageNames = new Set(await readdir(sourceImages));
 
+function unitsPerBox(department, category, product) {
+  const explicit = Number(product.unitsPerBox || 0);
+  if (Number.isInteger(explicit) && explicit > 0) return explicit;
+  const crateUnits = Number(product.unitsPerCase || 0);
+  const pair = String(product.pack || product.description || '').match(/\((\d+)\s*[xX×]\s*(\d+)\)/);
+  if (!pair) return crateUnits;
+  if (department.id === 'frozen' && category.id === 'ice_creams') return Number(pair[1]);
+  if (department.id === 'chocolates' || String(product.id) === 'DWRCP70') return Number(pair[2]);
+  return crateUnits;
+}
+
 const departments = (source.departments || []).map((department) => ({
   id: String(department.id),
   name: String(department.name),
@@ -28,6 +39,7 @@ const departments = (source.departments || []).map((department) => ({
           description: String(product.description || ''),
           pack: String(product.pack || ''),
           unitsPerCase: Number(product.unitsPerCase || 0),
+          unitsPerBox: unitsPerBox(department, category, product),
           image: imageNames.has(imageName) ? `/images/${imageName}` : '',
         };
       }),

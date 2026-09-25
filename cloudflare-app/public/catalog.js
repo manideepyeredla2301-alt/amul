@@ -9,7 +9,7 @@ const money=paise=>new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR
 function allProducts(){return state.catalog.departments.flatMap(department=>department.categories.flatMap(category=>category.groups.flatMap(group=>group.products.map(product=>{const live=state.availability.get(String(product.id).toUpperCase())||{};return {...product,departmentId:department.id,department:department.name,category:category.name,groupId:group.id,group:group.name,availableQty:Number(live.available_qty||0),mrpPaise:Number(live.mrp_paise||0),sellingPricePaise:Number(live.selling_price_paise||0),gstBps:Number(live.gst_bps||500),stockUnit:String(live.unit||'PCS').toUpperCase().replace('PCS','PC').replace('BX','BOX')}}))))}
 function defaultOrderUnit(product){return /(?:\bbulks?\b|\bcombos?\b|\b2\s*l(?:tr|itre|iter)?\b)/i.test(`${product.group} ${product.name} ${product.description}`)?'PC':'BOX'}
 function orderUnit(product){const saved=String(state.units.get(product.id)||'').toUpperCase();return saved==='PC'||saved==='BOX'?saved:defaultOrderUnit(product)}
-function unitsPerOrder(product,unit=orderUnit(product)){return unit==='BOX'?Math.max(1,Number(product.unitsPerCase||1)):1}
+function unitsPerOrder(product,unit=orderUnit(product)){return unit==='BOX'?Math.max(1,Number(product.unitsPerBox||product.unitsPerCase||1)):1}
 function orderAvailability(product,unit=orderUnit(product)){return Math.floor(Number(product.availableQty||0)/unitsPerOrder(product,unit))}
 function orderPrice(product,unit=orderUnit(product)){return Number(product.sellingPricePaise||0)*unitsPerOrder(product,unit)}
 function orderMrp(product,unit=orderUnit(product)){return Number(product.mrpPaise||0)*unitsPerOrder(product,unit)}

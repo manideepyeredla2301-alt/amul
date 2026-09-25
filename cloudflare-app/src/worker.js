@@ -100,7 +100,7 @@ async function publicCatalogueProducts(request, env) {
   const catalogue = await response.json();
   const products = new Map();
   for (const department of catalogue.departments || []) for (const category of department.categories || []) for (const group of category.groups || []) for (const product of group.products || []) {
-    products.set(String(product.id || '').toUpperCase(), { unitsPerBox: Number(product.unitsPerCase || 0), defaultUnit: defaultWholesaleUnit(`${group.name} ${product.name} ${product.description}`) });
+    products.set(String(product.id || '').toUpperCase(), { unitsPerBox: Number(product.unitsPerBox || product.unitsPerCase || 0), defaultUnit: defaultWholesaleUnit(`${group.name} ${product.name} ${product.description}`) });
   }
   return products;
 }
