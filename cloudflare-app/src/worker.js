@@ -932,9 +932,36 @@ async function deleteCustomer(env, id) {
   return json({ id, name: customer.name, deleted: true });
 }
 
+const mediaTypes = ['image', 'sticker', 'document', 'audio', 'video'];
+
+// Streams an inbound attachment from Meta. Only media referenced by a stored inbound event can be
+// fetched, and the route sits behind the admin login. Meta keeps media for about 30 days.
+async function whatsappMedia(env, eventId) {
+  const event = await env.DB.prepare("SELECT message_type,raw_json FROM whatsapp_events WHERE event_id=?1 AND direction='INBOUND'").bind(eventId).first();
+  if (!event || !mediaTypes.includes(event.message_type)) return json({ error: 'Attachment not found' }, 404);
+  let mediaId = '';
+  try { mediaId = String(JSON.parse(event.raw_json || '{}')[event.message_type]?.id || ''); } catch { /* malformed legacy row */ }
+  if (!/^\d{5,30}$/.test(mediaId)) return json({ error: 'Attachment not found' }, 404);
+  if (!env.META_ACCESS_TOKEN) return json({ error: 'WhatsApp access token is not configured' }, 503);
+  const version = /^v\d+\.\d+$/.test(env.META_GRAPH_VERSION || '') ? env.META_GRAPH_VERSION : 'v25.0';
+  const auth = { authorization: `Bearer ${env.META_ACCESS_TOKEN}` };
+  const meta = await fetch(`https://graph.facebook.com/${version}/${mediaId}`, { headers: auth });
+  const info = await meta.json().catch(() => ({}));
+  if (!meta.ok || !info.url) return json({ error: 'WhatsApp no longer has this attachment (media expires after about 30 days).' }, 410);
+  const file = await fetch(info.url, { headers: auth });
+  if (!file.ok) return json({ error: 'Could not download the attachment from WhatsApp.' }, 502);
+  const type = String(info.mime_type || file.headers.get('content-type') || 'application/octet-stream');
+  const inline = /^(image|audio|video)\//.test(type) || type === 'application/pdf';
+  return new Response(file.body, { headers: { ...securityHeaders, 'Content-Type': type, 'Cache-Control': 'private, max-age=86400', 'Content-Disposition': inline ? 'inline' : 'attachment' } });
+}
+
 async function whatsappConversations(env) {
   const [eventRows, profileRows, customerRows, orderRows] = await Promise.all([
-    env.DB.prepare(`SELECT event_id,event_type,from_number,customer_name,direction,message_type,body,event_time,received_at,order_id
+    env.DB.prepare(`SELECT event_id,event_type,from_number,customer_name,direction,message_type,event_time,received_at,order_id,
+      COALESCE(body,CASE WHEN json_valid(raw_json) THEN COALESCE(json_extract(raw_json,'$.'||message_type||'.caption'),json_extract(raw_json,'$.document.filename')) END) body,
+      CASE WHEN direction='INBOUND' AND message_type IN ('image','sticker','document','audio','video') AND json_valid(raw_json) AND json_extract(raw_json,'$.'||message_type||'.id') IS NOT NULL THEN 1 ELSE 0 END has_media,
+      CASE WHEN json_valid(raw_json) THEN json_extract(raw_json,'$.'||message_type||'.mime_type') END media_mime,
+      CASE WHEN json_valid(raw_json) THEN json_extract(raw_json,'$.document.filename') END media_filename
       FROM whatsapp_events WHERE from_number<>'' ORDER BY received_at DESC LIMIT 500`).all(),
     env.DB.prepare('SELECT * FROM whatsapp_customers ORDER BY updated_at DESC LIMIT 300').all(),
     env.DB.prepare('SELECT name,mobile,whatsapp_number,gstin,address FROM customers WHERE active=1').all(),
@@ -1306,7 +1333,8 @@ async function whatsappTemplates(env) {
 
 function messageBody(message) {
   const flow = message.interactive?.nfm_reply?.response_json;
-  return message.text?.body || message.button?.text || message.interactive?.button_reply?.title || message.interactive?.list_reply?.title || message.location?.name || flow || null;
+  return message.text?.body || message.button?.text || message.interactive?.button_reply?.title || message.interactive?.list_reply?.title || message.location?.name || flow
+    || message.image?.caption || message.video?.caption || message.document?.caption || message.document?.filename || null;
 }
 
 function collectHistoryMessages(value) {
@@ -1620,6 +1648,8 @@ async function route(request, env) {
     return json({ events: rows.results || [] });
   }
   if (path === '/api/whatsapp/conversations' && request.method === 'GET') return whatsappConversations(env);
+  const mediaMatch = path.match(/^\/api\/whatsapp\/media\/([^/]+)$/);
+  if (mediaMatch && request.method === 'GET') return whatsappMedia(env, decodeURIComponent(mediaMatch[1]));
   if (path === '/api/whatsapp/templates' && request.method === 'GET') return whatsappTemplates(env);
   if (path === '/api/whatsapp/invite' && request.method === 'POST') return inviteWhatsAppCustomer(request, env);
   if (path === '/api/whatsapp/template' && request.method === 'POST') return sendWhatsAppTemplate(request, env);
@@ -1639,4 +1669,4 @@ export default {
   },
 };
 
-export { acceptBusinessSnapshot, equalSecret, cleanPhone, cleanStoredPhone, cleanGstin, cleanLocationUrl, catalogueReply, catalogueRequested, catalogueInviteMessage, approvedTemplateMessage, supportsWhatsAppWebhook, invoiceLineAmounts, orderEstimateLineAmounts, paymentStatus, routeDisplayName, defaultWholesaleUnit, cleanWholesaleUnit, baseOrderQuantity };
+export { acceptBusinessSnapshot, whatsappMedia, messageBody, equalSecret, cleanPhone, cleanStoredPhone, cleanGstin, cleanLocationUrl, catalogueReply, catalogueRequested, catalogueInviteMessage, approvedTemplateMessage, supportsWhatsAppWebhook, invoiceLineAmounts, orderEstimateLineAmounts, paymentStatus, routeDisplayName, defaultWholesaleUnit, cleanWholesaleUnit, baseOrderQuantity };

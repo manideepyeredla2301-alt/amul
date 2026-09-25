@@ -12,3 +12,8 @@
 /* The hidden attribute must win over display rules (e.g. .chat-empty{display:grid}); otherwise the
    placeholder stays visible and pushes the selected conversation out of the clipped chat panel. */
 [hidden]{display:none!important}
+
+/* Customer photos and attachments inside the chat thread. */
+.chat-media{display:block;margin-top:6px;max-width:100%}
+.chat-media img{display:block;max-width:min(320px,100%);max-height:360px;border-radius:10px;object-fit:contain;background:#f4f6f5}
+.chat-attachment{display:inline-block;margin-top:6px;padding:7px 10px;border-radius:8px;background:#edf5f1;font-weight:700;text-decoration:none}
