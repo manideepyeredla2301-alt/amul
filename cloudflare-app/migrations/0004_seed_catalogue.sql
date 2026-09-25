@@ -97,6 +97,11 @@ INSERT OR IGNORE INTO inventory(product_id,sku,product_name,category,unit,stock_
 ('AMUL:ICBPCHB41','ICBPCHB41','Bulk Pack Chocolate Brownie 5…','5 L Bulk Packs','PCS',0,0,0,0,1,'catalog-seed','catalog-v2','2026-08-26',CURRENT_TIMESTAMP),
 ('AMUL:ICBPCM42','ICBPCM42','Bulk Pack Cookies N Cream 5 L','5 L Bulk Packs','PCS',0,0,0,0,1,'catalog-seed','catalog-v2','2026-08-26',CURRENT_TIMESTAMP),
 ('AMUL:ICBPVAN01','ICBPVAN01','Bulk Pack Vanilla 5 L','5 L Bulk Packs','PCS',0,0,0,0,1,'catalog-seed','catalog-v2','2026-08-26',CURRENT_TIMESTAMP),
+('AMUL:FPSCP01','FPSCP01','Happy Treats French Fries 200g','French Fries','PCS',0,0,0,0,1,'catalog-seed','catalog-v2','2026-08-26',CURRENT_TIMESTAMP),
+('AMUL:FPSCP02','FPSCP02','Happy Treats French Fries 425g','French Fries','PCS',0,0,0,0,1,'catalog-seed','catalog-v2','2026-08-26',CURRENT_TIMESTAMP),
+('AMUL:FPSIP11','FPSIP11','Happy Treats French Fries 6mm','French Fries','PCS',0,0,0,0,1,'catalog-seed','catalog-v2','2026-08-26',CURRENT_TIMESTAMP),
+('AMUL:FPSIP10','FPSIP10','Happy Treats French Fries 9mm','French Fries','PCS',0,0,0,0,1,'catalog-seed','catalog-v2','2026-08-26',CURRENT_TIMESTAMP),
+('AMUL:FPSIP17','FPSIP17','Innovita French Fries 9mm','French Fries','PCS',0,0,0,0,1,'catalog-seed','catalog-v2','2026-08-26',CURRENT_TIMESTAMP),
 ('AMUL:BTMCP10','BTMCP10','Masti Buttermilk 30x200 Ml TP','Milk & Buttermilk','PCS',0,0,0,0,1,'catalog-seed','catalog-v2','2026-08-26',CURRENT_TIMESTAMP),
 ('AMUL:TDMCP01','TDMCP01','Taaza Fresh Toned Milk 12x1 L…','Milk & Buttermilk','PCS',0,0,0,0,1,'catalog-seed','catalog-v2','2026-08-26',CURRENT_TIMESTAMP),
 ('AMUL:LASCP35','LASCP35','Kesariya Lassi 30x200ml Carton','Lassi','PCS',0,0,0,0,1,'catalog-seed','catalog-v2','2026-08-26',CURRENT_TIMESTAMP),
@@ -135,4 +140,4 @@ INSERT OR IGNORE INTO inventory(product_id,sku,product_name,category,unit,stock_
 ('AMUL:AETCP14','AETCP14','Elaichi Rusk 24x200 Gm','Rusks','PCS',0,0,0,0,1,'catalog-seed','catalog-v2','2026-08-26',CURRENT_TIMESTAMP),
 ('AMUL:AMTCP14','AMTCP14','Milk Rusk 24x200 Gm','Rusks','PCS',0,0,0,0,1,'catalog-seed','catalog-v2','2026-08-26',CURRENT_TIMESTAMP),
 ('AMUL:ATTCP14','ATTCP14','Tea Special Rusk 24x200 Gm','Rusks','PCS',0,0,0,0,1,'catalog-seed','catalog-v2','2026-08-26',CURRENT_TIMESTAMP);
-INSERT INTO sync_state(key,value,updated_at) VALUES('catalog_seed','{"product_count":135,"version":2}',CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP;
+INSERT INTO sync_state(key,value,updated_at) VALUES('catalog_seed','{"product_count":140,"version":2}',CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP;

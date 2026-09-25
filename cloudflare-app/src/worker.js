@@ -183,14 +183,13 @@ async function publicAvailability(env) {
   const sync = await env.DB.prepare("SELECT value,updated_at FROM sync_state WHERE key='current_snapshot'").first();
   if (!sync) return json({ ready: false, items: [], message: 'Live stock is waiting for the first Amul PC sync.' });
   const rows = await env.DB.prepare(`WITH available AS (
-      SELECT product_id,UPPER(TRIM(sku)) sku,unit,stock_qty-reserved_qty available_qty,selling_price_paise,
+      SELECT product_id,UPPER(TRIM(sku)) sku,unit,stock_qty-reserved_qty available_qty,mrp_paise,selling_price_paise,
         ROW_NUMBER() OVER (PARTITION BY UPPER(TRIM(sku))
           ORDER BY selling_price_paise DESC,stock_qty-reserved_qty DESC,source_device<>'catalog-seed' DESC,product_id) price_rank
       FROM inventory WHERE active=1 AND manual_out_of_stock=0 AND TRIM(COALESCE(sku,''))<>'' AND stock_qty-reserved_qty>0 AND selling_price_paise>0
-    ) SELECT product_id,sku,available_qty,selling_price_paise,
-      ROUND(selling_price_paise*1.05) unit_price_with_gst_paise,500 gst_bps,unit
+    ) SELECT product_id,sku,available_qty,mrp_paise,selling_price_paise,500 gst_bps,unit
     FROM available WHERE price_rank=1 ORDER BY sku`).all();
-  return json({ ready: true, items: rows.results || [], gst_bps: 500, pricing: 'highest_available_price', sync });
+  return json({ ready: true, items: rows.results || [], gst_bps: 500, pricing: 'highest_retailer_price_before_gst', sync });
 }
 
 async function setInventoryAvailability(request, env, productId) {
@@ -414,16 +413,14 @@ async function createOrder(request, env, options = {}) {
         source_device<>'catalog-seed' DESC,stock_qty-reserved_qty DESC LIMIT 1`)
       .bind(requestedProductId, prefixedProductId, quantity, options.publicCatalog ? 1 : 0).first();
     if (!product) throw new Response(`Unknown product ${requestedProductId}`, { status: 400 });
-    const lineSubtotal = Math.round(quantity * Number(product.selling_price_paise || 0));
     const gstBps = options.publicCatalog ? 500 : 0;
-    const lineTax = Math.round(lineSubtotal * gstBps / 10_000);
-    const lineTotal = lineSubtotal + lineTax;
-    subtotal += lineSubtotal;
-    tax += lineTax;
+    const amounts = orderEstimateLineAmounts(quantity, product.selling_price_paise || 0, gstBps);
+    subtotal += amounts.subtotal_paise;
+    tax += amounts.tax_paise;
     preparedLines.push(env.DB.prepare(`INSERT INTO order_lines
       (order_id,line_no,product_id,product_name,quantity,unit,requested_quantity,requested_unit,units_per_box,price_paise,gst_bps,subtotal_paise,tax_paise,total_paise)
       VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)`)
-      .bind(id, index + 1, product.product_id, product.product_name, quantity, product.unit, requestedQuantity, requestedUnit || product.unit, unitsPerBox, product.selling_price_paise || 0, gstBps, lineSubtotal, lineTax, lineTotal));
+      .bind(id, index + 1, product.product_id, product.product_name, quantity, product.unit, requestedQuantity, requestedUnit || product.unit, unitsPerBox, product.selling_price_paise || 0, gstBps, amounts.subtotal_paise, amounts.tax_paise, amounts.total_paise));
   }
   const total = subtotal + tax;
   const businessDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()).replaceAll('-', '');
@@ -974,6 +971,11 @@ function invoiceLineAmounts(quantity, unitPricePaise, gstBps) {
   const subtotal = Math.round(Number(quantity) * Number(unitPricePaise));
   const tax = Math.round(subtotal * Number(gstBps) / 10_000);
   return { subtotal_paise: subtotal, tax_paise: tax, total_paise: subtotal + tax };
+}
+
+function orderEstimateLineAmounts(quantity, unitPricePaise, gstBps) {
+  const subtotal = Math.round(Number(quantity) * Number(unitPricePaise));
+  return { subtotal_paise: subtotal, tax_paise: 0, total_paise: subtotal, gst_bps: Number(gstBps) || 0 };
 }
 
 function paymentStatus(total, paid) {
@@ -1610,4 +1612,4 @@ export default {
   },
 };
 
-export { equalSecret, cleanPhone, cleanStoredPhone, cleanGstin, cleanLocationUrl, catalogueReply, catalogueRequested, catalogueInviteMessage, approvedTemplateMessage, supportsWhatsAppWebhook, invoiceLineAmounts, paymentStatus, routeDisplayName, defaultWholesaleUnit, cleanWholesaleUnit, baseOrderQuantity };
+export { equalSecret, cleanPhone, cleanStoredPhone, cleanGstin, cleanLocationUrl, catalogueReply, catalogueRequested, catalogueInviteMessage, approvedTemplateMessage, supportsWhatsAppWebhook, invoiceLineAmounts, orderEstimateLineAmounts, paymentStatus, routeDisplayName, defaultWholesaleUnit, cleanWholesaleUnit, baseOrderQuantity };

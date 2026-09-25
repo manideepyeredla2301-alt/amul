@@ -1927,6 +1927,93 @@
               ]
             }
           ]
+        },
+        {
+          "id": "frozen_snacks",
+          "name": "Frozen Snacks",
+          "groups": [
+            {
+              "id": "french_fries",
+              "name": "French Fries",
+              "products": [
+                {
+                  "id": "FPSCP01",
+                  "name": "Happy Treats French Fries 200g",
+                  "description": "Amul Happy Treats French Fries 40x200g",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "frozen_snacks",
+                  "category": "Frozen Snacks",
+                  "groupId": "french_fries",
+                  "group": "French Fries",
+                  "pack": "200g (40 packs)",
+                  "unitsPerCase": 40,
+                  "sourceCategory": "Frozen Snacks",
+                  "sourceInvoiceDate": "2026-09-08"
+                },
+                {
+                  "id": "FPSCP02",
+                  "name": "Happy Treats French Fries 425g",
+                  "description": "Amul Happy Treats French Fries 26x425g",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "frozen_snacks",
+                  "category": "Frozen Snacks",
+                  "groupId": "french_fries",
+                  "group": "French Fries",
+                  "pack": "425g (26 packs)",
+                  "unitsPerCase": 26,
+                  "sourceCategory": "Frozen Snacks",
+                  "sourceInvoiceDate": "2026-09-08"
+                },
+                {
+                  "id": "FPSIP11",
+                  "name": "Happy Treats French Fries 6mm",
+                  "description": "Amul Happy Treats French Fries 6mm 5x2.5kg",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "frozen_snacks",
+                  "category": "Frozen Snacks",
+                  "groupId": "french_fries",
+                  "group": "French Fries",
+                  "pack": "2.5kg (5 bags)",
+                  "unitsPerCase": 5,
+                  "sourceCategory": "Frozen Snacks",
+                  "sourceInvoiceDate": "2026-09-08"
+                },
+                {
+                  "id": "FPSIP10",
+                  "name": "Happy Treats French Fries 9mm",
+                  "description": "Amul Happy Treats French Fries 9mm 5x2.5kg",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "frozen_snacks",
+                  "category": "Frozen Snacks",
+                  "groupId": "french_fries",
+                  "group": "French Fries",
+                  "pack": "2.5kg (5 bags)",
+                  "unitsPerCase": 5,
+                  "sourceCategory": "Frozen Snacks",
+                  "sourceInvoiceDate": "2026-09-08"
+                },
+                {
+                  "id": "FPSIP17",
+                  "name": "Innovita French Fries 9mm",
+                  "description": "Amul Innovita French Fries 9mm 5x2.5kg",
+                  "departmentId": "frozen",
+                  "department": "Frozen",
+                  "categoryId": "frozen_snacks",
+                  "category": "Frozen Snacks",
+                  "groupId": "french_fries",
+                  "group": "French Fries",
+                  "pack": "2.5kg (5 bags)",
+                  "unitsPerCase": 5,
+                  "sourceCategory": "Frozen Snacks",
+                  "sourceInvoiceDate": "2026-09-08"
+                }
+              ]
+            }
+          ]
         }
       ]
     },
