@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#087f5b">
+  <meta name="description" content="MR Enterprises WhatsApp customer inbox">
+  <title>WhatsApp Center · FrostFlow</title>
+  <link rel="manifest" href="/whatsapp-manifest.webmanifest">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/conversations.css">
+  <link rel="stylesheet" href="/whatsapp.css">
+</head>
+<body class="whatsapp-page">
+  <header class="whatsapp-topbar">
+    <a class="back-link" href="/">← FrostFlow</a>
+    <div class="whatsapp-title"><small>MR ENTERPRISES</small><h1>WhatsApp Center</h1><p>Messages, customer history and approved updates in one page.</p></div>
+    <div class="whatsapp-actions"><button id="enable-notifications" type="button">Enable notifications</button><button id="refresh-whatsapp" class="secondary" type="button">↻ Refresh</button></div>
+  </header>
+
+  <main class="whatsapp-workspace">
+    <section class="inbox-panel panel">
+      <div class="inbox-heading"><div><span class="page-kicker">INBOX</span><h2>Customer chats</h2></div><span id="unread-total" class="unread-total">0 unread</span></div>
+      <input id="conversation-search" type="search" placeholder="Search customer, shop or number">
+      <p id="sync-status" class="hint">Loading conversations…</p>
+      <div id="conversation-list" class="conversation-list"></div>
+    </section>
+
+    <section class="chat-panel panel">
+      <div id="chat-empty" class="chat-empty"><span>◉</span><h2>Select a customer</h2><p>Choose a conversation to see the complete WhatsApp history.</p></div>
+      <div id="chat-view" hidden>
+        <div id="chat-profile" class="chat-profile"></div>
+        <div id="chat-thread" class="chat-thread dedicated-thread"></div>
+        <form id="message-form" class="inline-reply">
+          <input name="to" type="hidden">
+          <label>Reply during the active 24-hour service window<textarea name="text" maxlength="4096" placeholder="Type a reply…" required></textarea></label>
+          <button type="submit">Send reply</button>
+          <p id="message-result" class="hint"></p>
+        </form>
+      </div>
+    </section>
+
+    <aside class="tools-panel">
+      <section class="panel notification-card">
+        <div class="notification-icon">🔔</div>
+        <div><h2>Message alerts</h2><p id="notification-status" class="hint">Checking browser support…</p></div>
+        <ol>
+          <li>Tap <strong>Enable notifications</strong> above.</li>
+          <li>Choose <strong>Allow</strong> in the browser.</li>
+          <li>Keep this page open or installed while working.</li>
+        </ol>
+        <p class="iphone-note">On iPhone: open in Safari, use Share → Add to Home Screen, then open the installed WhatsApp Center and enable notifications.</p>
+      </section>
+
+      <form id="template-form" class="panel template-card">
+        <div><span class="page-kicker">MESSAGE ANYTIME</span><h2>Approved template</h2><p class="hint">Use this outside the 24-hour customer-service window.</p></div>
+        <label>Message type<select name="template_name" id="business-template" required><option value="">Loading approved templates…</option></select></label>
+        <label>Customer / shop name<input name="customer_name" maxlength="120"></label>
+        <label>WhatsApp number<input name="to" inputmode="tel" placeholder="919876543210" required></label>
+        <div id="template-preview" class="template-preview hint"></div>
+        <div id="template-fields" class="template-fields"></div>
+        <label class="consent-check"><input name="opt_in" type="checkbox" required><span>The customer agreed to receive WhatsApp messages</span></label>
+        <button id="send-template">Send approved message</button>
+        <p id="template-result" class="hint"></p>
+        <p id="template-status" class="hint"></p>
+      </form>
+    </aside>
+  </main>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="/whatsapp.js"></script>
+</body>
+</html>

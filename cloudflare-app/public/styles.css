@@ -42,6 +42,10 @@ a { color: var(--green); }
 .sidebar nav button b { font-size: .87rem; }
 .sidebar nav button.active { background: #fff; color: var(--green-dark); box-shadow: 0 7px 24px rgba(0, 0, 0, .15); }
 .sidebar nav button.active span { background: var(--mint); }
+.sidebar nav .nav-page { display: grid; grid-template-columns: 32px 1fr; align-items: center; width: 100%; padding: 10px 11px; border-radius: 10px; color: #bdd2ca; text-align: left; text-decoration: none; }
+.sidebar nav .nav-page:hover { background: rgba(255,255,255,.08); color: #fff; }
+.sidebar nav .nav-page span { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; font-size: 1.05rem; }
+.sidebar nav .nav-page b { font-size: .87rem; }
 .sidebar-status { display: flex; align-items: flex-start; gap: 9px; margin-top: auto; padding: 12px 9px 2px; border-top: 1px solid rgba(255,255,255,.12); }
 .sidebar-status div { min-width: 0; display: grid; gap: 3px; }
 .sidebar-status small { color: #9ec2b5; font-size: .68rem; }
@@ -280,8 +284,8 @@ dialog form { display: grid; gap: 14px; padding: 20px; }
 @media (max-width: 1080px) {
   .app-shell { grid-template-columns: 84px minmax(0, 1fr); }
   .brand { justify-content: center; padding-inline: 0; }
-  .brand div, .sidebar nav button b, .sidebar-status div { display: none; }
-  .sidebar nav button { grid-template-columns: 1fr; justify-items: center; padding: 9px; }
+  .brand div, .sidebar nav button b, .sidebar nav .nav-page b, .sidebar-status div { display: none; }
+  .sidebar nav button, .sidebar nav .nav-page { grid-template-columns: 1fr; justify-items: center; padding: 9px; }
   .sidebar-status { justify-content: center; }
   .dashboard-grid, .message-compose-grid { grid-template-columns: 1fr; }
   .health-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -303,9 +307,9 @@ dialog form { display: grid; gap: 14px; padding: 20px; }
   .sidebar { position: fixed; inset: auto 0 0; z-index: 20; width: 100%; height: auto; padding: 7px max(6px, env(safe-area-inset-right)) calc(7px + env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left)); border-top: 1px solid rgba(255,255,255,.14); box-shadow: 0 -8px 26px rgba(11,48,38,.2); }
   .brand, .sidebar-status { display: none; }
   .sidebar nav { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 2px; width: 100%; }
-  .sidebar nav button { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1px; justify-items: center; min-width: 0; padding: 5px 1px; }
-  .sidebar nav button span { width: 29px; height: 27px; font-size: .9rem; }
-  .sidebar nav button b { display: block; max-width: 100%; overflow: hidden; font-size: .52rem; text-overflow: ellipsis; white-space: nowrap; }
+  .sidebar nav button, .sidebar nav .nav-page { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1px; justify-items: center; min-width: 0; padding: 5px 1px; }
+  .sidebar nav button span, .sidebar nav .nav-page span { width: 29px; height: 27px; font-size: .9rem; }
+  .sidebar nav button b, .sidebar nav .nav-page b { display: block; max-width: 100%; overflow: hidden; font-size: .52rem; text-overflow: ellipsis; white-space: nowrap; }
   .sidebar nav button.active { box-shadow: none; }
   .topbar { min-height: 64px; padding: 10px 13px; }
   .topbar small { display: none; }

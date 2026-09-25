@@ -22,7 +22,7 @@
         <button data-tab="orders"><span aria-hidden="true">✓</span><b>Orders</b></button>
         <button data-tab="customers"><span aria-hidden="true">♙</span><b>Customers</b></button>
         <button data-tab="accounts"><span aria-hidden="true">₹</span><b>Invoices</b></button>
-        <button data-tab="whatsapp"><span aria-hidden="true">◉</span><b>Messages</b></button>
+        <a class="nav-page" href="/whatsapp/"><span aria-hidden="true">◉</span><b>Messages</b></a>
       </nav>
       <div class="sidebar-status"><span class="live-dot"></span><div><small>Central database</small><strong id="sync">Checking sync…</strong></div></div>
     </aside>
@@ -87,30 +87,6 @@
       <details class="secondary-section"><summary><span><strong>Recent payments</strong><small>Synced payment history</small></span><b>View</b></summary><div id="payments-list" class="cards"></div></details>
     </section>
 
-    <section id="whatsapp" class="tab">
-      <div class="section-head"><div><span class="page-kicker">COMMUNICATIONS</span><h2>WhatsApp</h2><p class="hint">Send approved updates anytime and keep customer conversations together.</p></div></div>
-      <div class="message-compose-grid">
-      <form id="template-form" class="panel invite-form">
-        <div class="form-title"><h3>Message a customer anytime</h3><p class="hint">Approved templates work outside the 24-hour window for catalogue invitations, payments and delivery updates.</p></div>
-        <label>Message type<select name="template_name" id="business-template" required><option value="">Choose an approved template</option></select></label>
-        <label>Customer / shop name<input name="customer_name" maxlength="120" placeholder="Optional"></label>
-        <label>WhatsApp number<input name="to" inputmode="tel" placeholder="919876543210" required></label>
-        <div id="template-preview" class="template-preview hint"></div>
-        <div id="template-fields" class="template-fields"></div>
-        <label class="consent-check"><input name="opt_in" type="checkbox" required><span>The customer agreed to receive WhatsApp messages</span></label>
-        <button id="send-template">Send approved message</button>
-        <p id="template-result" class="hint"></p>
-        <p id="template-status" class="hint"></p>
-      </form>
-      <form id="message-form" class="panel reply-form">
-        <div class="form-title"><h3>Reply to active chat</h3><p class="hint">Available during the customer service window.</p></div>
-        <label>Customer number<input name="to" inputmode="tel" placeholder="919876543210" required></label>
-        <label>Message<textarea name="text" maxlength="4096" placeholder="Reply while the 24-hour window is open"></textarea></label>
-        <button>Send WhatsApp</button><p id="message-result" class="hint"></p>
-      </form>
-      </div>
-      <div class="content-heading conversation-heading"><h3>Customer conversations</h3><span>Messages and order context</span></div><div id="whatsapp-list" class="conversations"></div>
-    </section>
       </main>
     </div>
   </div>
