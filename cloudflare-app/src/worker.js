@@ -1117,10 +1117,8 @@ async function voidInvoice(env, id) {
 async function updateInvoice(request, env, id) {
   const invoice = await env.DB.prepare('SELECT * FROM invoices WHERE id=?1 AND deleted_at IS NULL').bind(id).first();
   if (!invoice) return json({ error: 'Invoice not found' }, 404);
-  if (invoice.source_device !== 'cloudflare-admin') return json({ error: 'Synced Amul/PC invoices must be corrected on the source PC.' }, 409);
   if (invoice.status === 'VOID') return json({ error: 'A void invoice cannot be edited.' }, 409);
-  if (Number(invoice.paid_paise || 0)>0) return json({ error: 'Paid invoices cannot be edited. Reverse the payment first.' }, 409);
-  if (invoice.order_id) return json({ error: 'Delete this order invoice to reopen the order, then checkout it again.' }, 409);
+  const online = invoice.source_device === 'cloudflare-admin';
   const body = await readObject(request, 150_000);
   const lines = Array.isArray(body.lines) ? body.lines : [];
   if (!lines.length || lines.length>200) throw new Response('Choose 1 to 200 products', { status: 400 });
@@ -1144,46 +1142,62 @@ async function updateInvoice(request, env, id) {
     const quantity=cleanNumber(input.quantity,'quantity',0.000001),price=cleanInteger(input.unit_price_paise,'unit_price_paise'),gstBps=cleanInteger(input.gst_bps,'gst_bps');
     if(quantity>10000||gstBps>5000)throw new Response('Invalid invoice quantity or GST',{status:400});
     const product=await env.DB.prepare(`SELECT product_id,sku,product_name,unit,stock_qty,reserved_qty,manual_out_of_stock FROM inventory WHERE product_id=?1 AND active=1`).bind(productId).first();
-    const available=Number(product?.stock_qty||0)-Number(product?.reserved_qty||0)+Number(oldByProduct.get(productId)||0);
-    if(!product||product.manual_out_of_stock||available<quantity)throw new Response(`Insufficient stock for ${product?.product_name||productId}`,{status:409});
+    if(!product)throw new Response(`Product is unavailable: ${productId}`,{status:409});
+    const available=Number(product.stock_qty||0)-Number(product.reserved_qty||0)+Number(oldByProduct.get(productId)||0);
+    if(online&&(product.manual_out_of_stock||available<quantity))throw new Response(`Insufficient stock for ${product.product_name||productId}`,{status:409});
     const amounts=invoiceLineAmounts(quantity,price,gstBps);subtotal+=amounts.subtotal_paise;tax+=amounts.tax_paise;
     prepared.push({line_no:index+1,product,quantity,price,gstBps,...amounts});
   }
   const discount=cleanInteger(body.discount_paise,'discount_paise'),gross=subtotal+tax;
   if(discount>gross)throw new Response('Discount cannot exceed the invoice amount',{status:400});
-  const total=gross-discount,invoiceDate=cleanDate(body.invoice_date,'invoice_date',true),dueDate=cleanDate(body.due_date,'due_date',false)||invoiceDate;
+  const total=gross-discount,paid=cleanInteger(body.paid_paise,'paid_paise'),invoiceDate=cleanDate(body.invoice_date,'invoice_date',true),dueDate=cleanDate(body.due_date,'due_date',false)||invoiceDate;
+  if(paid>total)throw new Response('Amount received cannot exceed the invoice total',{status:400});
+  const status=paymentStatus(total,paid);
   const notes=cleanText(body.notes,'notes',500,false),method=cleanText(body.payment_method,'payment_method',40,false)||'CREDIT',phone=cleanPhone(customer.whatsapp_number||customer.mobile);
-  const statements=[
-    env.DB.prepare(`UPDATE inventory SET stock_qty=stock_qty+COALESCE((SELECT SUM(quantity) FROM invoice_lines WHERE invoice_id=?1 AND product_id=inventory.product_id),0),stock_control_updated_at=CURRENT_TIMESTAMP,synced_at=CURRENT_TIMESTAMP WHERE product_id IN (SELECT product_id FROM invoice_lines WHERE invoice_id=?1)`).bind(id),
+  const statements=[];
+  if(online)statements.push(env.DB.prepare(`UPDATE inventory SET stock_qty=stock_qty+COALESCE((SELECT SUM(quantity) FROM invoice_lines WHERE invoice_id=?1 AND product_id=inventory.product_id),0),stock_control_updated_at=CURRENT_TIMESTAMP,synced_at=CURRENT_TIMESTAMP WHERE product_id IN (SELECT product_id FROM invoice_lines WHERE invoice_id=?1)`).bind(id));
+  statements.push(
     env.DB.prepare('DELETE FROM invoice_lines WHERE invoice_id=?1').bind(id),
-    env.DB.prepare(`UPDATE invoices SET invoice_date=?1,due_date=?2,customer_id=?3,customer_name=?4,mobile=?5,route_name=?6,total_paise=?7,paid_paise=0,outstanding_paise=?7,payment_status='UNPAID',subtotal_paise=?8,tax_paise=?9,discount_paise=?10,payment_method=?11,notes=?12,source_updated_at=CURRENT_TIMESTAMP,synced_at=CURRENT_TIMESTAMP WHERE id=?13`)
-      .bind(invoiceDate,dueDate,customer.id,customer.name,phone,customer.route_name||'',total,subtotal,tax,discount,method,notes,id),
-  ];
+    env.DB.prepare(`UPDATE invoices SET invoice_date=?1,due_date=?2,customer_id=?3,customer_name=?4,mobile=?5,route_name=?6,total_paise=?7,paid_paise=?8,outstanding_paise=?9,payment_status=?10,subtotal_paise=?11,tax_paise=?12,discount_paise=?13,payment_method=?14,notes=?15,source_updated_at=CURRENT_TIMESTAMP,synced_at=CURRENT_TIMESTAMP WHERE id=?16`)
+      .bind(invoiceDate,dueDate,customer.id,customer.name,phone,customer.route_name||'',total,paid,total-paid,status,subtotal,tax,discount,method,notes,id),
+  );
   for(const line of prepared)statements.push(env.DB.prepare(`INSERT INTO invoice_lines(invoice_id,line_no,product_id,sku,product_name,quantity,unit,unit_price_paise,gst_bps,subtotal_paise,tax_paise,total_paise) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)`).bind(id,line.line_no,line.product.product_id,line.product.sku||'',line.product.product_name,line.quantity,line.product.unit,line.price,line.gstBps,line.subtotal_paise,line.tax_paise,line.total_paise));
-  statements.push(env.DB.prepare("INSERT INTO operations_audit(action,entity_type,entity_id,detail_json) VALUES('UPDATE_INVOICE','INVOICE',?1,?2)").bind(id,JSON.stringify({invoice_number:invoice.invoice_number,total_paise:total,line_count:prepared.length})));
+  if(online){
+    statements.push(env.DB.prepare("DELETE FROM payments WHERE source_device='cloudflare-admin' AND reference_number=?1").bind(invoice.invoice_number));
+    if(paid){
+      const paymentId=crypto.randomUUID(),businessDate=invoiceDate.replaceAll('-','');
+      statements.push(env.DB.prepare(`INSERT INTO payments
+        (id,source,source_id,receipt_number,payment_date,customer_id,customer_name,direction,method,amount_paise,reference_number,source_device,snapshot_id,source_updated_at,synced_at)
+        VALUES(?1,'LOCAL',?2,?3,?4,?5,?6,'RECEIPT',?7,?8,?9,'cloudflare-admin',?2,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)`)
+        .bind(`CLOUD:${paymentId}`,paymentId,`WEBRCPT-${businessDate}-${paymentId.slice(0,6).toUpperCase()}`,invoiceDate,customer.id,customer.name,method,paid,invoice.invoice_number));
+    }
+  }
+  statements.push(env.DB.prepare("INSERT INTO operations_audit(action,entity_type,entity_id,detail_json) VALUES('UPDATE_INVOICE','INVOICE',?1,?2)").bind(id,JSON.stringify({invoice_number:invoice.invoice_number,previous_total_paise:invoice.total_paise,total_paise:total,previous_paid_paise:invoice.paid_paise,paid_paise:paid,line_count:prepared.length,online_stock_adjusted:online})));
   try{await env.DB.batch(statements)}catch(error){if(String(error).includes('INSUFFICIENT_STOCK'))throw new Response('Stock changed while updating. Refresh and review the invoice.',{status:409});throw error}
-  return json({id,invoice_number:invoice.invoice_number,total_paise:total,paid_paise:0,outstanding_paise:total,payment_status:'UNPAID'});
+  return json({id,invoice_number:invoice.invoice_number,total_paise:total,paid_paise:paid,outstanding_paise:total-paid,payment_status:status,online_stock_adjusted:online});
 }
 
 async function deleteInvoice(env,id){
   const invoice=await env.DB.prepare('SELECT * FROM invoices WHERE id=?1 AND deleted_at IS NULL').bind(id).first();
   if(!invoice)return json({error:'Invoice not found'},404);
-  if(invoice.status==='VOID')return json({error:'Void invoices are retained for the audit trail.'},409);
   const online=invoice.source_device==='cloudflare-admin';
-  if(online&&Number(invoice.paid_paise||0)>0)return json({error:'Paid online invoices cannot be deleted. Reverse the payment first.'},409);
+  let order=null;
   if(online&&invoice.order_id){
-    const order=await env.DB.prepare('SELECT workflow_status FROM orders WHERE id=?1').bind(invoice.order_id).first();
-    if(order && order.workflow_status!=='INVOICED')return json({error:'This order has already moved to dispatch. Keep its invoice for the delivery audit trail.'},409);
+    order=await env.DB.prepare('SELECT workflow_status FROM orders WHERE id=?1').bind(invoice.order_id).first();
   }
+  const reopenOrder=Boolean(online&&invoice.order_id&&order?.workflow_status==='INVOICED'&&invoice.status!=='VOID');
+  const restoreStock=Boolean(online&&invoice.status!=='VOID'&&(!invoice.order_id||reopenOrder));
   const statements=[env.DB.prepare('UPDATE invoices SET deleted_at=CURRENT_TIMESTAMP,outstanding_paise=0,synced_at=CURRENT_TIMESTAMP WHERE id=?1').bind(id)];
-  if(online)statements.push(env.DB.prepare(`UPDATE inventory SET stock_qty=stock_qty+COALESCE((SELECT SUM(quantity) FROM invoice_lines WHERE invoice_id=?1 AND product_id=inventory.product_id),0),stock_control_updated_at=CURRENT_TIMESTAMP,synced_at=CURRENT_TIMESTAMP WHERE product_id IN (SELECT product_id FROM invoice_lines WHERE invoice_id=?1)`).bind(id));
-  if(online&&invoice.order_id)statements.push(
+  if(restoreStock)statements.push(env.DB.prepare(`UPDATE inventory SET stock_qty=stock_qty+COALESCE((SELECT SUM(quantity) FROM invoice_lines WHERE invoice_id=?1 AND product_id=inventory.product_id),0),stock_control_updated_at=CURRENT_TIMESTAMP,synced_at=CURRENT_TIMESTAMP WHERE product_id IN (SELECT product_id FROM invoice_lines WHERE invoice_id=?1)`).bind(id));
+  if(reopenOrder)statements.push(
     env.DB.prepare(`UPDATE inventory SET reserved_qty=reserved_qty+COALESCE((SELECT SUM(quantity) FROM order_lines WHERE order_id=?1 AND product_id=inventory.product_id),0) WHERE product_id IN (SELECT product_id FROM order_lines WHERE order_id=?1)`).bind(invoice.order_id),
     env.DB.prepare("UPDATE orders SET reservation_released=0,workflow_status='PICKING',invoice_number=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=?1").bind(invoice.order_id),
   );
-  statements.push(env.DB.prepare("INSERT INTO operations_audit(action,entity_type,entity_id,detail_json) VALUES('DELETE_INVOICE','INVOICE',?1,?2)").bind(id,JSON.stringify({invoice_number:invoice.invoice_number,order_id:invoice.order_id||null,total_paise:invoice.total_paise,source_device:invoice.source_device,soft_delete:true})));
+  else if(online&&invoice.order_id)statements.push(env.DB.prepare('UPDATE orders SET invoice_number=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=?1').bind(invoice.order_id));
+  if(online)statements.push(env.DB.prepare("DELETE FROM payments WHERE source_device='cloudflare-admin' AND reference_number=?1").bind(invoice.invoice_number));
+  statements.push(env.DB.prepare("INSERT INTO operations_audit(action,entity_type,entity_id,detail_json) VALUES('DELETE_INVOICE','INVOICE',?1,?2)").bind(id,JSON.stringify({invoice_number:invoice.invoice_number,order_id:invoice.order_id||null,order_workflow_status:order?.workflow_status||null,total_paise:invoice.total_paise,paid_paise:invoice.paid_paise,source_device:invoice.source_device,soft_delete:true,stock_restored:restoreStock,order_reopened:reopenOrder,linked_online_payment_removed:online&&Number(invoice.paid_paise||0)>0})));
   await env.DB.batch(statements);
-  return json({id,invoice_number:invoice.invoice_number,deleted:true,reopened_order_id:online?invoice.order_id||null:null,stock_restored:online});
+  return json({id,invoice_number:invoice.invoice_number,deleted:true,reopened_order_id:reopenOrder?invoice.order_id:null,stock_restored:restoreStock,payment_removed:online&&Number(invoice.paid_paise||0)>0,order_preserved:Boolean(online&&invoice.order_id&&!reopenOrder)});
 }
 
 async function payments(request, env) {
