@@ -4,6 +4,10 @@ import { readFile } from 'node:fs/promises';
 
 const catalogue = JSON.parse(await readFile(new URL('../public/catalog-data.json', import.meta.url), 'utf8'));
 const products = new Map(catalogue.departments.flatMap((department) => department.categories.flatMap((category) => category.groups.flatMap((group) => group.products.map((product) => [product.id, product])))));
+const catalogueScript = await readFile(new URL('../public/catalog.js', import.meta.url), 'utf8');
+const catalogueHtml = await readFile(new URL('../public/catalog/index.html', import.meta.url), 'utf8');
+const orderScript = await readFile(new URL('../public/order.js', import.meta.url), 'utf8');
+const orderHtml = await readFile(new URL('../public/order/index.html', import.meta.url), 'utf8');
 
 test('catalogue distinguishes inner boxes from full crates', () => {
   assert.deepEqual([products.get('ICTRBCH45').unitsPerBox, products.get('ICTRBCH45').unitsPerCase], [20, 120]);
@@ -21,4 +25,11 @@ test('every catalogue product has a valid box conversion', () => {
     assert.ok(Number.isInteger(product.unitsPerBox) && product.unitsPerBox > 0, `${product.id} needs a positive unitsPerBox`);
     assert.ok(product.unitsPerBox <= product.unitsPerCase, `${product.id} box cannot exceed its crate`);
   }
+});
+
+test('customer catalogue and pre-invoice tracking do not render prices or stock counts', () => {
+  assert.doesNotMatch(catalogueScript, /Retailer|MRP|Order estimate|available product/);
+  assert.doesNotMatch(catalogueHtml, /class="price"|estimated-invoice/);
+  assert.doesNotMatch(orderScript, /order\.total_paise|estimate-summary/);
+  assert.doesNotMatch(orderHtml, /Estimated value|estimate-summary/);
 });

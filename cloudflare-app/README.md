@@ -8,7 +8,8 @@ replaceable cache and then publishes validated records to D1. The desktop
 launcher and web/tablet users open this same application.
 
 Manual out-of-stock locks live in D1 and survive Amul snapshots. The public
-catalogue fetches live availability and hides unavailable products. Staff can
+catalogue uses live availability to hide unavailable products without showing
+customers stock counts or prices. Customer prices appear only on the final invoice. Staff can
 confirm an order, select only the quantities physically available, and create
 an invoice that skips zero-picked products while preserving the original order.
 Only the newest active purchase top-up per product

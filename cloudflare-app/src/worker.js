@@ -187,9 +187,9 @@ async function publicAvailability(env) {
         ROW_NUMBER() OVER (PARTITION BY UPPER(TRIM(sku))
           ORDER BY selling_price_paise DESC,stock_qty-reserved_qty DESC,source_device<>'catalog-seed' DESC,product_id) price_rank
       FROM inventory WHERE active=1 AND manual_out_of_stock=0 AND TRIM(COALESCE(sku,''))<>'' AND stock_qty-reserved_qty>0 AND selling_price_paise>0
-    ) SELECT product_id,sku,available_qty,mrp_paise,selling_price_paise,500 gst_bps,unit
+    ) SELECT product_id,sku,available_qty,unit
     FROM available WHERE price_rank=1 ORDER BY sku`).all();
-  return json({ ready: true, items: rows.results || [], gst_bps: 500, pricing: 'highest_retailer_price_before_gst', sync });
+  return json({ ready: true, items: rows.results || [], sync });
 }
 
 async function setInventoryAvailability(request, env, productId) {
@@ -372,7 +372,9 @@ async function createOrder(request, env, options = {}) {
   if (existing) {
     const token = existing.public_token || randomPublicToken();
     if (!existing.public_token) await env.DB.prepare('UPDATE orders SET public_token=?1 WHERE id=?2').bind(token, existing.id).run();
-    return json({ ...existing, public_token: undefined, tracking_url: publicOrderUrl(request, token) }, 200);
+    const result = { ...existing, public_token: undefined, tracking_url: publicOrderUrl(request, token) };
+    if (options.publicCatalog) delete result.total_paise;
+    return json(result, 200);
   }
   const id = crypto.randomUUID();
   const publicToken = randomPublicToken();
@@ -483,7 +485,9 @@ async function createOrder(request, env, options = {}) {
     if (String(error).includes('INSUFFICIENT_STOCK')) throw new Response('Insufficient available stock', { status: 409 });
     throw error;
   }
-  return json({ id, request_id: requestId, order_number: orderNumber, status: 'NEW', workflow_status: 'RECEIVED', subtotal_paise: subtotal, tax_paise: tax, total_paise: total, gst_bps: options.publicCatalog ? 500 : 0, delivery_date: deliveryDate, tracking_url: publicOrderUrl(request, publicToken) }, 201);
+  const result = { id, request_id: requestId, order_number: orderNumber, status: 'NEW', workflow_status: 'RECEIVED', delivery_date: deliveryDate, tracking_url: publicOrderUrl(request, publicToken) };
+  if (!options.publicCatalog) Object.assign(result, { subtotal_paise: subtotal, tax_paise: tax, total_paise: total, gst_bps: 0 });
+  return json(result, 201);
 }
 
 async function listOrders(env, syncOnly = false) {
@@ -500,10 +504,10 @@ async function listOrders(env, syncOnly = false) {
 
 async function publicOrderStatus(env, token) {
   if (!/^[a-f0-9]{48}$/i.test(token)) return json({ error: 'Order link is invalid' }, 404);
-  const order = await env.DB.prepare(`SELECT id,order_number,customer_name,delivery_date,status,workflow_status,subtotal_paise,tax_paise,total_paise,gst_bps,invoice_number,created_at,updated_at
+  const order = await env.DB.prepare(`SELECT id,order_number,customer_name,delivery_date,status,workflow_status,invoice_number,created_at,updated_at
     FROM orders WHERE public_token=?1`).bind(token).first();
   if (!order) return json({ error: 'Order not found' }, 404);
-  const lines = (await env.DB.prepare(`SELECT product_name,requested_quantity,requested_unit,units_per_box,quantity,unit,price_paise,subtotal_paise,tax_paise,total_paise,picked_qty
+  const lines = (await env.DB.prepare(`SELECT product_name,requested_quantity,requested_unit,units_per_box,quantity,unit,picked_qty
     FROM order_lines WHERE order_id=?1 ORDER BY line_no`).bind(order.id).all()).results || [];
   const invoice = await env.DB.prepare(`SELECT id,invoice_number,invoice_date,due_date,subtotal_paise,tax_paise,discount_paise,total_paise,paid_paise,outstanding_paise,payment_status,status
     FROM invoices WHERE deleted_at IS NULL AND status<>'VOID' AND (order_id=?1 OR (?2<>'' AND invoice_number=?2)) ORDER BY invoice_date DESC LIMIT 1`).bind(order.id, order.invoice_number || '').first();

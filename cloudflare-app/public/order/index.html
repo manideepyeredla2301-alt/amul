@@ -20,14 +20,13 @@
       <section class="card status-card">
         <div class="status-head"><div><small id="order-number"></small><h2 id="customer-name"></h2></div><span id="status-badge"></span></div>
         <p id="status-message" class="status-message"></p>
-        <div class="meta-grid"><div><small>Order placed</small><strong id="placed-date"></strong></div><div><small>Expected delivery</small><strong id="delivery-date"></strong></div><div><small>Estimated value</small><strong id="order-total"></strong></div></div>
+        <div class="meta-grid" style="grid-template-columns:repeat(2,minmax(0,1fr))"><div><small>Order placed</small><strong id="placed-date"></strong></div><div><small>Expected delivery</small><strong id="delivery-date"></strong></div></div>
         <ol id="timeline" class="timeline"></ol>
       </section>
 
       <section class="card">
         <div class="section-head"><div><small>ORDER DETAILS</small><h2>Products ordered</h2></div><button id="refresh-order" type="button">Refresh</button></div>
         <div id="order-lines" class="line-list"></div>
-        <div id="estimate-summary" class="totals"></div>
       </section>
 
       <section id="invoice-card" class="card invoice-card" hidden>
