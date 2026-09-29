@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {approvedTemplateMessage,baseOrderQuantity,catalogueInviteMessage,catalogueReply,catalogueRequested,cleanGstin,cleanLocationUrl,cleanPhone,cleanStoredPhone,cleanWholesaleUnit,defaultWholesaleUnit,equalSecret,invoiceLineAmounts,orderEstimateLineAmounts,paymentStatus,routeDisplayName,supportsWhatsAppWebhook} from '../src/worker.js';
+import {baseOrderQuantity,cleanGstin,cleanLocationUrl,cleanPhone,cleanStoredPhone,cleanWholesaleUnit,defaultWholesaleUnit,directWhatsAppUrl,equalSecret,invoiceLineAmounts,orderEstimateLineAmounts,orderStatusMessage,paymentStatus,routeDisplayName} from '../src/worker.js';
 
 test('constant-time secret comparison and phone normalization',async()=>{
   assert.equal(await equalSecret('same','same'),true);
@@ -29,37 +29,16 @@ test('checkout profile validation keeps GST and map data usable',()=>{
   assert.throws(()=>cleanLocationUrl('https://example.com/shop',null,null));
 });
 
-test('webhook accepts standard and coexistence event fields',()=>{
-  for(const field of ['messages','account_update','history','smb_app_state_sync','smb_message_echoes'])assert.equal(supportsWhatsAppWebhook(field),true);
-  assert.equal(supportsWhatsAppWebhook('unrelated_field'),false);
-});
-
-test('catalogue auto reply is explicit, useful and recognizes catalogue requests',()=>{
-  const url='https://example.com/catalog';
-  const reply=catalogueReply(url);
-  assert.match(reply,/MR Enterprises/);
-  assert.match(reply,/multiple products/);
-  assert.match(reply,/https:\/\/example\.com\/catalog/);
-  assert.equal(catalogueRequested('Please send catalogue'),true);
-  assert.equal(catalogueRequested('menu'),true);
-  assert.equal(catalogueRequested('My order is ready'),false);
-});
-
-test('new-customer invitations always use the approved catalogue template path',()=>{
-  assert.deepEqual(catalogueInviteMessage('919014003991'),{
-    messaging_product:'whatsapp',
-    recipient_type:'individual',
-    to:'919014003991',
-    type:'template',
-    template:{name:'amul_catalogue',language:{code:'en_US'}},
-  });
-});
-
-test('utility templates carry all approved body parameters',()=>{
-  const message=approvedTemplateMessage('919876543210','payment_remainder','en_US',['Anil Stores','INV-42','1250.00','30 Sep 2026']);
-  assert.equal(message.type,'template');
-  assert.equal(message.template.name,'payment_remainder');
-  assert.deepEqual(message.template.components[0].parameters.map(item=>item.text),['Anil Stores','INV-42','1250.00','30 Sep 2026']);
+test('manual WhatsApp links preserve the recipient and prepared order update',()=>{
+  const order={id:'order-1',order_number:'WEB-42',customer_name:'Anil Stores',delivery_date:'2026-09-30'};
+  const message=orderStatusMessage(order,'Out for delivery');
+  assert.match(message,/Anil Stores/);
+  assert.match(message,/WEB-42/);
+  assert.match(message,/out for delivery/);
+  const url=new URL(directWhatsAppUrl('9014003991',message));
+  assert.equal(url.hostname,'wa.me');
+  assert.equal(url.pathname,'/919014003991');
+  assert.equal(url.searchParams.get('text'),message);
 });
 
 test('online invoice arithmetic stays in paise and derives payment status',()=>{

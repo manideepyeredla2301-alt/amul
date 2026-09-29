@@ -616,22 +616,9 @@ async function updateOrder(request, env, id, action) {
   if (!result.meta?.changes) return json({ error: 'Order not found or already completed' }, 409);
   let notification = null;
   if (['dispatch','deliver'].includes(action) && order.phone) {
-    const statusText = action==='dispatch' ? 'Out for delivery' : 'Delivered';
-    try {
-      const templates = await fetchWhatsAppTemplates(env);
-      const template = templates.find(item=>item.name==='order_delivery_update'&&item.status==='APPROVED');
-      if(!template)throw new Error('Approved order_delivery_update template is unavailable');
-      const parameters=[order.customer_name||'Customer',order.order_number||id,statusText,order.delivery_date||'As scheduled'];
-      const sent=await sendMetaMessage(env,order.phone,approvedTemplateMessage(order.phone,'order_delivery_update',template.language||'en_US',parameters));
-      await env.DB.prepare(`INSERT OR IGNORE INTO whatsapp_events(event_id,event_type,from_number,customer_name,direction,message_type,body,raw_json,event_time,order_id)
-        VALUES(?1,'DELIVERY_UPDATE',?2,?3,'OUTBOUND','template',?4,?5,?6,?7)`).bind(`delivery:${sent.messageId}`,order.phone,order.customer_name,statusText,JSON.stringify(sent.result),String(Math.floor(Date.now()/1000)),id).run();
-      notification={sent:true,message_id:sent.messageId,status:statusText};
-    } catch(error) {
-      const message=(error instanceof Response ? await error.text() : String(error.message||error)).slice(0,500);
-      await env.DB.prepare(`INSERT OR IGNORE INTO whatsapp_events(event_id,event_type,from_number,customer_name,direction,message_type,body,raw_json,event_time,order_id)
-        VALUES(?1,'DELIVERY_UPDATE_FAILED',?2,?3,'SYSTEM','template',?4,?5,?6,?7)`).bind(`delivery-failed:${id}:${action}:${Date.now()}`,order.phone,order.customer_name,statusText,JSON.stringify({error:message}),String(Math.floor(Date.now()/1000)),id).run();
-      notification={sent:false,error:message,status:statusText};
-    }
+    const statusText = action === 'dispatch' ? 'Out for delivery' : 'Delivered';
+    const message = orderStatusMessage(order, statusText);
+    notification = { sent: false, manual: true, status: statusText, message, chat_url: directWhatsAppUrl(order.phone, message) };
   }
   return json({ id, status: target, workflow_status: workflow, notification });
 }
@@ -932,79 +919,6 @@ async function deleteCustomer(env, id) {
   return json({ id, name: customer.name, deleted: true });
 }
 
-const mediaTypes = ['image', 'sticker', 'document', 'audio', 'video'];
-
-// Streams an inbound attachment from Meta. Only media referenced by a stored inbound event can be
-// fetched, and the route sits behind the admin login. Meta keeps media for about 30 days.
-async function whatsappMedia(env, eventId) {
-  const event = await env.DB.prepare("SELECT message_type,raw_json FROM whatsapp_events WHERE event_id=?1 AND direction='INBOUND'").bind(eventId).first();
-  if (!event || !mediaTypes.includes(event.message_type)) return json({ error: 'Attachment not found' }, 404);
-  let mediaId = '';
-  try { mediaId = String(JSON.parse(event.raw_json || '{}')[event.message_type]?.id || ''); } catch { /* malformed legacy row */ }
-  if (!/^\d{5,30}$/.test(mediaId)) return json({ error: 'Attachment not found' }, 404);
-  if (!env.META_ACCESS_TOKEN) return json({ error: 'WhatsApp access token is not configured' }, 503);
-  const version = /^v\d+\.\d+$/.test(env.META_GRAPH_VERSION || '') ? env.META_GRAPH_VERSION : 'v25.0';
-  const auth = { authorization: `Bearer ${env.META_ACCESS_TOKEN}` };
-  const meta = await fetch(`https://graph.facebook.com/${version}/${mediaId}`, { headers: auth });
-  const info = await meta.json().catch(() => ({}));
-  if (!meta.ok || !info.url) return json({ error: 'WhatsApp no longer has this attachment (media expires after about 30 days).' }, 410);
-  const file = await fetch(info.url, { headers: auth });
-  if (!file.ok) return json({ error: 'Could not download the attachment from WhatsApp.' }, 502);
-  const type = String(info.mime_type || file.headers.get('content-type') || 'application/octet-stream');
-  const inline = /^(image|audio|video)\//.test(type) || type === 'application/pdf';
-  return new Response(file.body, { headers: { ...securityHeaders, 'Content-Type': type, 'Cache-Control': 'private, max-age=86400', 'Content-Disposition': inline ? 'inline' : 'attachment' } });
-}
-
-async function whatsappConversations(env) {
-  const [eventRows, profileRows, customerRows, orderRows] = await Promise.all([
-    env.DB.prepare(`SELECT event_id,event_type,from_number,customer_name,direction,message_type,event_time,received_at,order_id,
-      COALESCE(body,CASE WHEN json_valid(raw_json) THEN COALESCE(json_extract(raw_json,'$.'||message_type||'.caption'),json_extract(raw_json,'$.document.filename')) END) body,
-      CASE WHEN direction='INBOUND' AND message_type IN ('image','sticker','document','audio','video') AND json_valid(raw_json) AND json_extract(raw_json,'$.'||message_type||'.id') IS NOT NULL THEN 1 ELSE 0 END has_media,
-      CASE WHEN json_valid(raw_json) THEN json_extract(raw_json,'$.'||message_type||'.mime_type') END media_mime,
-      CASE WHEN json_valid(raw_json) THEN json_extract(raw_json,'$.document.filename') END media_filename
-      FROM whatsapp_events WHERE from_number<>'' ORDER BY received_at DESC LIMIT 500`).all(),
-    env.DB.prepare('SELECT * FROM whatsapp_customers ORDER BY updated_at DESC LIMIT 300').all(),
-    env.DB.prepare('SELECT name,mobile,whatsapp_number,gstin,address FROM customers WHERE active=1').all(),
-    env.DB.prepare('SELECT id,order_number,phone,delivery_date,status,workflow_status,total_paise,created_at FROM orders ORDER BY created_at DESC LIMIT 300').all(),
-  ]);
-  const profiles = new Map((profileRows.results || []).map(profile => [profile.phone, profile]));
-  const syncedNames = new Map();
-  for (const customer of customerRows.results || []) for (const value of [customer.whatsapp_number, customer.mobile]) {
-    if (!value) continue;
-    try { syncedNames.set(cleanPhone(value), customer); } catch { /* Ignore malformed legacy phone values. */ }
-  }
-  const ordersByPhone = new Map();
-  for (const order of orderRows.results || []) if (order.phone && !ordersByPhone.has(order.phone)) ordersByPhone.set(order.phone, order);
-  const conversations = new Map();
-  for (const event of eventRows.results || []) {
-    let phone;
-    try { phone = cleanPhone(event.from_number); } catch { continue; }
-    if (!phone) continue;
-    if (!conversations.has(phone)) {
-      const profile = profiles.get(phone) || {};
-      const synced = syncedNames.get(phone) || {};
-      conversations.set(phone, {
-        phone,
-        name: profile.shop_name || synced.name || profile.display_name || event.customer_name || phone,
-        contact_name: profile.contact_name || profile.display_name || '',
-        gstin: profile.gstin || synced.gstin || '',
-        address: profile.address || synced.address || '',
-        location_url: profile.location_url || '',
-        last_order: ordersByPhone.get(phone) || null,
-        messages: [],
-      });
-    }
-    conversations.get(phone).messages.push({ ...event, direction: event.direction || (['OUTBOUND', 'AUTO_REPLY', 'ORDER_REPLY'].includes(event.event_type) ? 'OUTBOUND' : event.event_type === 'STATUS' ? 'SYSTEM' : 'INBOUND') });
-  }
-  for (const [phone, profile] of profiles) if (!conversations.has(phone)) conversations.set(phone, {
-    phone, name: profile.shop_name || profile.display_name || phone, contact_name: profile.contact_name || profile.display_name || '',
-    gstin: profile.gstin || '', address: profile.address || '', location_url: profile.location_url || '', last_order: ordersByPhone.get(phone) || null, messages: [],
-  });
-  const result = [...conversations.values()];
-  for (const conversation of result) conversation.messages.reverse();
-  result.sort((a, b) => String(b.messages.at(-1)?.received_at || b.last_order?.created_at || '').localeCompare(String(a.messages.at(-1)?.received_at || a.last_order?.created_at || '')));
-  return json({ conversations: result });
-}
 
 async function distributionOrders(request, env) {
   const { query, limit, offset } = pageParams(request);
@@ -1263,328 +1177,24 @@ async function payments(request, env) {
   return json({ payments: rows.results || [] });
 }
 
-async function validMetaSignature(request, secret, raw) {
-  if (!secret) return false;
-  const supplied = request.headers.get('x-hub-signature-256') || '';
-  const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const signed = new Uint8Array(await crypto.subtle.sign('HMAC', key, encoder.encode(raw)));
-  const expected = `sha256=${[...signed].map(byte => byte.toString(16).padStart(2, '0')).join('')}`;
-  return equalSecret(supplied, expected);
+function directWhatsAppUrl(phone, message = '') {
+  const to = cleanPhone(phone);
+  const url = new URL(`https://wa.me/${to}`);
+  if (message) url.searchParams.set('text', message);
+  return url.toString();
 }
 
-function catalogueReply(catalogueUrl) {
-  return `Welcome to MR Enterprises – Amul Distribution.\n\nOpen our catalogue: ${catalogueUrl}\n\n• Browse Frozen, Dairy, Chocolates and Snacks\n• Tap + / − to add multiple products\n• Review and send one complete order here on WhatsApp\n\nReply CATALOGUE whenever you need this link again.`;
-}
-
-function catalogueRequested(body) {
-  return /\b(catalog|catalogue|menu|products?|price\s*list)\b/i.test(String(body || ''));
-}
-
-const coexistenceWebhookFields = new Set(['account_update', 'history', 'smb_app_state_sync', 'smb_message_echoes']);
-
-function supportsWhatsAppWebhook(field) {
-  return field === 'messages' || coexistenceWebhookFields.has(field);
-}
-
-async function webhookEventId(entryId, field, value) {
-  const bytes = await digest(`${entryId}:${field}:${JSON.stringify(value)}`);
-  return `coexist:${[...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('')}`;
-}
-
-async function sendMetaMessage(env, to, message) {
-  if (!env.META_ACCESS_TOKEN || !env.META_PHONE_ID) throw new Error('WhatsApp sending is not configured yet.');
-  const version = /^v\d+\.\d+$/.test(env.META_GRAPH_VERSION || '') ? env.META_GRAPH_VERSION : 'v25.0';
-  const response = await fetch(`https://graph.facebook.com/${version}/${encodeURIComponent(env.META_PHONE_ID)}/messages`, {
-    method: 'POST',
-    headers: { authorization: `Bearer ${env.META_ACCESS_TOKEN}`, 'content-type': 'application/json' },
-    body: JSON.stringify(message),
-  });
-  const result = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const code = Number(result.error?.code || 0);
-    const friendly = code === 131047
-      ? 'The 24-hour customer-service window has expired. Send an approved template to reopen the conversation.'
-      : code === 131030
-        ? 'This recipient is not available for WhatsApp API delivery. Check the country code and ask the customer to open the business chat first.'
-        : result.error?.message || `Meta rejected the message (${response.status})`;
-    throw new Error(`${friendly}${code ? ` (Meta ${code})` : ''}`);
-  }
-  return { result, messageId: result.messages?.[0]?.id || crypto.randomUUID() };
-}
-
-async function fetchWhatsAppTemplates(env) {
-  if (!env.META_ACCESS_TOKEN || !env.META_WABA_ID) throw new Response('WhatsApp templates are not configured yet.', { status: 503 });
-  const version = /^v\d+\.\d+$/.test(env.META_GRAPH_VERSION || '') ? env.META_GRAPH_VERSION : 'v25.0';
-  const response = await fetch(`https://graph.facebook.com/${version}/${encodeURIComponent(env.META_WABA_ID)}/message_templates?fields=id,name,status,category,language,components&limit=100`, {
-    headers: { authorization: `Bearer ${env.META_ACCESS_TOKEN}` },
-  });
-  const result = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Response(result.error?.message || 'Unable to load WhatsApp templates.', { status: 502 });
-  return (result.data || []).map(({ id, name, status, category, language, components }) => {
-    const body = (components || []).find(component => String(component.type).toUpperCase() === 'BODY')?.text || '';
-    const indexes = [...body.matchAll(/\{\{(\d+)\}\}/g)].map(match => Number(match[1]));
-    return { id, name, status, category, language, body, parameter_count: indexes.length ? Math.max(...indexes) : 0 };
-  });
-}
-
-async function whatsappTemplates(env) {
-  return json({ templates: await fetchWhatsAppTemplates(env) });
-}
-
-function messageBody(message) {
-  const flow = message.interactive?.nfm_reply?.response_json;
-  return message.text?.body || message.button?.text || message.interactive?.button_reply?.title || message.interactive?.list_reply?.title || message.location?.name || flow
-    || message.image?.caption || message.video?.caption || message.document?.caption || message.document?.filename || null;
-}
-
-function collectHistoryMessages(value) {
-  const found = [];
-  const queue = [value?.messages, value?.history, value?.message_echoes, value?.state_sync].flat().filter(Boolean);
-  const seen = new Set();
-  while (queue.length && found.length < 200) {
-    const current = queue.shift();
-    if (!current || typeof current !== 'object' || seen.has(current)) continue;
-    seen.add(current);
-    if (Array.isArray(current)) { queue.push(...current); continue; }
-    if (current.id && current.timestamp && (current.from || current.to || current.recipient_id) && (current.type || current.text || current.interactive || current.location)) found.push(current);
-    for (const key of ['messages', 'message', 'history', 'data', 'items', 'message_echoes']) if (current[key]) queue.push(current[key]);
-  }
-  return found;
-}
-
-function profileUpsert(env, phone, displayName, lastMessage = true) {
-  return env.DB.prepare(`INSERT INTO whatsapp_customers(phone,display_name,last_message_at,updated_at)
-    VALUES(?1,?2,${lastMessage ? 'CURRENT_TIMESTAMP' : 'NULL'},CURRENT_TIMESTAMP)
-    ON CONFLICT(phone) DO UPDATE SET display_name=COALESCE(NULLIF(excluded.display_name,''),whatsapp_customers.display_name),
-    last_message_at=${lastMessage ? 'CURRENT_TIMESTAMP' : 'whatsapp_customers.last_message_at'},updated_at=CURRENT_TIMESTAMP`).bind(phone, displayName || '');
-}
-
-async function matchingRecentOrder(env, phone, body) {
-  const orderNumber = String(body || '').match(/\b(?:WEB|WA)-\d{8}-[A-Z0-9]{6}\b/i)?.[0]?.toUpperCase();
-  if (orderNumber) return env.DB.prepare('SELECT id,order_number,customer_name,delivery_date FROM orders WHERE phone=?1 AND order_number=?2').bind(phone, orderNumber).first();
-  if (!/\border\b/i.test(String(body || ''))) return null;
-  return env.DB.prepare("SELECT id,order_number,customer_name,delivery_date FROM orders WHERE phone=?1 AND created_at>=datetime('now','-30 minutes') ORDER BY created_at DESC LIMIT 1").bind(phone).first();
-}
-
-async function acknowledgeOrder(env, message, body) {
-  const to = cleanPhone(message.from);
-  const order = await matchingRecentOrder(env, to, body);
-  if (!order) return false;
-  const reply = `Thank you${order.customer_name ? `, ${order.customer_name}` : ''}. Order ${order.order_number} is saved${order.delivery_date ? ` for ${order.delivery_date}` : ''}. We will confirm stock and delivery here.`;
-  try {
-    const outbound = { messaging_product: 'whatsapp', recipient_type: 'individual', to, type: 'text', text: { preview_url: false, body: reply } };
-    const { result, messageId } = await sendMetaMessage(env, to, outbound);
-    await env.DB.batch([
-      env.DB.prepare(`INSERT OR IGNORE INTO whatsapp_events(event_id,event_type,from_number,customer_name,direction,message_type,body,raw_json,event_time,order_id)
-        VALUES(?1,'ORDER_REPLY',?2,?3,'OUTBOUND','text',?4,?5,?6,?7)`).bind(`order-reply:${message.id}`, to, order.customer_name || '', reply, JSON.stringify(result), String(Math.floor(Date.now() / 1000)), order.id),
-      env.DB.prepare(`INSERT INTO whatsapp_auto_replies(from_number,last_inbound_message_id,last_catalog_at,last_reply_message_id,status,last_error,updated_at)
-        VALUES(?1,?2,NULL,?3,'ORDER_CONFIRMED',NULL,CURRENT_TIMESTAMP)
-        ON CONFLICT(from_number) DO UPDATE SET last_inbound_message_id=excluded.last_inbound_message_id,last_reply_message_id=excluded.last_reply_message_id,
-        status='ORDER_CONFIRMED',last_error=NULL,updated_at=CURRENT_TIMESTAMP`).bind(to, message.id, messageId),
-    ]);
-  } catch (error) {
-    await env.DB.prepare(`INSERT INTO whatsapp_auto_replies(from_number,last_inbound_message_id,status,last_error,updated_at)
-      VALUES(?1,?2,'FAILED',?3,CURRENT_TIMESTAMP)
-      ON CONFLICT(from_number) DO UPDATE SET last_inbound_message_id=excluded.last_inbound_message_id,status='FAILED',last_error=excluded.last_error,updated_at=CURRENT_TIMESTAMP`)
-      .bind(to, message.id, String(error.message || error).slice(0, 500)).run();
-  }
-  return true;
-}
-
-async function autoReplyWithCatalogue(env, requestUrl, message, body) {
-  const to = cleanPhone(message.from);
-  if (!to) return;
-  if (await acknowledgeOrder(env, message, body)) return;
-  const [prior, profile] = await Promise.all([
-    env.DB.prepare('SELECT last_catalog_at FROM whatsapp_auto_replies WHERE from_number=?1').bind(to).first(),
-    env.DB.prepare('SELECT last_order_at FROM whatsapp_customers WHERE phone=?1').bind(to).first(),
-  ]);
-  const priorTime = prior?.last_catalog_at ? Date.parse(`${String(prior.last_catalog_at).replace(' ', 'T')}Z`) : 0;
-  const lastOrderTime = profile?.last_order_at ? Date.parse(`${String(profile.last_order_at).replace(' ', 'T')}Z`) : 0;
-  if (!catalogueRequested(body) && Number.isFinite(lastOrderTime) && lastOrderTime > Date.now() - 7 * 86_400_000) return;
-  if (!catalogueRequested(body) && Number.isFinite(priorTime) && priorTime > Date.now() - 86_400_000) return;
-  const catalogueUrl = String(env.PUBLIC_CATALOG_URL || `${new URL(requestUrl).origin}/catalog`).replace(/\/$/, '');
-  try {
-    const outbound = { messaging_product: 'whatsapp', recipient_type: 'individual', to, type: 'text', text: { preview_url: true, body: catalogueReply(catalogueUrl) } };
-    const { result, messageId } = await sendMetaMessage(env, to, outbound);
-    await env.DB.batch([
-      env.DB.prepare(`INSERT INTO whatsapp_auto_replies(from_number,last_inbound_message_id,last_catalog_at,last_reply_message_id,status,last_error,updated_at)
-        VALUES(?1,?2,CURRENT_TIMESTAMP,?3,'SENT',NULL,CURRENT_TIMESTAMP)
-        ON CONFLICT(from_number) DO UPDATE SET last_inbound_message_id=excluded.last_inbound_message_id,last_catalog_at=CURRENT_TIMESTAMP,
-        last_reply_message_id=excluded.last_reply_message_id,status='SENT',last_error=NULL,updated_at=CURRENT_TIMESTAMP`).bind(to, message.id, messageId),
-      env.DB.prepare(`INSERT OR IGNORE INTO whatsapp_events(event_id,event_type,from_number,direction,message_type,body,raw_json,event_time)
-        VALUES(?1,'AUTO_REPLY',?2,'OUTBOUND','text',?3,?4,?5)`).bind(`auto:${message.id}`, to, catalogueUrl, JSON.stringify(result), String(Math.floor(Date.now() / 1000))),
-    ]);
-  } catch (error) {
-    await env.DB.prepare(`INSERT INTO whatsapp_auto_replies(from_number,last_inbound_message_id,last_catalog_at,last_reply_message_id,status,last_error,updated_at)
-      VALUES(?1,?2,NULL,NULL,'FAILED',?3,CURRENT_TIMESTAMP)
-      ON CONFLICT(from_number) DO UPDATE SET last_inbound_message_id=excluded.last_inbound_message_id,status='FAILED',last_error=excluded.last_error,updated_at=CURRENT_TIMESTAMP`)
-      .bind(to, message.id, String(error.message || error).slice(0, 500)).run();
-  }
-}
-
-async function whatsappWebhook(request, env) {
-  const url = new URL(request.url);
-  if (request.method === 'GET') {
-    if (url.searchParams.get('hub.mode') === 'subscribe' && await equalSecret(url.searchParams.get('hub.verify_token') || '', env.META_WEBHOOK_VERIFY_TOKEN || '')) return text(url.searchParams.get('hub.challenge') || '');
-    return text('Verification failed', 403);
-  }
-  if (request.method !== 'POST') return text('Method not allowed', 405);
-  const raw = await request.text();
-  if (raw.length > 1_000_000) return text('Too large', 413);
-  if (!await validMetaSignature(request, env.META_APP_SECRET, raw)) return text('Invalid signature', 403);
-  let payload;
-  try { payload = JSON.parse(raw); } catch { return text('Invalid JSON', 400); }
-  if (payload.object !== 'whatsapp_business_account') return text('Invalid object', 400);
-  const statements = [];
-  const newMessages = [];
-  for (const entry of payload.entry || []) for (const change of entry.changes || []) {
-    if (!supportsWhatsAppWebhook(change.field)) continue;
-    const value = change.value || {};
-    if (change.field !== 'messages') {
-      const historyMessages = ['history', 'smb_message_echoes'].includes(change.field) ? collectHistoryMessages(value) : [];
-      for (const historyMessage of historyMessages) {
-        let phone;
-        try { phone = cleanPhone(historyMessage.from || historyMessage.to || historyMessage.recipient_id); } catch { continue; }
-        if (!phone || !historyMessage.id) continue;
-        const historyBody = messageBody(historyMessage);
-        const direction = change.field === 'smb_message_echoes' ? 'OUTBOUND' : 'HISTORY';
-        statements.push(env.DB.prepare(`INSERT OR IGNORE INTO whatsapp_events(event_id,event_type,from_number,direction,message_type,body,raw_json,event_time)
-          VALUES(?1,'COEXISTENCE_MESSAGE',?2,?3,?4,?5,?6,?7)`).bind(`history:${historyMessage.id}`, phone, direction, String(historyMessage.type || 'unknown'), historyBody, JSON.stringify(historyMessage), String(historyMessage.timestamp || entry.time || '')));
-        statements.push(profileUpsert(env, phone, historyMessage.profile?.name || '', true));
-      }
-      const genericId = await webhookEventId(entry.id || '', change.field, value);
-      statements.push(env.DB.prepare(`INSERT OR IGNORE INTO whatsapp_events(event_id,event_type,from_number,direction,message_type,body,raw_json,event_time)
-        VALUES(?1,'COEXISTENCE',?2,'SYSTEM',?3,?4,?5,?6)`).bind(genericId, String(value.phone_number || value.from || ''), String(change.field), String(value.event || value.sync_type || ''), JSON.stringify(value), String(entry.time || '')));
-      continue;
-    }
-    if (env.META_PHONE_ID && value.metadata?.phone_number_id !== env.META_PHONE_ID) continue;
-    for (const message of value.messages || []) {
-      if (!message.id) continue;
-      const body = messageBody(message);
-      const phone = cleanPhone(message.from || '');
-      const customerName = value.contacts?.find(contact => cleanPhone(contact.wa_id || '') === phone)?.profile?.name || '';
-      const duplicate = await env.DB.prepare('SELECT 1 found FROM whatsapp_events WHERE event_id=?1').bind(message.id).first();
-      if (!duplicate) {
-        statements.push(env.DB.prepare(`INSERT OR IGNORE INTO whatsapp_events(event_id,event_type,from_number,customer_name,direction,message_type,body,raw_json,event_time)
-          VALUES(?1,'MESSAGE',?2,?3,'INBOUND',?4,?5,?6,?7)`).bind(message.id, phone, customerName, String(message.type || 'unknown'), body, JSON.stringify(message), String(message.timestamp || '')));
-        statements.push(profileUpsert(env, phone, customerName, true));
-        newMessages.push({ message: { ...message, from: phone }, body });
-      }
-    }
-    for (const status of value.statuses || []) if (status.id && status.timestamp) {
-      statements.push(env.DB.prepare(`INSERT OR IGNORE INTO whatsapp_events(event_id,event_type,from_number,direction,message_type,body,raw_json,event_time)
-        VALUES(?1,'STATUS',?2,'SYSTEM',?3,?4,?5,?6)`).bind(`${status.id}:${status.status}:${status.timestamp}`, cleanPhone(status.recipient_id || ''), String(status.status || ''), status.errors ? JSON.stringify(status.errors) : null, JSON.stringify(status), String(status.timestamp)));
-    }
-  }
-  // Acknowledge only after every event is stored. Retries are deduplicated by event ID.
-  for(let offset=0;offset<statements.length;offset+=50)await env.DB.batch(statements.slice(offset,offset+50));
-  for (const incoming of newMessages.slice(0, 10)) await autoReplyWithCatalogue(env, request.url, incoming.message, incoming.body);
-  return text('EVENT_RECEIVED');
-}
-
-async function sendWhatsApp(request, env) {
-  if (!env.META_ACCESS_TOKEN || !env.META_PHONE_ID) return json({ error: 'WhatsApp sending is not configured yet.' }, 503);
-  const body = await readObject(request, 100_000);
-  const to = cleanPhone(body.to);
-  if (!to) throw new Response('Recipient number is required', { status: 400 });
-  const templateName = cleanText(body.template_name, 'template_name', 120, false);
-  let message;
-  if (templateName) {
-    message = { messaging_product: 'whatsapp', recipient_type: 'individual', to, type: 'template', template: { name: templateName, language: { code: cleanText(body.language, 'language', 20, false) || 'en_US' } } };
-  } else {
-    const content = cleanText(body.text, 'message', 4096);
-    message = { messaging_product: 'whatsapp', recipient_type: 'individual', to, type: 'text', text: { preview_url: false, body: content } };
-  }
-  let result, messageId;
-  try { ({ result, messageId } = await sendMetaMessage(env, to, message)); }
-  catch (error) { return json({ error: String(error.message || error) }, 502); }
-  const profile = await env.DB.prepare('SELECT COALESCE(shop_name,display_name) name FROM whatsapp_customers WHERE phone=?1').bind(to).first();
-  await env.DB.prepare(`INSERT OR IGNORE INTO whatsapp_events(event_id,event_type,from_number,customer_name,direction,message_type,body,raw_json,event_time)
-    VALUES(?1,'OUTBOUND',?2,?3,'OUTBOUND',?4,?5,?6,?7)`).bind(`out:${messageId}`, to, profile?.name || '', message.type, templateName || message.text.body, JSON.stringify(result), String(Math.floor(Date.now() / 1000))).run();
-  return json({ accepted: true, message_id: messageId, to, type: message.type }, 201);
-}
-
-function catalogueInviteMessage(to, language = 'en_US') {
-  return {
-    messaging_product: 'whatsapp',
-    recipient_type: 'individual',
-    to,
-    type: 'template',
-    template: { name: 'amul_catalogue', language: { code: language } },
-  };
-}
-
-function approvedTemplateMessage(to, templateName, language, parameters = []) {
-  const message = {
-    messaging_product: 'whatsapp',
-    recipient_type: 'individual',
-    to,
-    type: 'template',
-    template: { name: templateName, language: { code: language } },
-  };
-  if (parameters.length) message.template.components = [{ type: 'body', parameters: parameters.map(value => ({ type: 'text', text: value })) }];
-  return message;
-}
-
-async function inviteWhatsAppCustomer(request, env) {
-  if (!env.META_ACCESS_TOKEN || !env.META_PHONE_ID || !env.META_WABA_ID) return json({ error: 'WhatsApp invitations are not configured yet.' }, 503);
-  const body = await readObject(request, 20_000);
-  if (body.opt_in !== true) return json({ error: 'Confirm that this customer agreed to receive WhatsApp messages.' }, 400);
-  const to = cleanPhone(body.to);
-  if (!to) throw new Response('Customer number is required', { status: 400 });
-  const customerName = cleanText(body.customer_name, 'customer_name', 120, false);
-  const language = cleanText(body.language, 'language', 20, false) || 'en_US';
-  const templates = await fetchWhatsAppTemplates(env);
-  const template = templates.find(item => item.name === 'amul_catalogue' && item.language === language);
-  if (!template) return json({ error: `The amul_catalogue ${language} template is not available in Meta.` }, 409);
-  if (template.status !== 'APPROVED') return json({ error: `Meta has not approved the catalogue invite yet (current status: ${template.status}).` }, 409);
-
-  let result, messageId;
-  try { ({ result, messageId } = await sendMetaMessage(env, to, catalogueInviteMessage(to, language))); }
-  catch (error) { return json({ error: String(error.message || error) }, 502); }
-  await env.DB.batch([
-    profileUpsert(env, to, customerName, false),
-    env.DB.prepare(`INSERT OR IGNORE INTO whatsapp_events(event_id,event_type,from_number,customer_name,direction,message_type,body,raw_json,event_time)
-      VALUES(?1,'INVITE',?2,?3,'OUTBOUND','template','amul_catalogue',?4,?5)`).bind(`invite:${messageId}`, to, customerName, JSON.stringify(result), String(Math.floor(Date.now() / 1000))),
-  ]);
-  return json({ accepted: true, message_id: messageId, to, template: 'amul_catalogue' }, 201);
-}
-
-async function sendWhatsAppTemplate(request, env) {
-  if (!env.META_ACCESS_TOKEN || !env.META_PHONE_ID || !env.META_WABA_ID) return json({ error: 'WhatsApp templates are not configured yet.' }, 503);
-  const body = await readObject(request, 30_000);
-  if (body.opt_in !== true) return json({ error: 'Confirm that this customer agreed to receive WhatsApp messages.' }, 400);
-  const to = cleanPhone(body.to);
-  if (!to) throw new Response('Customer number is required', { status: 400 });
-  const customerName = cleanText(body.customer_name, 'customer_name', 120, false);
-  const templateName = cleanText(body.template_name, 'template_name', 120);
-  const language = cleanText(body.language, 'language', 20, false) || 'en_US';
-  const templates = await fetchWhatsAppTemplates(env);
-  const template = templates.find(item => item.name === templateName && item.language === language);
-  if (!template) return json({ error: `The ${templateName} ${language} template is not available in Meta.` }, 409);
-  if (template.status !== 'APPROVED') return json({ error: `Meta has not approved ${templateName} yet (current status: ${template.status}).` }, 409);
-  if (template.category === 'AUTHENTICATION') return json({ error: 'Authentication templates cannot be sent from this business-messaging form.' }, 400);
-  const supplied = Array.isArray(body.parameters) ? body.parameters : [];
-  if (supplied.length !== template.parameter_count) return json({ error: `${templateName} requires ${template.parameter_count} message values.` }, 400);
-  const parameters = supplied.map((value, index) => cleanText(value, `parameter_${index + 1}`, 1024));
-
-  let result, messageId;
-  try { ({ result, messageId } = await sendMetaMessage(env, to, approvedTemplateMessage(to, templateName, language, parameters))); }
-  catch (error) { return json({ error: String(error.message || error) }, 502); }
-  await env.DB.batch([
-    profileUpsert(env, to, customerName, false),
-    env.DB.prepare(`INSERT OR IGNORE INTO whatsapp_events(event_id,event_type,from_number,customer_name,direction,message_type,body,raw_json,event_time)
-      VALUES(?1,'TEMPLATE',?2,?3,'OUTBOUND','template',?4,?5,?6)`).bind(`template:${messageId}`, to, customerName, templateName, JSON.stringify({ meta: result, parameters }), String(Math.floor(Date.now() / 1000))),
-  ]);
-  return json({ accepted: true, message_id: messageId, to, template: templateName }, 201);
+function orderStatusMessage(order, statusText) {
+  const customer = order.customer_name || 'Customer';
+  const number = order.order_number || order.id || 'your order';
+  const delivery = order.delivery_date ? `\nExpected delivery: ${order.delivery_date}` : '';
+  return `Hi ${customer}, your order ${number} is ${String(statusText || 'updated').toLowerCase()}.${delivery}\n– MR Enterprises`;
 }
 
 async function route(request, env) {
   const url = new URL(request.url);
   const path = url.pathname;
   if (path === '/api/health') return json({ ok: true, service: 'frostflow-online', version: '0.9.0', database: 'cloudflare-d1-central' });
-  if (path === '/webhooks/whatsapp' || path === '/webhooks/whatsapp/') return whatsappWebhook(request, env);
   if (path === '/api/catalog/orders' && request.method === 'POST') return createOrder(request, env, { publicCatalog: true });
   if (path === '/api/catalog/availability' && request.method === 'GET') return publicAvailability(env);
   if (request.method === 'GET' && (path === '/catalog' || path === '/catalog/' || path === '/catalog.js' || path === '/catalog.css' || path === '/catalog-data.json' || path.startsWith('/images/'))) {
@@ -1643,17 +1253,6 @@ async function route(request, env) {
   if (invoice && request.method === 'POST') return queueInvoice(env, decodeURIComponent(invoice[1]));
   const orderAction = path.match(/^\/api\/orders\/([^/]+)\/(confirm|pack|dispatch|deliver|cancel|fulfil)$/);
   if (orderAction && request.method === 'POST') return updateOrder(request, env, decodeURIComponent(orderAction[1]), orderAction[2]);
-  if (path === '/api/whatsapp/events' && request.method === 'GET') {
-    const rows = await env.DB.prepare('SELECT event_id,event_type,from_number,customer_name,direction,message_type,body,event_time,received_at,order_id FROM whatsapp_events ORDER BY received_at DESC LIMIT 200').all();
-    return json({ events: rows.results || [] });
-  }
-  if (path === '/api/whatsapp/conversations' && request.method === 'GET') return whatsappConversations(env);
-  const mediaMatch = path.match(/^\/api\/whatsapp\/media\/([^/]+)$/);
-  if (mediaMatch && request.method === 'GET') return whatsappMedia(env, decodeURIComponent(mediaMatch[1]));
-  if (path === '/api/whatsapp/templates' && request.method === 'GET') return whatsappTemplates(env);
-  if (path === '/api/whatsapp/invite' && request.method === 'POST') return inviteWhatsAppCustomer(request, env);
-  if (path === '/api/whatsapp/template' && request.method === 'POST') return sendWhatsAppTemplate(request, env);
-  if (path === '/api/whatsapp/send' && request.method === 'POST') return sendWhatsApp(request, env);
   if (path.startsWith('/api/')) return json({ error: 'API endpoint not found' }, 404);
   return env.ASSETS.fetch(request);
 }
@@ -1669,4 +1268,4 @@ export default {
   },
 };
 
-export { acceptBusinessSnapshot, whatsappMedia, messageBody, equalSecret, cleanPhone, cleanStoredPhone, cleanGstin, cleanLocationUrl, catalogueReply, catalogueRequested, catalogueInviteMessage, approvedTemplateMessage, supportsWhatsAppWebhook, invoiceLineAmounts, orderEstimateLineAmounts, paymentStatus, routeDisplayName, defaultWholesaleUnit, cleanWholesaleUnit, baseOrderQuantity };
+export { acceptBusinessSnapshot, equalSecret, cleanPhone, cleanStoredPhone, cleanGstin, cleanLocationUrl, directWhatsAppUrl, orderStatusMessage, invoiceLineAmounts, orderEstimateLineAmounts, paymentStatus, routeDisplayName, defaultWholesaleUnit, cleanWholesaleUnit, baseOrderQuantity };
