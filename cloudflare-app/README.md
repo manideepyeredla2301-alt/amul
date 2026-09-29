@@ -1,7 +1,7 @@
 # FrostFlow Online
 
 Cloudflare D1 is the operational source of truth for the catalogue, customer
-availability controls, orders, picking, crates, invoice jobs, customers,
+availability controls, orders, partial picking, invoice jobs, customers,
 routes, invoices, payments and WhatsApp activity. The Amul Windows PC is a
 read-only upstream bridge: every scheduled run refreshes Amul SQL into a
 replaceable cache and then publishes validated records to D1. The desktop
@@ -9,8 +9,9 @@ launcher and web/tablet users open this same application.
 
 Manual out-of-stock locks live in D1 and survive Amul snapshots. The public
 catalogue fetches live availability and hides unavailable products. Staff can
-confirm an order, increment picked quantities, assign a crate and queue one
-idempotent Amul invoice job. Only the newest active purchase top-up per product
+confirm an order, select only the quantities physically available, and create
+an invoice that skips zero-picked products while preserving the original order.
+Only the newest active purchase top-up per product
 is retained; older active requests are marked superseded.
 
 The protected Orders view searches both online and PC-synced orders by order

@@ -489,7 +489,12 @@ async function createOrder(request, env, options = {}) {
 async function listOrders(env, syncOnly = false) {
   const where = syncOnly ? "WHERE status='NEW'" : '';
   const orders = (await env.DB.prepare(`SELECT * FROM orders ${where} ORDER BY created_at DESC LIMIT 200`).all()).results || [];
-  for (const order of orders) order.lines = (await env.DB.prepare('SELECT line_no,product_id,product_name,quantity,unit,requested_quantity,requested_unit,units_per_box,price_paise,gst_bps,subtotal_paise,tax_paise,total_paise,picked_qty,crated_qty FROM order_lines WHERE order_id=?1 ORDER BY line_no').bind(order.id).all()).results || [];
+  for (const order of orders) order.lines = (await env.DB.prepare(`SELECT ol.line_no,ol.product_id,ol.product_name,ol.quantity,ol.unit,
+    ol.requested_quantity,ol.requested_unit,ol.units_per_box,ol.price_paise,ol.gst_bps,ol.subtotal_paise,ol.tax_paise,
+    ol.total_paise,ol.picked_qty,
+    MAX(0,MIN(ol.quantity,COALESCE(i.stock_qty,0)-COALESCE(i.reserved_qty,0)+CASE WHEN ?2=0 THEN ol.quantity ELSE 0 END)) fulfillable_qty
+    FROM order_lines ol LEFT JOIN inventory i ON i.product_id=ol.product_id
+    WHERE ol.order_id=?1 ORDER BY ol.line_no`).bind(order.id, Number(order.reservation_released || 0)).all()).results || [];
   return orders;
 }
 
@@ -498,7 +503,7 @@ async function publicOrderStatus(env, token) {
   const order = await env.DB.prepare(`SELECT id,order_number,customer_name,delivery_date,status,workflow_status,subtotal_paise,tax_paise,total_paise,gst_bps,invoice_number,created_at,updated_at
     FROM orders WHERE public_token=?1`).bind(token).first();
   if (!order) return json({ error: 'Order not found' }, 404);
-  const lines = (await env.DB.prepare(`SELECT product_name,requested_quantity,requested_unit,units_per_box,quantity,unit,price_paise,subtotal_paise,tax_paise,total_paise,picked_qty,crated_qty
+  const lines = (await env.DB.prepare(`SELECT product_name,requested_quantity,requested_unit,units_per_box,quantity,unit,price_paise,subtotal_paise,tax_paise,total_paise,picked_qty
     FROM order_lines WHERE order_id=?1 ORDER BY line_no`).bind(order.id).all()).results || [];
   const invoice = await env.DB.prepare(`SELECT id,invoice_number,invoice_date,due_date,subtotal_paise,tax_paise,discount_paise,total_paise,paid_paise,outstanding_paise,payment_status,status
     FROM invoices WHERE deleted_at IS NULL AND status<>'VOID' AND (order_id=?1 OR (?2<>'' AND invoice_number=?2)) ORDER BY invoice_date DESC LIMIT 1`).bind(order.id, order.invoice_number || '').first();
@@ -513,32 +518,19 @@ async function updatePickedLine(request, env, id) {
   const body = await readObject(request, 20_000);
   const lineNo = cleanInteger(body.line_no, 'line_no', 1);
   const pickedQty = cleanNumber(body.picked_qty, 'picked_qty', 0);
-  const order = await env.DB.prepare("SELECT id,status FROM orders WHERE id=?1 AND status IN ('NEW','SYNCED')").bind(id).first();
+  const order = await env.DB.prepare("SELECT id,status,reservation_released FROM orders WHERE id=?1 AND status IN ('NEW','SYNCED')").bind(id).first();
   if (!order) return json({ error: 'Open order not found' }, 404);
-  const line = await env.DB.prepare('SELECT quantity FROM order_lines WHERE order_id=?1 AND line_no=?2').bind(id, lineNo).first();
+  const line = await env.DB.prepare(`SELECT ol.quantity,i.stock_qty,i.reserved_qty FROM order_lines ol
+    LEFT JOIN inventory i ON i.product_id=ol.product_id WHERE ol.order_id=?1 AND ol.line_no=?2`).bind(id, lineNo).first();
   if (!line) return json({ error: 'Order line not found' }, 404);
-  if (pickedQty > Number(line.quantity)) return json({ error: 'Picked quantity cannot exceed ordered quantity' }, 400);
+  const available = fulfillableQuantity(line.stock_qty, line.reserved_qty, line.quantity, Number(order.reservation_released || 0) === 1);
+  if (pickedQty > available + 0.000001) return json({ error: `Only ${available} unit(s) are currently available for this order.` }, 409);
   await env.DB.batch([
-    env.DB.prepare('UPDATE order_lines SET picked_qty=?1,crated_qty=MIN(crated_qty,?1) WHERE order_id=?2 AND line_no=?3').bind(pickedQty, id, lineNo),
+    env.DB.prepare('UPDATE order_lines SET picked_qty=?1 WHERE order_id=?2 AND line_no=?3').bind(pickedQty, id, lineNo),
     env.DB.prepare("UPDATE orders SET workflow_status='PICKING',picking_started_at=COALESCE(picking_started_at,CURRENT_TIMESTAMP),updated_at=CURRENT_TIMESTAMP WHERE id=?1").bind(id),
-    env.DB.prepare("INSERT INTO operations_audit(action,entity_type,entity_id,detail_json) VALUES('PICK','ORDER',?1,?2)").bind(id, JSON.stringify({ line_no: lineNo, picked_qty: pickedQty })),
+    env.DB.prepare("INSERT INTO operations_audit(action,entity_type,entity_id,detail_json) VALUES('PICK','ORDER',?1,?2)").bind(id, JSON.stringify({ line_no: lineNo, picked_qty: pickedQty, fulfillable_qty: available })),
   ]);
-  return json({ id, line_no: lineNo, picked_qty: pickedQty, workflow_status: 'PICKING' });
-}
-
-async function crateOrder(request, env, id) {
-  const body = await readObject(request, 20_000);
-  const crateCode = cleanText(body.crate_code, 'crate_code', 40);
-  const order = await env.DB.prepare("SELECT id FROM orders WHERE id=?1 AND status IN ('NEW','SYNCED')").bind(id).first();
-  if (!order) return json({ error: 'Open order not found' }, 404);
-  const incomplete = await env.DB.prepare('SELECT COUNT(*) count FROM order_lines WHERE order_id=?1 AND picked_qty<>quantity').bind(id).first();
-  if (Number(incomplete?.count || 0)) return json({ error: 'Pick every ordered quantity before adding the order to a crate' }, 409);
-  await env.DB.batch([
-    env.DB.prepare('UPDATE order_lines SET crated_qty=picked_qty WHERE order_id=?1').bind(id),
-    env.DB.prepare("UPDATE orders SET crate_code=?1,workflow_status='PACKED',packed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?2").bind(crateCode, id),
-    env.DB.prepare("INSERT INTO operations_audit(action,entity_type,entity_id,detail_json) VALUES('CRATE','ORDER',?1,?2)").bind(id, JSON.stringify({ crate_code: crateCode })),
-  ]);
-  return json({ id, crate_code: crateCode, workflow_status: 'PACKED' });
+  return json({ id, line_no: lineNo, picked_qty: pickedQty, fulfillable_qty: available, workflow_status: 'PICKING' });
 }
 
 async function queueInvoice(env, id) {
@@ -556,11 +548,12 @@ async function queueInvoice(env, id) {
   const order = await env.DB.prepare(`SELECT o.*,c.source customer_source,c.source_id customer_source_id,c.gstin customer_gstin
     FROM orders o LEFT JOIN customers c ON c.id=o.customer_id WHERE o.id=?1 AND o.status IN ('NEW','SYNCED')`).bind(id).first();
   if (!order) return json({ error: 'Open order not found' }, 404);
-  if (!order.crate_code || order.workflow_status !== 'PACKED') return json({ error: 'Add the completely picked order to a crate before making the invoice' }, 409);
-  const lines = (await env.DB.prepare('SELECT line_no,product_id,product_name,quantity,unit,price_paise,picked_qty,crated_qty FROM order_lines WHERE order_id=?1 ORDER BY line_no').bind(id).all()).results || [];
-  if (!lines.length || lines.some(line => Number(line.crated_qty) !== Number(line.quantity))) return json({ error: 'Every ordered item must be in the crate' }, 409);
+  if (!['CONFIRMED','PICKING','PACKING','PACKED','INVOICE_FAILED'].includes(order.workflow_status)) return json({ error: 'Start picking this order before making the invoice' }, 409);
+  const pickedLines = (await env.DB.prepare(`SELECT line_no,product_id,product_name,quantity ordered_quantity,unit,price_paise,picked_qty quantity
+    FROM order_lines WHERE order_id=?1 AND picked_qty>0 ORDER BY line_no`).bind(id).all()).results || [];
+  if (!pickedLines.length) return json({ error: 'Pick at least one available item before making the invoice' }, 409);
   const jobId = crypto.randomUUID();
-  const payload = { order: { ...order }, lines, requested_at: new Date().toISOString(), target: 'AMUL_SQL' };
+  const payload = { order: { ...order }, lines: pickedLines, requested_at: new Date().toISOString(), target: 'AMUL_SQL' };
   await env.DB.batch([
     env.DB.prepare(`INSERT INTO invoice_jobs(id,order_id,status,payload_json) VALUES(?1,?2,'PENDING',?3)`).bind(jobId, id, JSON.stringify(payload)),
     env.DB.prepare("UPDATE orders SET invoice_job_id=?1,workflow_status='INVOICE_QUEUED',updated_at=CURRENT_TIMESTAMP WHERE id=?2").bind(jobId, id),
@@ -972,6 +965,12 @@ function orderEstimateLineAmounts(quantity, unitPricePaise, gstBps) {
   return { subtotal_paise: subtotal, tax_paise: 0, total_paise: subtotal, gst_bps: Number(gstBps) || 0 };
 }
 
+function fulfillableQuantity(stockQty, reservedQty, orderedQty, reservationReleased = false) {
+  const ordered = Math.max(0, Number(orderedQty) || 0);
+  const ownReservation = reservationReleased ? 0 : ordered;
+  return Math.max(0, Math.min(ordered, (Number(stockQty) || 0) - (Number(reservedQty) || 0) + ownReservation));
+}
+
 function paymentStatus(total, paid) {
   return paid >= total ? 'PAID' : paid > 0 ? 'PART_PAID' : 'UNPAID';
 }
@@ -1004,12 +1003,11 @@ async function createInvoice(request, env) {
   let order = null;
   if (orderId) {
     order = await env.DB.prepare(`SELECT * FROM orders WHERE id=?1 AND status IN ('NEW','SYNCED')
-      AND workflow_status IN ('CONFIRMED','PICKING','PACKING','PACKED')`).bind(orderId).first();
+      AND workflow_status IN ('CONFIRMED','PICKING','PACKING','PACKED','INVOICE_FAILED')`).bind(orderId).first();
     if (!order) return json({ error: 'This order is not ready for checkout or has already been invoiced.' }, 409);
-    const incomplete = await env.DB.prepare('SELECT COUNT(*) count FROM order_lines WHERE order_id=?1 AND picked_qty<>quantity').bind(orderId).first();
-    if (Number(incomplete?.count || 0)) return json({ error: 'Pick every ordered item before checkout.' }, 409);
-    const orderLineCount = await env.DB.prepare('SELECT COUNT(*) count FROM order_lines WHERE order_id=?1').bind(orderId).first();
-    if (Number(orderLineCount?.count || 0) !== lines.length) return json({ error: 'Checkout must include every item from the selected order.' }, 400);
+    const pickedLineCount = await env.DB.prepare('SELECT COUNT(*) count FROM order_lines WHERE order_id=?1 AND picked_qty>0').bind(orderId).first();
+    if (!Number(pickedLineCount?.count || 0)) return json({ error: 'Pick at least one available item before checkout.' }, 409);
+    if (Number(pickedLineCount.count) !== lines.length) return json({ error: 'Checkout must include every picked item from the selected order.' }, 400);
   }
   const customerId = cleanText(body.customer_id || order?.customer_id, 'customer_id', 140);
   let customer = null;
@@ -1046,13 +1044,14 @@ async function createInvoice(request, env) {
         WHERE order_id=?1 AND product_id=?2`).bind(orderId, productId).first();
       if (!orderLine) throw new Response('Checkout products must match the selected order.', { status: 400 });
       quantity = Number(orderLine.picked_qty);
+      if (quantity <= 0) throw new Response('Items with zero picked quantity must be skipped.', { status: 400 });
       reservedForOrder = Number(orderLine.quantity);
       price = Number(orderLine.price_paise || 0);
       gstBps = Number(orderLine.gst_bps || 0);
     }
-    const product = await env.DB.prepare(`SELECT product_id,sku,product_name,unit,stock_qty,reserved_qty,manual_out_of_stock
-      FROM inventory WHERE product_id=?1 AND active=1`).bind(productId).first();
-    if (!product || product.manual_out_of_stock || Number(product.stock_qty) - Number(product.reserved_qty) + reservedForOrder < quantity) throw new Response(`Insufficient stock for ${product?.product_name || productId}`, { status: 409 });
+    const product = await env.DB.prepare(`SELECT product_id,sku,product_name,unit,stock_qty,reserved_qty,manual_out_of_stock,active
+      FROM inventory WHERE product_id=?1 AND (active=1 OR ?2=1)`).bind(productId, orderId ? 1 : 0).first();
+    if (!product || (!orderId && product.manual_out_of_stock) || Number(product.stock_qty) - Number(product.reserved_qty) + reservedForOrder < quantity) throw new Response(`Insufficient stock for ${product?.product_name || productId}`, { status: 409 });
     const amounts = invoiceLineAmounts(quantity, price, gstBps);
     subtotal += amounts.subtotal_paise;
     tax += amounts.tax_paise;
@@ -1289,8 +1288,6 @@ async function route(request, env) {
   if (path === '/api/orders' && request.method === 'POST') return createOrder(request, env);
   const pickOrder = path.match(/^\/api\/orders\/([^/]+)\/pick$/);
   if (pickOrder && request.method === 'PATCH') return updatePickedLine(request, env, decodeURIComponent(pickOrder[1]));
-  const crate = path.match(/^\/api\/orders\/([^/]+)\/crate$/);
-  if (crate && request.method === 'POST') return crateOrder(request, env, decodeURIComponent(crate[1]));
   const invoice = path.match(/^\/api\/orders\/([^/]+)\/invoice$/);
   if (invoice && request.method === 'POST') return queueInvoice(env, decodeURIComponent(invoice[1]));
   const orderAction = path.match(/^\/api\/orders\/([^/]+)\/(confirm|pack|dispatch|deliver|cancel|fulfil)$/);
@@ -1310,4 +1307,4 @@ export default {
   },
 };
 
-export { acceptBusinessSnapshot, equalSecret, cleanPhone, cleanStoredPhone, cleanGstin, cleanLocationUrl, directWhatsAppUrl, publicOrderUrl, orderStatusMessage, invoiceLineAmounts, orderEstimateLineAmounts, paymentStatus, routeDisplayName, defaultWholesaleUnit, cleanWholesaleUnit, baseOrderQuantity };
+export { acceptBusinessSnapshot, equalSecret, cleanPhone, cleanStoredPhone, cleanGstin, cleanLocationUrl, directWhatsAppUrl, publicOrderUrl, orderStatusMessage, invoiceLineAmounts, orderEstimateLineAmounts, fulfillableQuantity, paymentStatus, routeDisplayName, defaultWholesaleUnit, cleanWholesaleUnit, baseOrderQuantity };

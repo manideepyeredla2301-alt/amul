@@ -203,7 +203,11 @@ main { width: min(100%, 1420px); margin: 0 auto; padding: 30px clamp(16px, 3vw, 
 .pick-list { display: grid; gap: 6px; margin: 11px 0; }
 .pick-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; border-radius: 9px; background: #f4f8f6; }
 .pick-line small { display: block; margin-top: 3px; color: var(--muted); }
-.crate-form { display: grid; grid-template-columns: minmax(150px, 240px) auto; gap: 8px; margin: 11px 0; align-items: center; }
+.pick-line.short-stock { border: 1px solid #efd99f; background: #fffaf0; }
+.pick-line .stock-warning { color: #8a6100; font-weight: 780; }
+.pick-controls { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.pick-controls .stepper output { min-width: 58px; }
+.pick-controls .pick-available { padding: 7px 9px; font-size: .67rem; }
 .estimate-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 11px; border: 1px solid #d8e8e1; border-radius: 10px; background: #f3f9f6; }
 .estimate-summary span { color: var(--muted); font-size: .72rem; font-weight: 750; }
 .checkout-note { margin: 0; padding: 11px 13px; border: 1px solid #cfe3d9; border-radius: 11px; background: #edf8f2; color: var(--green-dark); font-size: .8rem; font-weight: 700; }
@@ -341,7 +345,7 @@ dialog form { display: grid; gap: 14px; padding: 20px; }
   .card > div:last-child { justify-items: start; min-width: 0; text-align: left; }
   .actions, .invoice-actions { justify-content: flex-start; }
   .account { text-align: left; }
-  .form-grid, .compact-form, .invite-form, .reply-form, .custom-product-grid, .crate-form, .invoice-customer-grid, .invoice-summary-grid, .invoice-addresses { grid-template-columns: 1fr; }
+  .form-grid, .compact-form, .invite-form, .reply-form, .custom-product-grid, .invoice-customer-grid, .invoice-summary-grid, .invoice-addresses { grid-template-columns: 1fr; }
   .invite-form .form-title, .invite-form > p, .template-preview, .template-fields, .consent-check, .reply-form > p { grid-column: 1; }
   dialog { max-height: 96vh; }
   dialog form { padding: 14px; }

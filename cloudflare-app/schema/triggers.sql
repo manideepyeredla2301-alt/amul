@@ -42,6 +42,7 @@ WHEN (SELECT source_device FROM invoices WHERE id=NEW.invoice_id)='cloudflare-ad
 BEGIN
   SELECT CASE WHEN COALESCE((
     SELECT CASE
+      WHEN EXISTS(SELECT 1 FROM invoices WHERE id=NEW.invoice_id AND order_id IS NOT NULL) THEN stock_qty-reserved_qty
       WHEN active=1 AND manual_out_of_stock=0 THEN stock_qty-reserved_qty
       ELSE 0
     END

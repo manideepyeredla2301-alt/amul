@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {baseOrderQuantity,cleanGstin,cleanLocationUrl,cleanPhone,cleanStoredPhone,cleanWholesaleUnit,defaultWholesaleUnit,directWhatsAppUrl,equalSecret,invoiceLineAmounts,orderEstimateLineAmounts,orderStatusMessage,paymentStatus,publicOrderUrl,routeDisplayName} from '../src/worker.js';
+import {baseOrderQuantity,cleanGstin,cleanLocationUrl,cleanPhone,cleanStoredPhone,cleanWholesaleUnit,defaultWholesaleUnit,directWhatsAppUrl,equalSecret,fulfillableQuantity,invoiceLineAmounts,orderEstimateLineAmounts,orderStatusMessage,paymentStatus,publicOrderUrl,routeDisplayName} from '../src/worker.js';
 
 test('constant-time secret comparison and phone normalization',async()=>{
   assert.equal(await equalSecret('same','same'),true);
@@ -50,6 +50,13 @@ test('online invoice arithmetic stays in paise and derives payment status',()=>{
   assert.equal(paymentStatus(39533,0),'UNPAID');
   assert.equal(paymentStatus(39533,10000),'PART_PAID');
   assert.equal(paymentStatus(39533,39533),'PAID');
+});
+
+test('picking is capped by the stock available to the current order',()=>{
+  assert.equal(fulfillableQuantity(3,5,5),3);
+  assert.equal(fulfillableQuantity(10,5,5),5);
+  assert.equal(fulfillableQuantity(0,5,5),0);
+  assert.equal(fulfillableQuantity(3,0,5,true),3);
 });
 
 test('wholesale catalogue defaults and converts PC and BOX quantities',()=>{
