@@ -368,9 +368,14 @@ async function createOrder(request, env, options = {}) {
   if (!/^[A-Za-z0-9_-]{8,100}$/.test(requestId)) throw new Response('Invalid request_id', { status: 400 });
   const lines = Array.isArray(body.lines) ? body.lines : [];
   if (!lines.length || lines.length > 200) throw new Response('Choose 1 to 200 products', { status: 400 });
-  const existing = await env.DB.prepare('SELECT id,status,order_number,total_paise FROM orders WHERE request_id=?1').bind(requestId).first();
-  if (existing) return json(existing, 200);
+  const existing = await env.DB.prepare('SELECT id,status,order_number,total_paise,delivery_date,public_token FROM orders WHERE request_id=?1').bind(requestId).first();
+  if (existing) {
+    const token = existing.public_token || randomPublicToken();
+    if (!existing.public_token) await env.DB.prepare('UPDATE orders SET public_token=?1 WHERE id=?2').bind(token, existing.id).run();
+    return json({ ...existing, public_token: undefined, tracking_url: publicOrderUrl(request, token) }, 200);
+  }
   const id = crypto.randomUUID();
+  const publicToken = randomPublicToken();
   let customerId = cleanText(body.customer_id, 'customer_id', 140, false);
   let savedCustomer = customerId ? await env.DB.prepare('SELECT id,name,mobile,whatsapp_number,address,route_name FROM customers WHERE id=?1 AND active=1 AND deleted_at IS NULL').bind(customerId).first() : null;
   if (customerId && !savedCustomer) throw new Response('Selected customer is unavailable', { status: 400 });
@@ -455,9 +460,9 @@ async function createOrder(request, env, options = {}) {
   const orderNumber = `${source === 'WHATSAPP' ? 'WA' : 'WEB'}-${businessDate}-${id.slice(0, 6).toUpperCase()}`;
   const routeName = cleanText(body.route_name || onlineProfile?.route_name || savedCustomer?.route_name, 'route_name', 150, false);
   const statements = [env.DB.prepare(`INSERT INTO orders
-    (id,request_id,source,customer_id,customer_name,phone,address,note,status,order_number,route_name,delivery_date,total_paise,workflow_status,updated_at,contact_name,gstin,location_url,location_lat,location_lng,subtotal_paise,tax_paise,gst_bps)
-    VALUES(?1,?2,?3,?4,?5,?6,?7,?8,'NEW',?9,?10,?11,?12,'RECEIVED',CURRENT_TIMESTAMP,?13,?14,?15,?16,?17,?18,?19,?20)`)
-    .bind(id, requestId, source, customerId || (phone ? `WHATSAPP:${phone}` : null), customer, phone, address, cleanText(body.note, 'note', 400, false), orderNumber, routeName, deliveryDate, total, contactName, gstin, locationUrl, latitude, longitude, subtotal, tax, options.publicCatalog ? 500 : 0), ...customProducts, ...preparedLines];
+    (id,request_id,source,customer_id,customer_name,phone,address,note,status,order_number,route_name,delivery_date,total_paise,workflow_status,updated_at,contact_name,gstin,location_url,location_lat,location_lng,subtotal_paise,tax_paise,gst_bps,public_token)
+    VALUES(?1,?2,?3,?4,?5,?6,?7,?8,'NEW',?9,?10,?11,?12,'RECEIVED',CURRENT_TIMESTAMP,?13,?14,?15,?16,?17,?18,?19,?20,?21)`)
+    .bind(id, requestId, source, customerId || (phone ? `WHATSAPP:${phone}` : null), customer, phone, address, cleanText(body.note, 'note', 400, false), orderNumber, routeName, deliveryDate, total, contactName, gstin, locationUrl, latitude, longitude, subtotal, tax, options.publicCatalog ? 500 : 0, publicToken), ...customProducts, ...preparedLines];
   if (phone) statements.push(env.DB.prepare(`INSERT INTO whatsapp_customers
     (phone,display_name,shop_name,contact_name,gstin,address,location_url,location_lat,location_lng,last_order_id,last_order_at,route_name,updated_at)
     VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,CURRENT_TIMESTAMP,?11,CURRENT_TIMESTAMP)
@@ -478,7 +483,7 @@ async function createOrder(request, env, options = {}) {
     if (String(error).includes('INSUFFICIENT_STOCK')) throw new Response('Insufficient available stock', { status: 409 });
     throw error;
   }
-  return json({ id, request_id: requestId, order_number: orderNumber, status: 'NEW', workflow_status: 'RECEIVED', subtotal_paise: subtotal, tax_paise: tax, total_paise: total, gst_bps: options.publicCatalog ? 500 : 0, delivery_date: deliveryDate }, 201);
+  return json({ id, request_id: requestId, order_number: orderNumber, status: 'NEW', workflow_status: 'RECEIVED', subtotal_paise: subtotal, tax_paise: tax, total_paise: total, gst_bps: options.publicCatalog ? 500 : 0, delivery_date: deliveryDate, tracking_url: publicOrderUrl(request, publicToken) }, 201);
 }
 
 async function listOrders(env, syncOnly = false) {
@@ -486,6 +491,22 @@ async function listOrders(env, syncOnly = false) {
   const orders = (await env.DB.prepare(`SELECT * FROM orders ${where} ORDER BY created_at DESC LIMIT 200`).all()).results || [];
   for (const order of orders) order.lines = (await env.DB.prepare('SELECT line_no,product_id,product_name,quantity,unit,requested_quantity,requested_unit,units_per_box,price_paise,gst_bps,subtotal_paise,tax_paise,total_paise,picked_qty,crated_qty FROM order_lines WHERE order_id=?1 ORDER BY line_no').bind(order.id).all()).results || [];
   return orders;
+}
+
+async function publicOrderStatus(env, token) {
+  if (!/^[a-f0-9]{48}$/i.test(token)) return json({ error: 'Order link is invalid' }, 404);
+  const order = await env.DB.prepare(`SELECT id,order_number,customer_name,delivery_date,status,workflow_status,subtotal_paise,tax_paise,total_paise,gst_bps,invoice_number,created_at,updated_at
+    FROM orders WHERE public_token=?1`).bind(token).first();
+  if (!order) return json({ error: 'Order not found' }, 404);
+  const lines = (await env.DB.prepare(`SELECT product_name,requested_quantity,requested_unit,units_per_box,quantity,unit,price_paise,subtotal_paise,tax_paise,total_paise,picked_qty,crated_qty
+    FROM order_lines WHERE order_id=?1 ORDER BY line_no`).bind(order.id).all()).results || [];
+  const invoice = await env.DB.prepare(`SELECT id,invoice_number,invoice_date,due_date,subtotal_paise,tax_paise,discount_paise,total_paise,paid_paise,outstanding_paise,payment_status,status
+    FROM invoices WHERE deleted_at IS NULL AND status<>'VOID' AND (order_id=?1 OR (?2<>'' AND invoice_number=?2)) ORDER BY invoice_date DESC LIMIT 1`).bind(order.id, order.invoice_number || '').first();
+  if (invoice) invoice.lines = (await env.DB.prepare(`SELECT product_name,quantity,unit,unit_price_paise,gst_bps,subtotal_paise,tax_paise,total_paise
+    FROM invoice_lines WHERE invoice_id=?1 ORDER BY line_no`).bind(invoice.id).all()).results || [];
+  else if (order.invoice_number) order.invoice_pending = true;
+  delete order.id;
+  return json({ order, lines, invoice: invoice || null });
 }
 
 async function updatePickedLine(request, env, id) {
@@ -599,8 +620,12 @@ async function createPurchaseTopup(request, env) {
 async function updateOrder(request, env, id, action) {
   const workflow = { confirm: 'CONFIRMED', pack: 'PACKING', dispatch: 'OUT_FOR_DELIVERY', deliver: 'DELIVERED', fulfil: 'DELIVERED', cancel: 'CANCELLED', ack: null }[action];
   if (workflow === undefined) return json({ error: 'Unknown action' }, 404);
-  const order = await env.DB.prepare('SELECT id,order_number,customer_name,phone,delivery_date,status,workflow_status FROM orders WHERE id=?1').bind(id).first();
+  const order = await env.DB.prepare('SELECT id,order_number,customer_name,phone,delivery_date,status,workflow_status,invoice_number,public_token FROM orders WHERE id=?1').bind(id).first();
   if (!order) return json({ error: 'Order not found' }, 404);
+  if (!order.public_token) {
+    order.public_token = randomPublicToken();
+    await env.DB.prepare('UPDATE orders SET public_token=?1 WHERE id=?2').bind(order.public_token, id).run();
+  }
   const currentWorkflow = String(order.workflow_status || 'RECEIVED');
   if (action === 'confirm' && currentWorkflow !== 'RECEIVED') return json({ error: 'Only a received order can start picking.' }, 409);
   if (action === 'dispatch' && currentWorkflow !== 'INVOICED') return json({ error: 'Create the invoice before dispatching this order.' }, 409);
@@ -617,8 +642,9 @@ async function updateOrder(request, env, id, action) {
   let notification = null;
   if (['dispatch','deliver'].includes(action) && order.phone) {
     const statusText = action === 'dispatch' ? 'Out for delivery' : 'Delivered';
-    const message = orderStatusMessage(order, statusText);
-    notification = { sent: false, manual: true, status: statusText, message, chat_url: directWhatsAppUrl(order.phone, message) };
+    const trackingUrl = publicOrderUrl(request, order.public_token);
+    const message = orderStatusMessage(order, statusText, trackingUrl);
+    notification = { sent: false, manual: true, status: statusText, message, tracking_url: trackingUrl, chat_url: directWhatsAppUrl(order.phone, message) };
   }
   return json({ id, status: target, workflow_status: workflow, notification });
 }
@@ -1184,11 +1210,24 @@ function directWhatsAppUrl(phone, message = '') {
   return url.toString();
 }
 
-function orderStatusMessage(order, statusText) {
+function randomPublicToken() {
+  const bytes = crypto.getRandomValues(new Uint8Array(24));
+  return [...bytes].map(byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function publicOrderUrl(request, token) {
+  const url = new URL('/order/', request.url);
+  url.searchParams.set('token', token);
+  return url.toString();
+}
+
+function orderStatusMessage(order, statusText, trackingUrl = '') {
   const customer = order.customer_name || 'Customer';
   const number = order.order_number || order.id || 'your order';
   const delivery = order.delivery_date ? `\nExpected delivery: ${order.delivery_date}` : '';
-  return `Hi ${customer}, your order ${number} is ${String(statusText || 'updated').toLowerCase()}.${delivery}\n– MR Enterprises`;
+  const invoice = order.invoice_number ? `\nInvoice: ${order.invoice_number}` : '';
+  const tracking = trackingUrl ? `\nTrack your order and view the invoice: ${trackingUrl}` : '';
+  return `Hi ${customer}, your order ${number} is ${String(statusText || 'updated').toLowerCase()}.${delivery}${invoice}${tracking}\n– MR Enterprises`;
 }
 
 async function route(request, env) {
@@ -1196,9 +1235,12 @@ async function route(request, env) {
   const path = url.pathname;
   if (path === '/api/health') return json({ ok: true, service: 'frostflow-online', version: '0.9.0', database: 'cloudflare-d1-central' });
   if (path === '/api/catalog/orders' && request.method === 'POST') return createOrder(request, env, { publicCatalog: true });
+  const publicOrderMatch = path.match(/^\/api\/catalog\/orders\/([a-f0-9]{48})$/i);
+  if (publicOrderMatch && request.method === 'GET') return publicOrderStatus(env, publicOrderMatch[1]);
   if (path === '/api/catalog/availability' && request.method === 'GET') return publicAvailability(env);
-  if (request.method === 'GET' && (path === '/catalog' || path === '/catalog/' || path === '/catalog.js' || path === '/catalog.css' || path === '/catalog-data.json' || path.startsWith('/images/'))) {
+  if (request.method === 'GET' && (path === '/catalog' || path === '/catalog/' || path === '/catalog.js' || path === '/catalog.css' || path === '/catalog-data.json' || path === '/order' || path === '/order/' || path === '/order.js' || path === '/order.css' || path.startsWith('/images/'))) {
     if (path === '/catalog') return Response.redirect(new URL('/catalog/', request.url), 308);
+    if (path === '/order') return Response.redirect(new URL(`/order/${url.search}`, request.url), 308);
     return env.ASSETS.fetch(request);
   }
 
@@ -1268,4 +1310,4 @@ export default {
   },
 };
 
-export { acceptBusinessSnapshot, equalSecret, cleanPhone, cleanStoredPhone, cleanGstin, cleanLocationUrl, directWhatsAppUrl, orderStatusMessage, invoiceLineAmounts, orderEstimateLineAmounts, paymentStatus, routeDisplayName, defaultWholesaleUnit, cleanWholesaleUnit, baseOrderQuantity };
+export { acceptBusinessSnapshot, equalSecret, cleanPhone, cleanStoredPhone, cleanGstin, cleanLocationUrl, directWhatsAppUrl, publicOrderUrl, orderStatusMessage, invoiceLineAmounts, orderEstimateLineAmounts, paymentStatus, routeDisplayName, defaultWholesaleUnit, cleanWholesaleUnit, baseOrderQuantity };

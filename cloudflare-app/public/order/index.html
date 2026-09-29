@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#087f5b">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Track your order · MR Enterprises</title>
+  <link rel="stylesheet" href="/order.css">
+</head>
+<body>
+  <header>
+    <div><small>MR ENTERPRISES</small><h1>Track your order</h1><p>Live order status and final invoice</p></div>
+    <a href="/catalog/">Order more products</a>
+  </header>
+  <main>
+    <section id="loading" class="card loading"><span></span><h2>Loading your order…</h2><p>Please keep this page or its link for future updates.</p></section>
+    <section id="error" class="card error-card" hidden><h2>Order link unavailable</h2><p id="error-message"></p><a href="/catalog/">Return to catalogue</a></section>
+    <div id="order-view" hidden>
+      <section class="card status-card">
+        <div class="status-head"><div><small id="order-number"></small><h2 id="customer-name"></h2></div><span id="status-badge"></span></div>
+        <p id="status-message" class="status-message"></p>
+        <div class="meta-grid"><div><small>Order placed</small><strong id="placed-date"></strong></div><div><small>Expected delivery</small><strong id="delivery-date"></strong></div><div><small>Estimated value</small><strong id="order-total"></strong></div></div>
+        <ol id="timeline" class="timeline"></ol>
+      </section>
+
+      <section class="card">
+        <div class="section-head"><div><small>ORDER DETAILS</small><h2>Products ordered</h2></div><button id="refresh-order" type="button">Refresh</button></div>
+        <div id="order-lines" class="line-list"></div>
+        <div id="estimate-summary" class="totals"></div>
+      </section>
+
+      <section id="invoice-card" class="card invoice-card" hidden>
+        <div class="section-head"><div><small>FINAL INVOICE</small><h2 id="invoice-number"></h2></div><button id="print-invoice" type="button">Print / save PDF</button></div>
+        <div id="invoice-meta" class="invoice-meta"></div>
+        <div id="invoice-lines" class="invoice-lines"></div>
+        <div id="invoice-totals" class="totals"></div>
+      </section>
+
+      <section id="invoice-pending" class="card invoice-pending" hidden><strong id="pending-invoice-number"></strong><p>The invoice number is ready. Full invoice details will appear here after the Amul PC finishes syncing.</p></section>
+
+      <section class="help-card"><div><strong>Need help with this order?</strong><p>Open MR Enterprises in WhatsApp and share this tracking link.</p></div><a id="whatsapp-help" target="_blank" rel="noreferrer">Open WhatsApp</a></section>
+      <p class="auto-refresh">This page refreshes automatically every 30 seconds.</p>
+    </div>
+  </main>
+  <script type="module" src="/order.js"></script>
+</body>
+</html>

@@ -11,7 +11,7 @@
 <body>
   <header class="catalog-header">
     <div><small>MR ENTERPRISES</small><h1>Amul Catalogue</h1><p>Choose products and send one complete order on WhatsApp.</p></div>
-    <button id="open-cart" type="button">Cart <span id="cart-count">0</span></button>
+    <div class="header-actions"><a id="latest-order-link" href="/order/" hidden>My latest order</a><button id="open-cart" type="button">Cart <span id="cart-count">0</span></button></div>
   </header>
   <main>
     <div class="search-row"><input id="search" type="search" placeholder="Search ice cream, dairy, chocolate…" autocomplete="off"><button id="clear-search" type="button" aria-label="Clear search">×</button></div>
@@ -50,8 +50,8 @@
         <input id="delivery-date" type="date" required>
       </label>
       <label>Note (optional)<textarea id="customer-note" maxlength="200" rows="2"></textarea></label>
-      <p class="privacy-note">Your order is saved online first, then WhatsApp opens for a quick confirmation. These delivery details stay on this device for next time.</p>
-      <button id="send-order" type="button" class="whatsapp-button">Place estimated order &amp; open WhatsApp</button>
+      <p class="privacy-note">Your order is saved online and a private tracking link opens immediately. These delivery details stay on this device for next time.</p>
+      <button id="send-order" type="button" class="whatsapp-button">Place order &amp; view live status</button>
       <button id="clear-cart" type="button" class="text-button">Clear order</button>
       <p id="form-error" class="error" role="alert"></p>
     </form>

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {baseOrderQuantity,cleanGstin,cleanLocationUrl,cleanPhone,cleanStoredPhone,cleanWholesaleUnit,defaultWholesaleUnit,directWhatsAppUrl,equalSecret,invoiceLineAmounts,orderEstimateLineAmounts,orderStatusMessage,paymentStatus,routeDisplayName} from '../src/worker.js';
+import {baseOrderQuantity,cleanGstin,cleanLocationUrl,cleanPhone,cleanStoredPhone,cleanWholesaleUnit,defaultWholesaleUnit,directWhatsAppUrl,equalSecret,invoiceLineAmounts,orderEstimateLineAmounts,orderStatusMessage,paymentStatus,publicOrderUrl,routeDisplayName} from '../src/worker.js';
 
 test('constant-time secret comparison and phone normalization',async()=>{
   assert.equal(await equalSecret('same','same'),true);
@@ -30,11 +30,14 @@ test('checkout profile validation keeps GST and map data usable',()=>{
 });
 
 test('manual WhatsApp links preserve the recipient and prepared order update',()=>{
-  const order={id:'order-1',order_number:'WEB-42',customer_name:'Anil Stores',delivery_date:'2026-09-30'};
-  const message=orderStatusMessage(order,'Out for delivery');
+  const order={id:'order-1',order_number:'WEB-42',customer_name:'Anil Stores',delivery_date:'2026-09-30',invoice_number:'INV-42'};
+  const tracking=publicOrderUrl(new Request('https://orders.example/api/orders'),'a'.repeat(48));
+  const message=orderStatusMessage(order,'Out for delivery',tracking);
   assert.match(message,/Anil Stores/);
   assert.match(message,/WEB-42/);
   assert.match(message,/out for delivery/);
+  assert.match(message,/INV-42/);
+  assert.match(message,/https:\/\/orders\.example\/order\/\?token=/);
   const url=new URL(directWhatsAppUrl('9014003991',message));
   assert.equal(url.hostname,'wa.me');
   assert.equal(url.pathname,'/919014003991');
