@@ -37,6 +37,27 @@ test('full Amul sync ignores stored checkpoint and reports readable failures',as
  assert.match(sync.status().error,/Amul read failed at invoices: timeout/);
  await sync.stop();db.close();
 });
+test('Amul catalogue uses the highest selling price across stocked batches and ignores List Price',async()=>{
+ const db=openDatabase(':memory:');
+ const sync=new AmulSync(db,{enabled:true,read:async stage=>{
+   for(const name of DATASETS) {
+     if(name==='products')stage(name,[{PrdId:1,PrdDCode:'SKU1',PrdName:'Amul Vanilla Cup',PrdStatus:1}]);
+     else if(name==='batches')stage(name,[{PrdId:1,PrdBatId:10,DefaultPriceId:100},{PrdId:1,PrdBatId:11,DefaultPriceId:101}]);
+     else if(name==='stock')stage(name,[{PrdId:1,PrdBatID:10,LcnId:1,PrdBatLcnSih:5},{PrdId:1,PrdBatID:11,LcnId:1,PrdBatLcnSih:3}]);
+     else if(name==='price_definitions')stage(name,[{BatchSeqId:1,SlNo:1,FieldDesc:'MRP'},{BatchSeqId:1,SlNo:2,FieldDesc:'List Price'},{BatchSeqId:1,SlNo:3,FieldDesc:'Selling Price'}]);
+     else if(name==='prices')stage(name,[
+       {PriceId:100,BatchSeqId:1,SLNo:1,PrdBatDetailValue:25},{PriceId:100,BatchSeqId:1,SLNo:2,PrdBatDetailValue:99},{PriceId:100,BatchSeqId:1,SLNo:3,PrdBatDetailValue:21.455},
+       {PriceId:101,BatchSeqId:1,SLNo:1,PrdBatDetailValue:30},{PriceId:101,BatchSeqId:1,SLNo:3,PrdBatDetailValue:25},
+     ]);
+     else stage(name,[]);
+   }
+   return {streamed:true,metadata:{source_checkpoint:'2026-10-05 10:00:00.000'}};
+ }});
+ assert.equal(await sync.sync(),true);
+ const product=db.prepare('SELECT stock_qty,mrp_paise,selling_price_paise FROM amul_products_local WHERE product_id=?').get('1');
+ assert.equal(product.stock_qty,8);assert.equal(product.mrp_paise,3000);assert.equal(product.selling_price_paise,2500);
+ await sync.stop();db.close();
+});
 test('Amul HTTP writes are rejected and local catalogue stays separate',async t=>{
  const {createApplication}=require('../src/http-app');
  const app=createApplication({dbPath:':memory:',amulOptions:{enabled:false}});

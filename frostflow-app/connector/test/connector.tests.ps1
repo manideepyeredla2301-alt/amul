@@ -39,7 +39,8 @@ $data = @{
     products = @(@{ PrdId = 1; PrdDCode = 'ICCUVAN101'; PrdName = 'Vanilla Cup 100 ml'; PrdStatus = 1 }, @{ PrdId = 2; PrdDCode = 'X'; PrdName = 'Old Stick'; PrdStatus = 0 })
     batches = @(@{ PrdId = 1; PrdBatId = 10; DefaultPriceId = 100 }, @{ PrdId = 1; PrdBatId = 11; DefaultPriceId = 101 })
     stock = @(@{ PrdId = 1; PrdBatID = 10; LcnId = 1; PrdBatLcnSih = '12.000' }, @{ PrdId = 1; PrdBatID = 11; LcnId = 1; PrdBatLcnSih = '3' })
-    prices = @(@{ PriceId = 100; BatchSeqId = 1; SLNo = 1; PrdBatDetailValue = '25.00' }, @{ PriceId = 100; BatchSeqId = 1; SLNo = 3; PrdBatDetailValue = '21.455' }, @{ PriceId = 100; BatchSeqId = 1; SLNo = 2; PrdBatDetailValue = '19.00' })
+    prices = @(@{ PriceId = 100; BatchSeqId = 1; SLNo = 1; PrdBatDetailValue = '25.00' }, @{ PriceId = 100; BatchSeqId = 1; SLNo = 3; PrdBatDetailValue = '21.455' }, @{ PriceId = 100; BatchSeqId = 1; SLNo = 2; PrdBatDetailValue = '99.00' },
+        @{ PriceId = 101; BatchSeqId = 1; SLNo = 1; PrdBatDetailValue = '30.00' }, @{ PriceId = 101; BatchSeqId = 1; SLNo = 3; PrdBatDetailValue = '25.00' })
     # Real Amul layout: List Price (purchase cost) sits before Selling Price and must never become the retailer rate.
     price_definitions = @(@{ SlNo = 1; BatchSeqId = 1; FieldDesc = 'MRP' }, @{ SlNo = 2; BatchSeqId = 1; FieldDesc = 'List Price' }, @{ SlNo = 3; BatchSeqId = 1; FieldDesc = 'Selling Price' })
     routes = @(@{ RMId = 7; RMCode = 'R7'; RMName = 'Gachibowli'; RMstatus = 1; Deleted = $false; RMMon = 1; RMThu = 'Y'; RMFri = 0 },
@@ -53,9 +54,9 @@ $data = @{
 }
 $payload = ConvertTo-D1Payload -Data $data -MinDate '2026-09-09'
 It 'money converts to paise with away-from-zero rounding' { Assert-Equal 2146 (ConvertTo-Paise '21.455'); Assert-Equal 100050 (ConvertTo-Paise '1000.50'); Assert-Equal 0 (ConvertTo-Paise $null) }
-It 'inventory sums batch stock and takes batch prices' {
+It 'inventory sums stock and takes the highest retailer price across batches' {
     $p = $payload.inventory | Where-Object { $_.product_id -eq 'AMUL:1' }
-    Assert-Equal 15 $p.stock_qty; Assert-Equal 2500 $p.mrp_paise; Assert-Equal 2146 $p.selling_price_paise; Assert-Equal '100 ml Cups' $p.category; Assert-Equal $true $p.active
+    Assert-Equal 15 $p.stock_qty; Assert-Equal 3000 $p.mrp_paise; Assert-Equal 2500 $p.selling_price_paise; Assert-Equal '100 ml Cups' $p.category; Assert-Equal $true $p.active
     Assert-Equal $false ($payload.inventory | Where-Object { $_.product_id -eq 'AMUL:2' }).active
 }
 It 'all routes are migrated, inactive ones flagged, with visit days and members' {

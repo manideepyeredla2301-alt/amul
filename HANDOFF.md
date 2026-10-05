@@ -29,7 +29,7 @@ Imports were additive: overlapping records were preserved, not reconciled or ove
 
 - Amul invoice detail falls back to archived source lines when normalized online lines are absent. Source tax amounts are displayed instead of fabricating GST percentages. Quantities are explicitly labelled base stock units; packing conversions still need integration.
 - Webhook stores all statement batches rather than silently truncating after the first 50. Event IDs provide retry deduplication. Actual Meta callback/subscription and incoming-message delivery still need verification.
-- Sync rejects non-AMUL IDs. Existing stock, reservations, price, active status and ownership are preserved. Incoming stock is recorded in `source_stock_qty`/`source_stock_seen_at` on existing rows. New products still receive their initial source stock.
+- Sync rejects non-AMUL IDs. Existing stock, reservations, active status and ownership are preserved. Authoritative Amul MRP and retailer Selling Price are refreshed; incoming stock is recorded in `source_stock_qty`/`source_stock_seen_at` on existing rows. New products still receive their initial source stock.
 - Existing business records are skipped by sync to avoid replacing cloud edits/balances. This is a conservative guard, **not completed incremental reconciliation**. Upstream changes to existing customers/invoices will currently not be applied.
 - Missing rows no longer deactivate existing cloud inventory/customers/routes.
 - Bridge route query supports local schemas without `amul_routes.local_deleted`.

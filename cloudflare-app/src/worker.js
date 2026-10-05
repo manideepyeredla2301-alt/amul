@@ -241,6 +241,7 @@ async function acceptSnapshot(request, env) {
     return env.DB.prepare(`INSERT INTO inventory(product_id,sku,product_name,category,unit,stock_qty,mrp_paise,selling_price_paise,active,source_device,snapshot_id,source_updated_at,synced_at)
       VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,CURRENT_TIMESTAMP)
       ON CONFLICT(product_id) DO UPDATE SET sku=excluded.sku,product_name=excluded.product_name,category=excluded.category,unit=excluded.unit,
+      mrp_paise=excluded.mrp_paise,selling_price_paise=excluded.selling_price_paise,
       source_stock_qty=excluded.stock_qty,source_stock_seen_at=CURRENT_TIMESTAMP,
       snapshot_id=excluded.snapshot_id,source_updated_at=excluded.source_updated_at,synced_at=CURRENT_TIMESTAMP
       WHERE inventory.source_device<>'cloudflare-admin'`)

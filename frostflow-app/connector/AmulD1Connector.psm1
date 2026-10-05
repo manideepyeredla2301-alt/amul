@@ -256,9 +256,9 @@ function Get-PriceMap($Prices, $Definitions) {
         $label = $labels["$($p.BatchSeqId):$($p.SLNo)"]
         if (-not $label) { continue }
         $paise = ConvertTo-Paise $p.PrdBatDetailValue
-        if ($label.Contains('mrp')) { $map[$id].mrp = $paise }
+        if ($label.Contains('mrp')) { $map[$id].mrp = [Math]::Max([long]$map[$id].mrp, $paise) }
         # 'List Price' is the distributor's purchase cost; only 'Selling Price' is the retailer rate.
-        if ($label.Contains('selling')) { $map[$id].selling = $paise }
+        if ($label.Contains('selling')) { $map[$id].selling = [Math]::Max([long]$map[$id].selling, $paise) }
     }
     return $map
 }
@@ -277,7 +277,10 @@ function ConvertTo-InventoryItems($Products, $Batches, $Stock, $PriceMap) {
         $t.stock += $qty
         if ($batch) {
             $price = $PriceMap[[string]$batch.DefaultPriceId]
-            if ($price) { if (-not $t.mrp) { $t.mrp = $price.mrp }; if (-not $t.selling) { $t.selling = $price.selling } }
+            if ($price) {
+                $t.mrp = [Math]::Max([long]$t.mrp, [long]$price.mrp)
+                $t.selling = [Math]::Max([long]$t.selling, [long]$price.selling)
+            }
         }
     }
     $items = New-Object System.Collections.Generic.List[object]

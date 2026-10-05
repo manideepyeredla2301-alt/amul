@@ -276,8 +276,9 @@ class AmulSync {
       const id=String(row.PriceId), label=defs.get(`${row.BatchSeqId}:${row.SLNo}`) || '';
       const target=prices.get(id) || {json:[],mrp:0,selling:0};
       const paise=moneyToPaise(row.PrdBatDetailValue);
-      if(label.includes('mrp'))target.mrp=paise;
-      if(label.includes('selling') || label.includes('sell') || label.includes('sel') || label.includes('list'))target.selling=paise;
+      if(label.includes('mrp'))target.mrp=Math.max(target.mrp,paise);
+      // List Price is the distributor purchase cost. Only the retailer Selling Price is invoiceable.
+      if(label.includes('selling'))target.selling=Math.max(target.selling,paise);
       target.json.push(row);prices.set(id,target);
     }
     return prices;
@@ -336,7 +337,7 @@ class AmulSync {
       const qty=Number(s.PrdBatLcnSih || 0), unsaleable=Number(s.PrdBatLcnUih || 0), free=Number(s.PrdBatLcnFre || 0);
       putStock.run(String(product.PrdId || batch.PrdId || s.PrdId || ''),String(s.PrdBatID),product.PrdName || '',batch.PrdBatCode || '',String(s.LcnId || ''),qty,unsaleable,free,price.mrp,price.selling,ymd(batch.ExpDate),JSON.stringify({...s,batch,price:price.json}));
       const total=productTotals.get(String(product.PrdId || batch.PrdId || s.PrdId || '')) || {stock:0,batches:new Set(),mrp:0,selling:0};
-      total.stock+=qty; total.batches.add(String(s.PrdBatID)); total.mrp ||= price.mrp; total.selling ||= price.selling; productTotals.set(String(product.PrdId || batch.PrdId || s.PrdId || ''),total);
+      total.stock+=qty; total.batches.add(String(s.PrdBatID)); total.mrp=Math.max(total.mrp,price.mrp); total.selling=Math.max(total.selling,price.selling); productTotals.set(String(product.PrdId || batch.PrdId || s.PrdId || ''),total);
     }
     this.db.prepare('DELETE FROM amul_products_local').run();
     const putProduct=this.db.prepare('INSERT INTO amul_products_local(product_id,sku,code,product_name,barcode,batch_count,stock_qty,mrp_paise,selling_price_paise,active,source_json) VALUES(?,?,?,?,?,?,?,?,?,?,?)');

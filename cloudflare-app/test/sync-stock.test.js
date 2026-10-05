@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync} from 'node:fs';
-test('upstream stock observation preserves cloud stock, price, activity and ownership',()=>{
+test('Amul sync refreshes source prices while preserving cloud stock, activity and ownership',()=>{
  const code=readFileSync(new URL('../src/worker.js',import.meta.url),'utf8');
  const sql=code.match(/return env\.DB\.prepare\(`(INSERT INTO inventory\(product_id,sku,product_name,category,unit,stock_qty,[\s\S]*?)`\)/)[1];
  const db=new DatabaseSync(':memory:');
@@ -13,7 +13,8 @@ test('upstream stock observation preserves cloud stock, price, activity and owne
  statement.run(params);db.exec("UPDATE inventory SET stock_qty=7,reserved_qty=2,selling_price_paise=1800,active=0");
  statement.run({...params,p6:999,p11:'two'});
  const r=db.prepare('SELECT * FROM inventory').get();
- assert.equal(r.stock_qty,7);assert.equal(r.reserved_qty,2);assert.equal(r.selling_price_paise,1800);assert.equal(r.active,0);assert.equal(r.source_stock_qty,999);
+ assert.equal(r.stock_qty,7);assert.equal(r.reserved_qty,2);assert.equal(r.selling_price_paise,1500);assert.equal(r.active,0);assert.equal(r.source_stock_qty,999);
  db.exec("UPDATE inventory SET source_device='cloudflare-admin'");statement.run({...params,p6:888});
- assert.equal(db.prepare('SELECT source_stock_qty FROM inventory').get().source_stock_qty,999);db.close();
+ const manual=db.prepare('SELECT source_stock_qty,selling_price_paise FROM inventory').get();
+ assert.equal(manual.source_stock_qty,999);assert.equal(manual.selling_price_paise,1500);db.close();
 });
