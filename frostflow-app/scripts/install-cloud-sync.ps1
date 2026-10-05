@@ -4,7 +4,8 @@ param(
   [string]$DeviceId='amul-pc',
   [string]$AmulServer='tcp:100.105.240.98,1433',
   [string]$AmulDatabase='0002018303_GVR ENTERPRISES',
-  [string]$AmulUser='amuluser'
+  [string]$AmulUser='amuluser',
+  [ValidateRange(5,1440)][int]$IntervalMinutes=30
 )
 $ErrorActionPreference='Stop'
 $appRoot=Split-Path $PSScriptRoot -Parent
@@ -39,9 +40,9 @@ Write-Host 'Running the first protected sync...'
 & $powerShell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $runner
 if($LASTEXITCODE){throw 'The first sync failed. Check data\cloud-sync.log.'}
 $action=New-ScheduledTaskAction -Execute $powerShell -Argument "-NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$runner`""
-$trigger=New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 5) -RepetitionDuration (New-TimeSpan -Days 3650)
+$trigger=New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes $IntervalMinutes) -RepetitionDuration (New-TimeSpan -Days 3650)
 $settings=New-ScheduledTaskSettingsSet -StartWhenAvailable -RunOnlyIfNetworkAvailable -MultipleInstances IgnoreNew
-Register-ScheduledTask -TaskName 'FrostFlow Cloud Sync' -Action $action -Trigger $trigger -Settings $settings -Description 'Refresh Amul read-only data and publish the central Cloudflare database every five minutes.' -Force | Out-Null
-Write-Host 'Central sync installed. Every run refreshes Amul read-only data first, then updates Cloudflare D1.' -ForegroundColor Green
+Register-ScheduledTask -TaskName 'FrostFlow Cloud Sync' -Action $action -Trigger $trigger -Settings $settings -Description "Refresh Amul read-only data and publish the central Cloudflare database every $IntervalMinutes minutes." -Force | Out-Null
+Write-Host "Central sync installed every $IntervalMinutes minutes. Every run refreshes Amul read-only data first, then updates Cloudflare D1." -ForegroundColor Green
 Write-Host "Replaceable cache: $DatabasePath"
 Write-Host "Online:   $CloudUrl"

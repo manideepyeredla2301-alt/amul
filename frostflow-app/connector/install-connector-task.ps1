@@ -1,6 +1,6 @@
 #requires -Version 5.1
-# Registers "FrostFlow Amul D1 Connector" to run every five minutes for the current user.
-param([int]$IntervalMinutes = 5)
+# Registers "FrostFlow Amul D1 Connector" to run every 30 minutes for the current user.
+param([int]$IntervalMinutes = 30)
 $ErrorActionPreference = 'Stop'
 $runner = Join-Path $PSScriptRoot 'amul-d1-connector.ps1'
 $powerShell = (Get-Command powershell.exe).Source

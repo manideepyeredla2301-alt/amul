@@ -22,12 +22,17 @@ before every cloud publication.
    Paste it into the hidden Windows prompt. It is encrypted with Windows DPAPI
    for the current Windows user and is never added to Git.
 5. The first full Amul-to-D1 sync runs immediately. Windows Task Scheduler then
-   runs `FrostFlow Cloud Sync` every five minutes whenever a network is available.
+   runs `FrostFlow Cloud Sync` every 30 minutes whenever a network is available.
    Double-click `start-frostflow-online.bat` for the desktop app; it opens the
    same central Cloudflare application used by web and tablet users.
 
 You can also double-click `Sync-FrostFlow-Now.bat` at any time to run and
 verify a complete sync immediately.
+
+For an existing installation, double-click `Set-Sync-Every-30-Minutes.bat`
+once to repair or change the existing scheduled task without re-entering the
+stored credentials. Application code updates are separate from database sync:
+double-click `Update-FrostFlow.bat` to fast-forward the checkout from GitHub.
 
 To place the replaceable cache in a different folder, run:
 
