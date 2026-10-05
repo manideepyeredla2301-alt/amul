@@ -12,9 +12,9 @@ function d1({triggers=false}={}){
   return{db,env:{DB:{prepare:sql=>wrap(sql),batch:async statements=>{for(const statement of statements)await statement.run()}}}};
 }
 
-test('private tracking hides prices until the final invoice and never exposes contact data',async()=>{
+test('private tracking shows ordered MRP and retailer prices without exposing contact data',async()=>{
   const {db,env}=d1(),token='a'.repeat(48);
-  db.exec("INSERT INTO inventory(product_id,sku,product_name,stock_qty,selling_price_paise,source_device,snapshot_id) VALUES('P1','P1','Vanilla Cups',10,2500,'test','s1')");
+  db.exec("INSERT INTO inventory(product_id,sku,product_name,stock_qty,mrp_paise,selling_price_paise,source_device,snapshot_id) VALUES('P1','P1','Vanilla Cups',10,3000,2500,'test','s1')");
   db.prepare(`INSERT INTO orders(id,request_id,source,customer_name,phone,address,status,order_number,delivery_date,total_paise,workflow_status,subtotal_paise,tax_paise,gst_bps,public_token)
     VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run('O1','request-123','ONLINE','Anil Stores','919999999999','Private address','NEW','WEB-42','2026-09-30',25000,'RECEIVED',25000,0,500,token);
   db.prepare(`INSERT INTO order_lines(order_id,line_no,product_id,product_name,quantity,unit,requested_quantity,requested_unit,units_per_box,price_paise,subtotal_paise,tax_paise,total_paise)
@@ -27,8 +27,9 @@ test('private tracking hides prices until the final invoice and never exposes co
   assert.equal(body.order.address,undefined);
   assert.equal(body.order.total_paise,undefined);
   assert.equal(body.order.subtotal_paise,undefined);
-  assert.equal(body.lines[0].price_paise,undefined);
-  assert.equal(body.lines[0].total_paise,undefined);
+  assert.equal(body.lines[0].retailer_price_paise,2500);
+  assert.equal(body.lines[0].mrp_paise,3000);
+  assert.equal(body.lines[0].total_paise,25000);
 
   db.prepare(`INSERT INTO invoices(id,source,source_id,invoice_number,invoice_date,due_date,customer_name,total_paise,paid_paise,outstanding_paise,payment_status,source_device,snapshot_id,subtotal_paise,tax_paise,order_id)
     VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run('I1','LOCAL','I1','WEBINV-1','2026-09-29','2026-09-29','Anil Stores',26250,0,26250,'UNPAID','cloudflare-admin','s1',25000,1250,'O1');

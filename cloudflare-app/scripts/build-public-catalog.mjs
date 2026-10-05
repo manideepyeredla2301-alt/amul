@@ -33,7 +33,8 @@ const departments = (source.departments || []).map((department) => ({
       name: String(group.name),
       products: (group.products || []).map((product) => {
         // imageId keeps the original photo when a product id was corrected to the Amul code.
-        const imageName = `${product.imageId || product.id}.jpg`;
+        const imageBase = String(product.imageId || product.id);
+        const imageName = [`${imageBase}.png`, `${imageBase}.jpg`, `${imageBase}.webp`].find((name) => imageNames.has(name));
         return {
           id: String(product.id),
           name: String(product.name),
@@ -41,7 +42,7 @@ const departments = (source.departments || []).map((department) => ({
           pack: String(product.pack || ''),
           unitsPerCase: Number(product.unitsPerCase || 0),
           unitsPerBox: unitsPerBox(department, category, product),
-          image: imageNames.has(imageName) ? `/images/${imageName}` : '',
+          image: imageName ? `/images/${imageName}` : '',
         };
       }),
     })),
@@ -49,7 +50,7 @@ const departments = (source.departments || []).map((department) => ({
 }));
 
 for (const imageName of imageNames) {
-  if (/^[A-Za-z0-9_-]+\.jpg$/.test(imageName)) await copyFile(path.join(sourceImages, imageName), path.join(publicImages, imageName));
+  if (/^[A-Za-z0-9_-]+\.(?:jpg|png|webp)$/.test(imageName)) await copyFile(path.join(sourceImages, imageName), path.join(publicImages, imageName));
 }
 
 const productCount = departments.reduce((sum, department) => sum + department.categories.reduce((categorySum, category) => categorySum + category.groups.reduce((groupSum, group) => groupSum + group.products.length, 0), 0), 0);

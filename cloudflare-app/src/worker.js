@@ -508,8 +508,10 @@ async function publicOrderStatus(env, token) {
   const order = await env.DB.prepare(`SELECT id,order_number,customer_name,delivery_date,status,workflow_status,invoice_number,created_at,updated_at
     FROM orders WHERE public_token=?1`).bind(token).first();
   if (!order) return json({ error: 'Order not found' }, 404);
-  const lines = (await env.DB.prepare(`SELECT product_name,requested_quantity,requested_unit,units_per_box,quantity,unit,picked_qty
-    FROM order_lines WHERE order_id=?1 ORDER BY line_no`).bind(order.id).all()).results || [];
+  const lines = (await env.DB.prepare(`SELECT ol.product_name,ol.requested_quantity,ol.requested_unit,ol.units_per_box,ol.quantity,ol.unit,ol.picked_qty,
+    ol.price_paise retailer_price_paise,COALESCE(i.mrp_paise,0) mrp_paise,ol.subtotal_paise,ol.total_paise
+    FROM order_lines ol LEFT JOIN inventory i ON i.product_id=ol.product_id
+    WHERE ol.order_id=?1 ORDER BY ol.line_no`).bind(order.id).all()).results || [];
   const invoice = await env.DB.prepare(`SELECT id,invoice_number,invoice_date,due_date,subtotal_paise,tax_paise,discount_paise,total_paise,paid_paise,outstanding_paise,payment_status,status
     FROM invoices WHERE deleted_at IS NULL AND status<>'VOID' AND (order_id=?1 OR (?2<>'' AND invoice_number=?2)) ORDER BY invoice_date DESC LIMIT 1`).bind(order.id, order.invoice_number || '').first();
   if (invoice) invoice.lines = (await env.DB.prepare(`SELECT product_name,quantity,unit,unit_price_paise,gst_bps,subtotal_paise,tax_paise,total_paise
