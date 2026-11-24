@@ -4,7 +4,7 @@
 
 The existing FrostFlow service is a Cloudflare Worker with D1 storage. The live `frostflow-online` ERP Worker has its own working functionality and data. A simpler café QR Worker, `frostflow-cafe`, already existed in the same Cloudflare account with its own `cafe_` tables and migration history. This project extends the café Worker and leaves the ERP Worker alone. The shared D1 database was exported before the platform migrations; the SQL export was restored in a local SQLite check and passed `PRAGMA quick_check`.
 
-The café uses a static frontend on Workers Assets and JavaScript Worker APIs. It now has a database-backed catalogue, server-calculated customizations, QR and POS orders, live kitchen revision polling, staff sessions and role checks, payments, stock movements and batches, ingredients and recipes, reports, offers, managed QR codes, and audit entries. The schema includes an outlet entity for later expansion; this deployment operates as one café.
+The café uses a static frontend on Workers Assets and JavaScript Worker APIs. The customer/kitchen/admin Worker and a dedicated POS Worker share the same D1 tables. The POS address opens the counter page at its root. It now has a database-backed catalogue, server-calculated customizations, QR and POS orders, live kitchen revision polling, staff sessions and role checks, payments, stock movements and batches, ingredients and recipes, reports, offers, managed QR codes, and audit entries. The schema includes an outlet entity for later expansion; this deployment operates as one café.
 
 ## Storage and security decisions
 

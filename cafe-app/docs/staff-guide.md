@@ -8,7 +8,7 @@ If a customer says an order did not appear, ask for the order number or tracking
 
 ## Tablet and counter POS
 
-1. Open `/pos/` and sign in with your own staff account.
+1. Open the dedicated POS address, `https://frostflow-pos.manideepyeredla2301.workers.dev/`, and sign in with your own staff account.
 2. Choose **Dine in**, **Takeaway**, or **Counter sale**. Enter the table number for dine-in.
 3. Tap café items or packaged retail items. Search by name, SKU, or barcode; a supported tablet camera can scan a barcode. Pick required sundae choices or optional extras and add any cook note.
 4. Check the cart, quantity, and estimated total. The server confirms final prices and offers when the order is created.

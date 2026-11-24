@@ -14,6 +14,8 @@ The café runs as the `frostflow-cafe` Cloudflare Worker in the existing FrostFl
 
 All five pages use the same database-backed API. New QR orders have an active managed QR ID. Staff POS orders do not need a QR code. Retail-only transactions complete without a kitchen ticket; a promotional free prepared item still creates a kitchen ticket. Customer checkout never collects money or marks a payment complete. Cash, UPI, and card are recorded manually by staff after the payment happens outside the site.
 
+The POS also has its own address, `https://frostflow-pos.manideepyeredla2301.workers.dev/`. Its root redirects to `/pos/`, and it shares the café D1 database so kitchen orders and stock stay synchronized. The separate Worker needs its own `CAFE_ADMIN_PASSWORD` and `CAFE_SESSION_SECRET` secrets; staff sign in on its host separately. Deploy future POS updates with `npm run deploy:pos`; the existing secrets are retained.
+
 The seed migration imports the 68 finalized café products and prices, including ₹90 veg and ₹120 chicken burgers with an optional ₹10 cheese slice. It creates empty retail categories without inventing packaged SKUs or stock. Every café product has a distinct original photo at `public/images/products/<product-id>.jpg` and editable preparation steps. Uploaded replacement photos are cropped in the admin browser and persisted in D1 as image BLOBs because R2 is not enabled on this account. The upload limit is 1 MB when stored in D1. Admin bulk import accepts CSV and `.xlsx` Excel files.
 
 ## Code and storage

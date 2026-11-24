@@ -4,7 +4,7 @@
 
 Open the deployed café address with `/admin/` at the end. Sign in with the owner username `rachana` and the password already configured in FrostFlow. Keep that password private. Use **Sign out** when leaving a shared device.
 
-The sidebar has Overview, Products, Categories, Inventory, Orders & payments, Reports, Offers, QR codes, Staff, and Settings. Shortcuts open the tablet POS and kitchen board.
+The sidebar has Overview, Products, Categories, Inventory, Orders & payments, Reports, Offers, QR codes, Staff, and Settings. The tablet POS has its own address: `https://frostflow-pos.manideepyeredla2301.workers.dev/`. The kitchen board remains on the café site.
 
 ## Add or change a menu item
 

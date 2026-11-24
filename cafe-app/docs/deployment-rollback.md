@@ -25,6 +25,15 @@ npx wrangler versions list
 
 The new schema migrations are additive and use the café's separate migration table. `wrangler deploy` publishes the café Worker and its static photos. It does not deploy `frostflow-online` ERP code.
 
+The tablet POS has a second Worker, `frostflow-pos`, whose root opens `/pos/`. It uses the same D1 database and existing schema. Its secrets are separate from the café Worker. Once `CAFE_ADMIN_PASSWORD` and `CAFE_SESSION_SECRET` have been set for that Worker, deploy POS updates with:
+
+```sh
+npm run deploy:pos
+npx wrangler deployments list --name frostflow-pos
+```
+
+Do not rerun database migrations just to update the POS Worker.
+
 After deployment, check the public menu has 68 café items and correct burger prices, then check owner login, the POS catalogue, kitchen tickets, a table QR, and a test order from creation through Ready. Check a receipt, the free-fries offer, and one manual payment. Record the deployed version ID and the test order number. Do not claim live HTTP verification if the deployment URL cannot be reached from the testing network.
 
 ## Roll back code
@@ -36,6 +45,8 @@ npx wrangler rollback <previous-version-id> --message "Restore previous café re
 ```
 
 This rolls back the café Worker code and assets, not D1 data. Keep the new café tables and columns in place while investigating; additive schema should be harmless to the older café Worker. If data repair is needed, first export the current database as a second private backup. Because D1 is shared with the ERP, **do not import the full old export into production blindly**: it would erase ERP transactions created after the export. Restore only the affected café records after reviewing both backups, ideally on a staging copy first.
+
+To roll back only the separate POS Worker, use `npx wrangler deployments list --name frostflow-pos` to find its previous version, then `npx wrangler rollback <previous-pos-version-id> --name frostflow-pos`.
 
 ## Backups and routine checks
 
