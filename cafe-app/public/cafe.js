@@ -25,6 +25,13 @@ const statusSteps = [
   ['READY', 'Ready'],
   ['COMPLETED', 'Done'],
 ];
+const itemPhotos = {
+  'classic-veg-burger': 'classic-veg-burger.jpg',
+  'classic-chicken-burger': 'classic-chicken-burger.jpg',
+};
+function imageFor(item, category) {
+  return `/images/${itemPhotos[item.id] || `${category.id}.jpg`}`;
+}
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
@@ -156,7 +163,7 @@ function renderMenu() {
   if (!filtered.length) { grid.innerHTML = `<div class="empty-state"><strong>Nothing found yet</strong><p>Try another craving or browse all favourites.</p></div>`; return; }
   grid.innerHTML = filtered.map(({ item, category }, index) => {
     const [icon, bg, color] = art[category.id] || ['✳', '#e8eadd', '#526e56'];
-    return `<article class="menu-card"><div class="card-art" style="--art-bg:${bg};--art-color:${color}"><span class="art-number">${String(index + 1).padStart(2, '0')}</span><span aria-hidden="true">${icon}</span></div><div class="card-copy"><span class="card-label">${escapeHtml(category.name)}${item.optional ? ' · SPECIAL' : ''}</span><h4>${escapeHtml(item.name)}</h4><p>${escapeHtml(item.description || category.description || category.serving || 'Made fresh for you')}</p><div class="card-bottom"><strong>${money(item.price)}</strong><button class="card-add" type="button" data-item="${escapeHtml(item.id)}" aria-label="${item.optionGroups?.length ? 'Customize' : 'Add'} ${escapeHtml(item.name)}">+</button></div></div></article>`;
+    return `<article class="menu-card"><div class="card-art" style="--art-bg:${bg};--art-color:${color}"><img class="card-photo" src="${escapeHtml(imageFor(item, category))}" alt="" loading="lazy" decoding="async"><span class="art-number">${String(index + 1).padStart(2, '0')}</span></div><div class="card-copy"><span class="card-label">${escapeHtml(category.name)}${item.optional ? ' · SPECIAL' : ''}</span><h4>${escapeHtml(item.name)}</h4><p>${escapeHtml(item.description || category.description || category.serving || 'Made fresh for you')}</p><div class="card-bottom"><strong>${money(item.price)}</strong><button class="card-add" type="button" data-item="${escapeHtml(item.id)}" aria-label="${item.optionGroups?.length ? 'Customize' : 'Add'} ${escapeHtml(item.name)}">+</button></div></div></article>`;
   }).join('');
   $$('[data-item]', grid).forEach(button => button.addEventListener('click', () => {
     const item = itemFor(button.dataset.item);
@@ -228,7 +235,7 @@ function openItem(item) {
   state.options = defaultOptions(item);
   const [icon, bg, color] = art[state.selectedCategoryData?.id] || ['✳', '#e8eadd', '#526e56'];
   $('#item-visual').style.cssText = `--art-bg:${bg};--art-color:${color}`;
-  $('#item-icon').textContent = icon;
+  $('#item-photo').src = imageFor(item, state.selectedCategoryData);
   $('#item-title').textContent = item.name;
   $('#item-category').textContent = `${state.selectedCategoryData?.name || ''}${item.optional ? ' · Special' : ''}`;
   $('#item-base-price').textContent = money(item.price);

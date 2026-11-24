@@ -14,7 +14,10 @@ wholesale order workflow.
 
 There is no online payment form or payment endpoint. Customers pay at the café.
 The menu is defined in `src/menu.json`; the Worker computes every order total
-from that file and ignores client-supplied prices. In the original menu,
+from that file and ignores client-supplied prices. Kitchen preparation steps
+for every item are in `src/prep.json` and appear only in authenticated orders.
+Where the source menu lacked a full formula, they refer to the café's approved
+house ingredients and quantities. In the original menu,
 Blueberry Cheesecake Sandwich was marked optional. The build-your-own sundae
 did not specify how many sauces or toppings were included, so this app includes
 one of each and charges for a second via the listed add-ons.
@@ -30,9 +33,9 @@ npx wrangler d1 migrations apply frostflow-online --remote
 npx wrangler deploy --secrets-file /path/to/private-secrets.json
 ```
 
-The deployment secrets file must contain `CAFE_ADMIN_PASSWORD` (at least 16
-random characters) and `CAFE_SESSION_SECRET` (at least 32 random characters).
-Do not commit it. The kitchen username is `kitchen` in `wrangler.jsonc`.
+The deployment secrets file must contain `CAFE_ADMIN_PASSWORD` and
+`CAFE_SESSION_SECRET` (at least 32 random characters). Do not commit it.
+The kitchen username is `rachana` in `wrangler.jsonc`.
 Authentication uses a separate kitchen password, a hashed, expiring session in
 D1, a secure HttpOnly cookie, same-origin write checks, and sign-in throttling.
 Public orders are also rate limited per connection. Order statuses are

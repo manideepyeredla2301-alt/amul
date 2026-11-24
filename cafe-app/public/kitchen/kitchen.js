@@ -136,13 +136,15 @@
     const canCancel = status === 'RECEIVED' || status === 'PREPARING';
     const itemMarkup = items.map((item) => {
       const options = itemOptions(item.options);
-      return `<li class="order-item"><div class="item-main"><span class="item-qty">${escape(item.quantity)}×</span><div><span class="item-name">${escape(item.name)}</span>${options ? `<div class="item-options">${escape(options)}</div>` : ''}</div></div><span class="item-price">${money(item.total_paise)}</span></li>`;
+      const steps = Array.isArray(item.prep_steps) ? item.prep_steps : [];
+      const prep = steps.length ? `<details class="prep-details" ${['RECEIVED', 'PREPARING'].includes(status) ? 'open' : ''}><summary>How to prepare</summary><ol>${steps.map(step => `<li>${escape(step)}</li>`).join('')}</ol></details>` : '';
+      return `<li class="order-item"><div class="item-main"><span class="item-qty">${escape(item.quantity)}×</span><div><span class="item-name">${escape(item.name)}</span>${options ? `<div class="item-options">${escape(options)}</div>` : ''}${prep}</div></div><span class="item-price">${money(item.total_paise)}</span></li>`;
     }).join('');
     return `<article class="order-card ${escape(cssStatus)}" data-id="${escape(order.id)}">
       <div class="card-head"><div class="head-row"><strong class="order-number">#${escape(order.order_number || String(order.id).slice(0, 8))}</strong><span class="order-time">${escape(orderTime(order.created_at))}</span></div>
       <div class="order-meta"><span class="status-pill ${escape(cssStatus)}">${escape(statusLabel[status] || status)}</span><span class="service-pill">${escape(service)}</span></div>
       <div class="customer-line"><span class="customer-name">${escape(order.customer_name || 'Guest')}</span><span class="table-label">${escape(table)}</span></div></div>
-      <div class="card-body"><div class="items-title">${items.length} ITEM${items.length === 1 ? '' : 'S'}</div><ul class="order-items">${itemMarkup}</ul>${order.note ? `<div class="order-note"><strong>Customer note</strong>${escape(order.note)}</div>` : ''}</div>
+      <div class="card-body"><div class="items-title">${items.length} ITEM${items.length === 1 ? '' : 'S'}</div><ul class="order-items">${itemMarkup}</ul>${order.note ? `<div class="order-note"><strong>Customer instructions</strong>${escape(order.note)}</div>` : ''}</div>
       <div class="card-foot"><div class="order-total"><small>Total · Pay at counter</small><strong>${money(order.total_paise)}</strong></div>
       <div class="card-actions">${canCancel ? `<button type="button" class="action-button cancel" data-action="CANCELLED" data-id="${escape(order.id)}">Cancel</button>` : ''}${primary ? `<button type="button" class="action-button" data-action="${primary[0]}" data-id="${escape(order.id)}">${primary[1]}</button>` : ''}</div></div></article>`;
   }

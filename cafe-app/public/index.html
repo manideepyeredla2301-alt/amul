@@ -37,10 +37,7 @@
           </div>
         </div>
         <div class="hero-art" aria-hidden="true">
-          <div class="art-sparkle sparkle-one">✦</div><div class="art-sparkle sparkle-two">✳</div>
-          <div class="sundae-scoop scoop-back"></div><div class="sundae-scoop scoop-left"></div><div class="sundae-scoop scoop-right"></div>
-          <div class="sundae-cherry"></div><div class="sundae-stem"></div>
-          <div class="sundae-bowl"><div></div></div><div class="sundae-stem-base"></div><div class="sundae-foot"></div>
+          <img class="hero-photo" src="/images/hero-sundae.jpg" alt="" fetchpriority="high" decoding="async">
           <span class="art-caption">Scooped with love</span>
         </div>
       </section>
@@ -52,7 +49,7 @@
       </section>
 
       <section id="menu" class="menu-section" aria-labelledby="menu-title">
-        <div class="section-intro"><div><span class="section-kicker">THE GOOD STUFF</span><h2 id="menu-title">Explore our menu<span class="title-dot">.</span></h2><p>From the first sip to the last spoonful.</p></div><div class="handdrawn-star" aria-hidden="true">✳</div></div>
+        <div class="section-intro"><div><span class="section-kicker">THE GOOD STUFF</span><h2 id="menu-title">Explore our menu<span class="title-dot">.</span></h2><p>From the first sip to the last spoonful. Photos show representative servings.</p></div><div class="handdrawn-star" aria-hidden="true">✳</div></div>
         <div class="menu-toolbar">
           <label class="search-field" for="menu-search"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.7"/><path d="m16 16 5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg><input id="menu-search" type="search" placeholder="Search burgers, sundaes, coffee…" autocomplete="off"><span class="search-shortcut" aria-hidden="true">⌕</span></label>
           <div id="category-nav" class="category-nav" role="tablist" aria-label="Menu categories"></div>
@@ -70,7 +67,7 @@
   <dialog id="item-dialog" class="sheet-dialog" aria-labelledby="item-title">
     <div class="dialog-shell">
       <div class="dialog-top"><span class="dialog-overline">MAKE IT YOURS</span><button class="close-button" type="button" data-close="item-dialog" aria-label="Close item details">×</button></div>
-      <div id="item-visual" class="item-visual"><span id="item-icon"></span></div>
+      <div id="item-visual" class="item-visual"><img id="item-photo" class="item-photo" alt="" decoding="async"></div>
       <div class="item-content"><div class="item-name-row"><div><span id="item-category" class="item-category"></span><h2 id="item-title"></h2></div><strong id="item-base-price"></strong></div><p id="item-description" class="item-description"></p><div id="item-options" class="item-options"></div></div>
       <div class="dialog-action"><div class="quantity-control" aria-label="Quantity"><button id="item-minus" type="button" aria-label="Decrease quantity">−</button><output id="item-quantity">1</output><button id="item-plus" type="button" aria-label="Increase quantity">+</button></div><button id="add-item" class="action-button" type="button"><span>Add to cart</span><strong id="item-total">₹0</strong></button></div>
       <p id="item-error" class="form-error" role="alert"></p>

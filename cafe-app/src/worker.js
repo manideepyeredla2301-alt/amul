@@ -1,4 +1,5 @@
 import menu from './menu.json' with { type: 'json' };
+import prep from './prep.json' with { type: 'json' };
 
 const encoder = new TextEncoder();
 const SESSION_SECONDS = 12 * 60 * 60;
@@ -227,12 +228,14 @@ async function createOrder(request, env) {
     tracking_token: trackingToken, total_paise: total }, request), 201);
 }
 
-function formatItem(row) {
+function formatItem(row, includePrep = false) {
   let options = {};
   try { options = JSON.parse(row.options_json || '{}'); } catch { /* Preserve order visibility. */ }
-  return { item_id: row.item_id, name: row.name, category: row.category,
+  const item = { item_id: row.item_id, name: row.name, category: row.category,
     quantity: row.quantity, unit_price_paise: row.unit_price_paise,
     total_paise: row.total_paise, options };
+  if (includePrep) item.prep_steps = prep.items[row.item_id] || [];
+  return item;
 }
 
 async function trackOrder(token, env) {
@@ -322,7 +325,7 @@ async function listKitchenOrders(env) {
     total_paise,options_json FROM cafe_order_items WHERE order_id IN (${placeholders}) ORDER BY line_no`)
     .bind(...orders.map(order => order.id)).all()).results || [];
   const byOrder = new Map(orders.map(order => [order.id, []]));
-  for (const row of rows) byOrder.get(row.order_id)?.push(formatItem(row));
+  for (const row of rows) byOrder.get(row.order_id)?.push(formatItem(row, true));
   for (const order of orders) {
     order.created_at = asUtc(order.created_at);
     order.updated_at = asUtc(order.updated_at);

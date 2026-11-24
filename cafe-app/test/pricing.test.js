@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import menu from '../src/menu.json' with { type: 'json' };
+import prep from '../src/prep.json' with { type: 'json' };
 import { priceItem, checkOrigin } from '../src/worker.js';
 
 const item = id => menu.categories.flatMap(category => category.items).find(entry => entry.id === id);
@@ -47,4 +48,13 @@ test('cross-site writes are refused', () => {
   assert.throws(() => checkOrigin(new Request('https://cafe.example/api/cafe/orders', {
     method: 'POST', headers: { Origin: 'https://attacker.example' },
   })), /Cross-site request rejected/);
+});
+
+test('every orderable item has concise kitchen preparation steps', () => {
+  const menuIds = menu.categories.flatMap(category => category.items.map(entry => entry.id)).sort();
+  assert.deepEqual(Object.keys(prep.items).sort(), menuIds);
+  for (const steps of Object.values(prep.items)) {
+    assert.ok(Array.isArray(steps) && steps.length >= 2 && steps.length <= 4);
+    assert.ok(steps.every(step => typeof step === 'string' && step.length > 15));
+  }
 });
