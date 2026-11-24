@@ -11,6 +11,8 @@ test('legacy POS address opens the counter page on the unified café site', asyn
   assert.equal(saved.headers.get('Location'), 'https://cafe.example/pos/?held=1');
   const admin = await posWorker.fetch(new Request('https://pos.example/admin/?view=products'), env);
   assert.equal(admin.headers.get('Location'), 'https://cafe.example/admin/?view=products');
+  const ads = await posWorker.fetch(new Request('https://pos.example/ads?display=tv'), env);
+  assert.equal(ads.headers.get('Location'), 'https://cafe.example/ads/?display=tv');
 });
 
 test('POS address keeps the shared café API available', async () => {

@@ -13,6 +13,22 @@ test('burger prices and cheese slice match the finalized menu', () => {
   assert.equal(priceItem(item('classic-chicken-burger'), { 'burger-cheese': true }).unit_price_paise, 13_000);
 });
 
+test('regular scoops use the confirmed cup prices and add ₹10 for a cone', () => {
+  const expected = new Map([
+    ['vanilla', 40], ['strawberry', 40], ['blackcurrant', 50],
+    ['cookies-cream', 50], ['choco-chips', 50], ['chocolate', 50],
+    ['american-nuts', 50], ['butterscotch', 50], ['tender-coconut', 60],
+    ['orange', 40], ['pineapple', 40],
+  ]);
+  for (const [flavour, cup] of expected) {
+    const scoop = item(`scoop-${flavour}`);
+    assert.ok(scoop, `${flavour} is in the Scoops menu`);
+    assert.equal(priceItem(scoop, {'scoop-serving': 'cup'}).unit_price_paise, cup * 100);
+    assert.equal(priceItem(scoop, {'scoop-serving': 'cone'}).unit_price_paise, (cup + 10) * 100);
+  }
+  assert.throws(() => priceItem(item('scoop-vanilla'), {'scoop-serving': 'free-cone'}), /Invalid serve it in choice/);
+});
+
 test('sandwich extras use menu prices and reject unsupported changes', () => {
   assert.equal(priceItem(item('grilled-paneer'), {
     'sandwich-bread': true, 'sandwich-cheese': true, 'sandwich-paneer': true,

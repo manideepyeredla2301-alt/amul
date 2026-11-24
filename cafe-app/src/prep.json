@@ -47,6 +47,18 @@
     "blueberry-delight": ["Place vanilla ice cream in a 200 ml sundae serving.", "Add blueberry crush and Mala's Blueberry Fruit Filling; serve immediately."],
     "build-your-own-sundae": ["Use the selected scoop count and the listed flavour for each scoop.", "Place the scoops in the selected cup, waffle cone or waffle bowl.", "Add the selected sauce and topping; include any requested extra sauce, extra topping and whipped cream."],
 
+    "scoop-vanilla": ["Scoop one regular serving of Vanilla ice cream using a clean scoop.", "Serve it in the selected cup or cone immediately."],
+    "scoop-strawberry": ["Scoop one regular serving of Strawberry ice cream using a clean scoop.", "Serve it in the selected cup or cone immediately."],
+    "scoop-blackcurrant": ["Scoop one regular serving of Blackcurrant ice cream using a clean scoop.", "Serve it in the selected cup or cone immediately."],
+    "scoop-cookies-cream": ["Scoop one regular serving of Cookies & Cream ice cream using a clean scoop.", "Serve it in the selected cup or cone immediately."],
+    "scoop-choco-chips": ["Scoop one regular serving of Choco Chips ice cream using a clean scoop.", "Serve it in the selected cup or cone immediately."],
+    "scoop-chocolate": ["Scoop one regular serving of Chocolate ice cream using a clean scoop.", "Serve it in the selected cup or cone immediately."],
+    "scoop-american-nuts": ["Scoop one regular serving of American Nuts ice cream using a clean scoop.", "Serve it in the selected cup or cone immediately."],
+    "scoop-butterscotch": ["Scoop one regular serving of Butterscotch ice cream using a clean scoop.", "Serve it in the selected cup or cone immediately."],
+    "scoop-tender-coconut": ["Scoop one regular serving of Tender Coconut ice cream using a clean scoop.", "Serve it in the selected cup or cone immediately."],
+    "scoop-orange": ["Scoop one regular serving of Orange ice cream using a clean scoop.", "Serve it in the selected cup or cone immediately."],
+    "scoop-pineapple": ["Scoop one regular serving of Pineapple ice cream using a clean scoop.", "Serve it in the selected cup or cone immediately."],
+
     "english-cream-cheese": ["Use whole-wheat bread if selected; otherwise use the house sandwich bread.", "Spread cream cheese and add cucumber, herbs and pepper.", "Add extra cheese if selected; assemble and serve."],
     "creamy-spinach-and-corn": ["Use whole-wheat bread if selected; otherwise use the house sandwich bread.", "Add the house creamy spinach-and-sweet-corn filling and cheese.", "Add extra cheese if selected; grill and serve hot."],
     "grilled-paneer": ["Use whole-wheat bread if selected; otherwise use the house sandwich bread.", "Add paneer, capsicum, lettuce and garlic dressing; include extra paneer or cheese if selected.", "Grill the sandwich and serve hot."],
@@ -91,6 +103,7 @@
     "sundae-serving": "Use the selected cup, waffle cone or waffle bowl.",
     "sundae-sauce": "Add the selected sauce; a second listed sauce is the paid extra.",
     "sundae-topping": "Add the selected topping; a second listed topping is the paid extra.",
-    "sundae-extras": "Add only the extra sauce, topping or whipped cream selected on the order."
+    "sundae-extras": "Add only the extra sauce, topping or whipped cream selected on the order.",
+    "scoop-serving": "Use a cone when selected; otherwise serve the regular scoop in a cup."
   }
 }

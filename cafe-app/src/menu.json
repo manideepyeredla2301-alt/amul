@@ -100,6 +100,25 @@
       ]
     },
     {
+      "id": "scoops",
+      "name": "Ice Cream Scoops",
+      "serving": "One regular scoop",
+      "description": "Choose a cup at the shown price or a cone for ₹10 more.",
+      "items": [
+        {"id":"scoop-vanilla","name":"Vanilla Scoop","price":40,"optionGroups":["scoop-serving"]},
+        {"id":"scoop-strawberry","name":"Strawberry Scoop","price":40,"optionGroups":["scoop-serving"]},
+        {"id":"scoop-blackcurrant","name":"Blackcurrant Scoop","price":50,"optionGroups":["scoop-serving"]},
+        {"id":"scoop-cookies-cream","name":"Cookies & Cream Scoop","price":50,"optionGroups":["scoop-serving"]},
+        {"id":"scoop-choco-chips","name":"Choco Chips Scoop","price":50,"optionGroups":["scoop-serving"]},
+        {"id":"scoop-chocolate","name":"Chocolate Scoop","price":50,"optionGroups":["scoop-serving"]},
+        {"id":"scoop-american-nuts","name":"American Nuts Scoop","price":50,"optionGroups":["scoop-serving"]},
+        {"id":"scoop-butterscotch","name":"Butterscotch Scoop","price":50,"optionGroups":["scoop-serving"]},
+        {"id":"scoop-tender-coconut","name":"Tender Coconut Scoop","price":60,"optionGroups":["scoop-serving"]},
+        {"id":"scoop-orange","name":"Orange Scoop","price":40,"optionGroups":["scoop-serving"]},
+        {"id":"scoop-pineapple","name":"Pineapple Scoop","price":40,"optionGroups":["scoop-serving"]}
+      ]
+    },
+    {
       "id": "sandwiches",
       "name": "Signature Sandwiches",
       "items": [
@@ -172,6 +191,7 @@
     }
   ],
   "optionGroups": {
+    "scoop-serving": {"name":"Serve it in","type":"single","required":true,"choices":[{"id":"cup","name":"Cup","priceDelta":0},{"id":"cone","name":"Cone","priceDelta":10}]},
     "burger-cheese": {"name":"Amul Cheese Slice","type":"checkbox","priceDelta":10},
     "sandwich-bread": {"name":"Whole Wheat Bread","type":"checkbox","priceDelta":10},
     "sandwich-cheese": {"name":"Extra Cheese","type":"checkbox","priceDelta":20},

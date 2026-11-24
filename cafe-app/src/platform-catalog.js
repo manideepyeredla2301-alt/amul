@@ -29,10 +29,14 @@ export async function catalog(env,channel='qr',includeInactive=false) {
   const batchAvailability=new Map(batchRows.map(row=>[row.product_id,Number(row.usable)>0]));
   const groups=(await env.DB.prepare('SELECT id,config_json FROM cafe_option_groups ORDER BY id').all()).results||[];
   const optionGroups=Object.fromEntries(groups.map(group=>[group.id,parseDbJson(group.config_json,{})]));
-  const offer=await env.DB.prepare(`SELECT id,name,type,threshold_paise,free_product_id,eligible_category_ids_json,eligible_product_ids_json FROM cafe_promotions
-    WHERE id='ice-cream-free-fries' AND active=1`).first();
-  const eligibleCategories=parseDbJson(offer?.eligible_category_ids_json,[]);
-  const eligibleProducts=parseDbJson(offer?.eligible_product_ids_json,[]);
+  const activeOffers=(await env.DB.prepare(`SELECT id,name,description,type,threshold_paise,discount_value,free_product_id,
+    eligible_category_ids_json,eligible_product_ids_json,minimum_spend_paise FROM cafe_promotions
+    WHERE active=1 AND (starts_at IS NULL OR starts_at<=CURRENT_TIMESTAMP)
+      AND (ends_at IS NULL OR ends_at>=CURRENT_TIMESTAMP)
+      AND (usage_limit IS NULL OR usage_count<usage_limit) ORDER BY id`).all()).results||[];
+  const iceCreamOffer=activeOffers.find(offer=>offer.id==='ice-cream-free-fries');
+  const eligibleCategories=parseDbJson(iceCreamOffer?.eligible_category_ids_json,[]);
+  const eligibleProducts=parseDbJson(iceCreamOffer?.eligible_product_ids_json,[]);
   const visibility={qr:'show_qr',pos:'show_pos',retail:'show_retail'}[channel];
   if (!visibility) throw new PlatformError('Invalid catalog channel');
   const output=categories.filter(category=>includeInactive||(category.active&&category[visibility]))
@@ -57,11 +61,30 @@ export async function catalog(env,channel='qr',includeInactive=false) {
           return safe;
         }),
     }));
-  return {currency:'INR',payment_methods:await paymentMethods(env),categories:output,optionGroups,offers:offer?[{
-    id:offer.id,name:offer.name,type:offer.type,threshold_paise:offer.threshold_paise,
-    complimentary_product_id:offer.free_product_id,
-    eligible_category_ids:eligibleCategories,eligible_product_ids:eligibleProducts,
-  }]:[]};
+  const visibleCategories=new Set(output.map(category=>category.id));
+  const visibleProducts=new Set(output.flatMap(category=>category.items.map(item=>item.id)));
+  const offers=activeOffers.flatMap(offer=>{
+    const categoryIds=parseDbJson(offer.eligible_category_ids_json,[]);
+    const productIds=parseDbJson(offer.eligible_product_ids_json,[]);
+    const publicCategoryIds=categoryIds.filter(id=>visibleCategories.has(id));
+    const publicProductIds=productIds.filter(id=>visibleProducts.has(id));
+    if ((categoryIds.length||productIds.length)&&!publicCategoryIds.length&&!publicProductIds.length) return [];
+    if (offer.type==='FREE_ITEM') {
+      const free=products.find(product=>product.id===offer.free_product_id);
+      if (!free||!visibleProducts.has(free.id)||!free.active||!free.available) return [];
+      if (free.track_stock) {
+        const usable=free.type==='PREPARED'&&recipeAvailability.has(free.id)
+          ?recipeAvailability.get(free.id):free.type==='RETAIL'&&batchAvailability.has(free.id)
+            ?batchAvailability.get(free.id):Number(free.stock_quantity)>0;
+        if (!usable) return [];
+      }
+    }
+    return [{id:offer.id,name:offer.name,description:offer.description,type:offer.type,
+      threshold_paise:offer.threshold_paise,discount_value:offer.discount_value,
+      complimentary_product_id:offer.free_product_id,eligible_category_ids:publicCategoryIds,
+      eligible_product_ids:publicProductIds,minimum_spend_paise:offer.minimum_spend_paise}];
+  });
+  return {currency:'INR',payment_methods:await paymentMethods(env),categories:output,optionGroups,offers};
 }
 
 export async function productRow(env,id) {

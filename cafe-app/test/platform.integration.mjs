@@ -41,9 +41,9 @@ function posOrder(items,extra={}) {
 }
 const line=(item_id,quantity=1,options={})=>({item_id,quantity,options});
 
-const menu=await check('Seeded customer menu and all 68 products',async()=>{
+const menu=await check('Seeded customer menu and all 79 prepared products',async()=>{
   const data=await ok('/api/cafe/menu');
-  assert.ok(data.categories.reduce((n,c)=>n+c.items.length,0)>=68);
+  assert.ok(data.categories.reduce((n,c)=>n+c.items.length,0)>=79);
   assert.equal(data.categories.find(c=>c.id==='burgers').items.find(x=>x.id==='classic-veg-burger').price_paise,9000);
   assert.equal(data.categories.find(c=>c.id==='burgers').items.find(x=>x.id==='classic-chicken-burger').price_paise,12000);
   assert.ok(data.categories.every(c=>c.items.every(p=>!Object.hasOwn(p,'cost_paise'))));
@@ -57,6 +57,57 @@ await check('Owner login and protected admin API',async()=>{
   assert.equal((await ok('/api/cafe/staff/session',{cookie:ownerCookie})).role,'OWNER');
   const denied=await api('/api/cafe/admin/products');
   assert.equal(denied.response.status,401);
+});
+
+await check('Eleven regular scoops have confirmed cup prices and a ₹10 cone option',async()=>{
+  const publicMenu=await ok('/api/cafe/menu');
+  const scoops=publicMenu.categories.find(category=>category.id==='scoops');
+  assert.equal(scoops?.items.length,11);
+  assert.equal(scoops.items.find(item=>item.id==='scoop-pineapple')?.price_paise,4000);
+  assert.equal(scoops.items.find(item=>item.id==='scoop-tender-coconut')?.price_paise,6000);
+  assert.equal(publicMenu.optionGroups['scoop-serving']?.choices.find(choice=>choice.id==='cone')?.priceDelta,10);
+  assert.ok(publicMenu.offers.find(offer=>offer.id==='ice-cream-free-fries')?.eligible_category_ids.includes('scoops'));
+  const order=await ok('/api/cafe/orders',{method:'POST',
+    body:qrOrder([line('scoop-pineapple',1,{'scoop-serving':'cone'})])},201);
+  assert.equal(order.total_paise,5000);
+  const kitchen=await ok('/api/cafe/admin/orders',{cookie:ownerCookie});
+  const ticket=kitchen.orders.find(entry=>entry.id===order.id);
+  assert.equal(ticket?.items[0]?.options['scoop-serving'],'cone');
+  assert.match(ticket?.items[0]?.prep_steps?.join(' ')||'',/selected cup or cone/);
+});
+
+await check('Public menu advertises only currently usable offers',async()=>{
+  const posCatalog=await ok('/api/cafe/pos/catalog',{cookie:ownerCookie});
+  const retailId=posCatalog.categories.flatMap(category=>category.items).find(item=>item.type==='RETAIL')?.id;
+  assert.ok(retailId,'POS-only packaged product is required for this check');
+  const common={type:'FIXED',discount_value:100,eligible_product_ids:['classic-chicken-burger']};
+  for (const [id,extra] of [
+    ['qa-public-paused',{active:false}],
+    ['qa-public-future',{starts_at:'2099-01-01'}],
+    ['qa-public-expired',{ends_at:'2000-01-01'}],
+    ['qa-public-pos-only',{eligible_product_ids:[retailId]}],
+    ['qa-public-one-use',{usage_limit:1}],
+  ]) {
+    await ok('/api/cafe/admin/promotions',{method:'POST',cookie:ownerCookie,
+      body:{id,name:id,...common,...extra}},201);
+  }
+  const before=await ok('/api/cafe/menu');
+  const ids=new Set(before.offers.map(offer=>offer.id));
+  const publicCategories=new Set(before.categories.map(category=>category.id));
+  const publicProducts=new Set(before.categories.flatMap(category=>category.items.map(item=>item.id)));
+  for (const offer of before.offers) {
+    assert.ok(offer.eligible_category_ids.every(id=>publicCategories.has(id)));
+    assert.ok(offer.eligible_product_ids.every(id=>publicProducts.has(id)));
+  }
+  for (const hidden of ['qa-public-paused','qa-public-future','qa-public-expired','qa-public-pos-only'])
+    assert.equal(ids.has(hidden),false,`${hidden} should not be advertised`);
+  assert.equal(ids.has('qa-public-one-use'),true);
+  const current=before.offers.find(offer=>offer.id==='qa-public-one-use');
+  assert.equal(current.discount_value,100);
+  await ok('/api/cafe/pos/orders',{method:'POST',cookie:ownerCookie,
+    body:posOrder([line('classic-chicken-burger')])},201);
+  const after=await ok('/api/cafe/menu');
+  assert.equal(after.offers.some(offer=>offer.id==='qa-public-one-use'),false);
 });
 
 await check('POS customer phone is private and printed on the bill',async()=>{

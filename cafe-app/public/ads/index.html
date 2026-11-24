@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#152a3f">
+  <meta name="description" content="Explore Amul Ice Cream Café favourites, current offers, and the complete café menu.">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/ads/ads.css">
+  <script src="/ads/ads.js" defer></script>
+  <title>What’s good today · Amul Ice Cream Café</title>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="Amul Ice Cream Café home"><span class="brand-mark" aria-hidden="true">✳</span><span><b>AMUL</b><small>ICE CREAM CAFÉ</small></span></a>
+    <nav class="header-links" aria-label="Page links"><a href="#offers" id="offers-link" hidden>Offers</a><a href="#full-menu">Full menu</a><a class="header-cta" href="/">Browse menu <span aria-hidden="true">↗</span></a></nav>
+  </header>
+
+  <main>
+    <section id="stage" class="stage" aria-label="Café commercial" tabindex="0">
+      <div class="stage-grain" aria-hidden="true"></div>
+      <div class="stage-top"><span class="stage-live"><i aria-hidden="true"></i><span id="menu-status">FRESH FROM THE CAFÉ</span></span><span id="slide-count" class="slide-count">Getting ready…</span></div>
+      <div id="slide" class="slide" aria-live="off"><div class="stage-loading"><span aria-hidden="true">✳</span><p>Loading today’s favourites…</p></div></div>
+      <div class="stage-controls">
+        <div class="progress-track" aria-hidden="true"><span id="progress-bar"></span></div>
+        <div class="control-row"><span id="slide-label" class="control-label">AMUL ICE CREAM CAFÉ</span><div class="control-buttons"><button id="previous-slide" type="button" aria-label="Previous highlight" disabled>←</button><button id="play-pause" type="button" aria-label="Pause commercial" disabled>Pause</button><button id="next-slide" type="button" aria-label="Next highlight" disabled>→</button><button id="fullscreen" type="button" aria-label="Show commercial full screen" disabled>⛶ <span>Full screen</span></button></div></div>
+      </div>
+      <p id="slide-announcement" class="sr-only" aria-live="polite"></p>
+    </section>
+
+    <section id="offers" class="offers-section" hidden aria-labelledby="offers-title">
+      <div class="section-heading"><span class="eyebrow">A LITTLE EXTRA JOY</span><h2 id="offers-title">Offers on the menu<span class="period">.</span></h2><p>An eligible offer is applied when you check out.</p></div>
+      <div id="offer-list" class="offer-list"></div>
+    </section>
+
+    <section id="full-menu" class="menu-section" aria-labelledby="menu-title">
+      <div class="section-heading"><span class="eyebrow">THE WHOLE CAFÉ</span><h2 id="menu-title">Every good thing<span class="period">.</span></h2><p>From the first sip to the last spoonful. Prices and availability are refreshed from the café menu.</p></div>
+      <nav id="menu-categories" class="category-nav" aria-label="Jump to menu category"></nav>
+      <div id="menu-groups" class="menu-groups"><p class="menu-loading">Loading the complete menu…</p></div>
+    </section>
+
+    <section class="end-card" aria-labelledby="end-title"><div><span class="eyebrow">SOMETHING FOR EVERY CRAVING</span><h2 id="end-title">See you at the café<span class="period">.</span></h2><p>Browse the menu, then scan your table QR to order and pay at the café.</p></div><a href="/">Explore the menu <span aria-hidden="true">↗</span></a></section>
+  </main>
+
+  <footer class="site-footer"><span><b>AMUL</b> ICE CREAM CAFÉ</span><span>Made fresh for you · Prices in ₹ · Pay at the café</span></footer>
+</body>
+</html>

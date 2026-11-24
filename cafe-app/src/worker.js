@@ -381,6 +381,11 @@ async function route(request, env) {
   }
   if (path.startsWith('/api/')) throw new HttpError('Endpoint not found', 404);
   if (request.method !== 'GET' && request.method !== 'HEAD') throw new HttpError('Method not allowed', 405);
+  if (path === '/ads') {
+    const destination = new URL(request.url);
+    destination.pathname = '/ads/';
+    return new Response(null, { status: 308, headers: { ...securityHeaders, Location: destination.href } });
+  }
   return env.ASSETS.fetch(request);
 }
 
