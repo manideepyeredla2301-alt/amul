@@ -67,9 +67,22 @@ await check('Curated Amul catalogue appears only in staff POS',async()=>{
   assert.equal(packaged.length,243);
   const cone=packaged.find(p=>p.id==='amul-ictrbch45');
   assert.equal(cone.price_paise,5000);
-  assert.equal(cone.available,false);
+  assert.equal(cone.available,true);
   const photo=await api('/images/ICTRBCH45.jpg',{raw:true});
   assert.equal(photo.response.status,200);
+});
+
+await check('Opening stock sells one pack and deducts one batch unit',async()=>{
+  const id='amul-ictrbch45';
+  const before=await ok('/api/cafe/admin/products',{cookie:ownerCookie});
+  assert.equal(before.products.find(p=>p.id===id).stock_quantity,20);
+  const sale=await ok('/api/cafe/pos/orders',{method:'POST',cookie:ownerCookie,
+    body:posOrder([line(id)],{source:'RETAIL',payments:[{method:'CASH',amount_paise:5000}]})},201);
+  assert.equal(sale.status,'COMPLETED');
+  const after=await ok('/api/cafe/admin/products',{cookie:ownerCookie});
+  assert.equal(after.products.find(p=>p.id===id).stock_quantity,19);
+  const stock=await ok('/api/cafe/admin/inventory',{cookie:ownerCookie});
+  assert.equal(stock.batches.find(b=>b.product_id===id).quantity,19);
 });
 
 await check('Table 7 QR context and frappe order',async()=>{
