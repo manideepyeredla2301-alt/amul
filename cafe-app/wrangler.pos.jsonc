@@ -19,6 +19,7 @@
     }
   ],
   "vars": {
-    "CAFE_ADMIN_USER": "rachana"
+    "CAFE_ADMIN_USER": "rachana",
+    "CAFE_CANONICAL_ORIGIN": "https://frostflow-cafe.manideepyeredla2301.workers.dev"
   }
 }

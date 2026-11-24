@@ -2,20 +2,22 @@
 
 ## Customer QR orders
 
-The customer scans a table, takeaway, counter, or general café QR code. The page opens without an app, shows current product prices and photos, and asks for a name and any table or preparation details. Customers place an order and get an order number and live status. Payment is made at the café; QR checkout does not collect it.
+The customer scans a table, takeaway, counter, or general café QR code. The page opens without an app, shows current product prices and photos, and asks for a name, mobile number, and any table or preparation details. Customers place an order and get an order number and live status. Payment is made at the café; QR checkout does not collect it.
 
 If a customer says an order did not appear, ask for the order number or tracking page. Do not make the same order again until you check the kitchen or Orders & payments screen.
 
 ## Tablet and counter POS
 
-1. Open the dedicated POS address, `https://frostflow-pos.manideepyeredla2301.workers.dev/`, and sign in with your own staff account.
+1. Open `https://frostflow-cafe.manideepyeredla2301.workers.dev/`, tap **Staff**, then **Counter & POS**. Sign in with your own staff account. The kitchen and owner controls are linked from the same site.
 2. Choose **Dine in**, **Takeaway**, or **Counter sale**. Enter the table number for dine-in.
 3. Tap café items or packaged retail items. Search by name, SKU, or barcode; a supported tablet camera can scan a barcode. Pick required sundae choices or optional extras and add any cook note.
-4. Check the cart, quantity, and estimated total. The server confirms final prices and offers when the order is created.
+4. Enter the customer's name and valid 10-digit Indian mobile number, then check the cart, quantity, and estimated total. The server confirms final prices and offers when the order is created.
 5. Choose **Unpaid** unless payment has actually been received. Cash, UPI, card, and split entries are records of money taken outside the site.
-6. Create the order. Give the customer the order number and print a 58 mm or 80 mm receipt if needed.
+6. Create the order. Give the customer the order number and print a 58 mm or 80 mm receipt if needed. To send a bill, tap **Open WhatsApp bill**, check the number and itemized draft, then tap **Send** in WhatsApp. The website does not send it automatically.
 
-**Hold cart** saves a cart for later. A packaged-only sale normally completes without a kitchen ticket. A mixed sale sends only the prepared lines to the kitchen. If a retail ice cream purchase earns the free Salted Fries offer, that complimentary food item still goes to the kitchen.
+**Hold cart** saves a cart for later; customer details are optional until the cart is checked out. Tap **Held orders** to resume or remove saved carts, including those held on another signed-in device. Tap **Billed orders** to find recent QR and POS orders by order number, customer name, or phone, and filter Paid or Unpaid. Open any bill to view, print, record a later payment, or prepare its WhatsApp message. A packaged-only sale normally completes without a kitchen ticket. A mixed sale sends only the prepared lines to the kitchen. If a retail ice cream purchase earns the free Salted Fries offer, that complimentary food item still goes to the kitchen.
+
+An owner or staff member with catalogue permission can use the **Catalogue** and **Add product** shortcuts in POS. The owner can also use the **Staff** shortcut. These controls open Admin on the same café address.
 
 Imported packaged products appear in POS by name and SKU. A product marked **Price pending** or **Sold out** cannot be added until the owner verifies its price and café stock. Do not substitute a different pack size or flavour when the requested one is unavailable.
 

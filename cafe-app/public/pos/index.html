@@ -43,11 +43,18 @@
     <div id="offline-banner" class="offline-banner" role="alert" hidden>Connection lost. You can save an unsynced order on this device. It will not reach the kitchen or record payment until staff reviews and sends it online.</div>
     <div id="notice" class="notice" role="status" hidden></div>
 
+    <nav class="staff-shortcuts" aria-label="Counter tools">
+      <button id="billed-orders" class="staff-shortcut" type="button">🧾 <span>Billed orders</span><b id="bill-count">0</b></button>
+      <button id="held-orders" class="staff-shortcut" type="button">▤ <span>Held orders</span><b id="hold-count">0</b></button>
+      <a id="catalogue-link" class="staff-shortcut manager-tool" href="/admin/?view=products" hidden>◫ <span>Catalogue</span></a>
+      <a id="add-product-link" class="staff-shortcut manager-tool shortcut-add" href="/admin/?view=products&amp;action=add" hidden>＋ <span>Add product</span></a>
+      <a id="staff-link" class="staff-shortcut manager-tool" href="/admin/?view=staff" hidden>♧ <span>Staff</span></a>
+    </nav>
+
     <main class="workspace">
       <section class="catalog-panel" aria-labelledby="catalog-title">
         <div class="catalog-header">
           <div><span class="eyebrow">FAST & SIMPLE BILLING</span><h1 id="catalog-title">What are we serving?</h1></div>
-          <button id="held-orders" class="button button-outline hold-top" type="button"><span aria-hidden="true">▤</span> Held carts <b id="hold-count">0</b></button>
         </div>
 
         <div class="service-strip" aria-label="Order type">
@@ -65,7 +72,7 @@
         <div class="scope-tabs" role="tablist" aria-label="Products">
           <button type="button" class="scope-tab active" data-scope="ALL" aria-selected="true">All products</button>
           <button type="button" class="scope-tab" data-scope="PREPARED" aria-selected="false">Café menu</button>
-          <button type="button" class="scope-tab" data-scope="RETAIL" aria-selected="false">Packaged ice cream</button>
+          <button type="button" class="scope-tab" data-scope="RETAIL" aria-selected="false">Packaged Amul products</button>
         </div>
         <nav id="category-list" class="category-list" aria-label="Product categories"></nav>
         <div class="product-heading"><div><span class="eyebrow">PRODUCTS</span><h2 id="product-heading">All products</h2></div><span id="product-count" class="product-count"></span></div>
@@ -77,7 +84,8 @@
         <div class="cart-head"><button id="close-mobile-cart" class="close-mobile-cart" type="button" aria-label="Close cart">←</button><div><span class="eyebrow">CURRENT ORDER</span><h2 id="cart-title">Your cart <span id="cart-count">0</span></h2></div><button id="clear-cart" class="text-button" type="button" disabled>Clear</button></div>
         <div class="order-fields">
           <label><span id="table-label">Table number</span><input id="table-number" type="text" placeholder="e.g. 04" maxlength="16" autocomplete="off"></label>
-          <label><span>Customer name <small>(optional)</small></span><input id="customer-name" type="text" placeholder="Name or order reference" maxlength="80" autocomplete="off"></label>
+          <label><span>Customer name</span><input id="customer-name" type="text" placeholder="Customer name" maxlength="80" autocomplete="name"></label>
+          <label class="phone-field"><span>Phone number</span><input id="customer-phone" type="tel" inputmode="tel" placeholder="10-digit mobile number" maxlength="16" autocomplete="tel"></label>
         </div>
         <div id="cart-items" class="cart-items"></div>
         <div id="cart-empty" class="cart-empty"><span aria-hidden="true">🛒</span><strong>Your cart is empty</strong><p>Tap a product to get started.</p></div>
@@ -107,6 +115,7 @@
     <form id="checkout-form" method="dialog">
       <div class="dialog-top"><div><span class="eyebrow">REVIEW & BILL</span><h2>Take payment</h2></div><button class="close-button" type="button" data-close="checkout-dialog" aria-label="Close">×</button></div>
       <p class="muted">Choose how the customer is paying. Nothing is collected online.</p>
+      <div id="checkout-customer" class="checkout-customer"></div>
       <div id="checkout-summary" class="checkout-summary"></div>
       <div class="payment-choices" role="group" aria-label="Payment method"><button type="button" class="payment-choice active" data-payment="UNPAID">Unpaid</button><button type="button" class="payment-choice" data-payment="CASH">Cash</button><button type="button" class="payment-choice" data-payment="UPI">UPI</button><button type="button" class="payment-choice" data-payment="CARD">Card</button><button type="button" class="payment-choice" data-payment="SPLIT">Split</button></div>
       <div id="payment-fields" class="payment-fields" hidden></div>
@@ -119,6 +128,14 @@
   <dialog id="holds-dialog" class="sheet-dialog holds-dialog">
     <div class="dialog-top"><div><span class="eyebrow">SAVE IT FOR LATER</span><h2>Held carts</h2></div><button class="close-button" type="button" data-close="holds-dialog" aria-label="Close">×</button></div>
     <div id="holds-list" class="holds-list"></div>
+  </dialog>
+
+  <dialog id="bills-dialog" class="sheet-dialog bills-dialog">
+    <div class="dialog-top"><div><span class="eyebrow">COUNTER HISTORY</span><h2>Orders & bills</h2></div><button class="close-button" type="button" data-close="bills-dialog" aria-label="Close">×</button></div>
+    <p class="queue-help">Recent orders are saved on the server. Open one to view, print or send its bill.</p>
+    <label class="bill-search"><span class="sr-only">Search orders</span><input id="bill-search" type="search" placeholder="Search number, name or phone" autocomplete="off"></label>
+    <div class="bill-filters" role="group" aria-label="Filter bills"><button class="bill-filter active" type="button" data-bill-filter="ALL" aria-pressed="true">All</button><button class="bill-filter" type="button" data-bill-filter="PAID" aria-pressed="false">Paid</button><button class="bill-filter" type="button" data-bill-filter="UNPAID" aria-pressed="false">Unpaid</button></div>
+    <div id="bills-list" class="holds-list"></div>
   </dialog>
 
   <dialog id="queue-dialog" class="sheet-dialog holds-dialog">
@@ -138,6 +155,7 @@
     <div class="receipt-top"><div><span class="eyebrow">ORDER CREATED</span><h2 id="receipt-title">Order confirmed</h2><p id="receipt-subtitle"></p></div><button class="close-button" type="button" data-close="receipt-dialog" aria-label="Close">×</button></div>
     <div id="receipt-state" class="receipt-state"></div>
     <iframe id="receipt-frame" title="Receipt preview"></iframe>
+    <div class="receipt-share"><label>Customer WhatsApp number<input id="receipt-phone" type="tel" inputmode="tel" maxlength="16" placeholder="10-digit mobile number" autocomplete="tel"></label><button id="send-whatsapp" class="button button-whatsapp" type="button">Open WhatsApp bill</button><small>WhatsApp opens with the bill ready. Tap Send there.</small></div>
     <div class="receipt-actions"><button id="print-receipt" class="button button-outline" type="button" disabled>Print receipt</button><button id="record-payment" class="button button-outline" type="button">Record payment</button><button id="new-order" class="button button-primary" type="button">New order</button></div>
   </dialog>
 

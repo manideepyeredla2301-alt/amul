@@ -5,6 +5,15 @@ import { catalog, itemFromRow, priceProduct, productRow } from './platform-catal
 
 function effectiveStatus(row) { return row.status==='RECEIVED'&&row.accepted_at?'ACCEPTED':row.status; }
 
+function customerPhone(value) {
+  const raw=text(value,'customer_phone',40,false);
+  if (!raw) return '';
+  const compact=raw.replace(/[\s().-]/g,'');
+  const mobile=compact.startsWith('+91')?compact.slice(3):compact.startsWith('91')&&compact.length===12?compact.slice(2):compact;
+  if (!/^[6-9]\d{9}$/.test(mobile)) throw new PlatformError('Enter a valid 10-digit Indian mobile number');
+  return `+91${mobile}`;
+}
+
 function canonical(value) {
   if (Array.isArray(value)) return value.map(canonical);
   if (value&&typeof value==='object') return Object.fromEntries(Object.keys(value).sort().map(key=>[key,canonical(value[key])]));
@@ -101,6 +110,7 @@ export async function createOrder(request,env,user=null,source='QR') {
   if (qr?.context==='COUNTER') serviceType='COUNTER';
   if (source==='QR'&&serviceType==='COUNTER'&&!qr) throw new PlatformError('Counter pickup requires a counter QR code');
   const customerName=text(body.customer_name|| (source==='QR'?'':'Walk-in'),'customer_name',80);
+  const customerContact=customerPhone(body.customer_phone);
   let tableNumber=text(body.table_number,'table_number',16,serviceType==='DINE_IN'&&qr?.context!=='TABLE');
   if (qr?.context==='TABLE') tableNumber=qr.table_number;
   if (serviceType==='DINE_IN'&&!/^[\p{L}\p{N}][\p{L}\p{N} -]{0,15}$/u.test(tableNumber)) throw new PlatformError('Invalid table number');
@@ -188,10 +198,10 @@ export async function createOrder(request,env,user=null,source='QR') {
     if (remaining) throw new PlatformError(`${line.product.name} has no unexpired stock available`,409);
   }
   const statements=[env.DB.prepare(`INSERT INTO cafe_orders
-    (id,request_id,tracking_token,order_number,customer_name,service_type,table_number,note,status,total_paise,
+    (id,request_id,tracking_token,order_number,customer_name,customer_phone,service_type,table_number,note,status,total_paise,
       source,order_context,request_hash,payment_status,payment_preference,subtotal_paise,discount_paise,tax_paise,created_by,promotion_id)
-    VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,'UNPAID',?14,?15,?16,?17,?18,?19)`)
-    .bind(id,idempotency,trackingToken,orderNumber,customerName,serviceType==='COUNTER'?'TAKEAWAY':serviceType,
+    VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,'UNPAID',?15,?16,?17,?18,?19,?20)`)
+    .bind(id,idempotency,trackingToken,orderNumber,customerName,customerContact,serviceType==='COUNTER'?'TAKEAWAY':serviceType,
       serviceType==='DINE_IN'?tableNumber:null,note,status,total,resolvedSource,serviceType==='COUNTER'?'COUNTER':'STANDARD',
       intentHash,paymentPreference,subtotal,discount,tax,user?.username||null,promo?.promo.id||null)];
   lines.forEach((line,index)=>{
@@ -268,6 +278,7 @@ export async function listOrders(env,{kitchenOnly=true}={}) {
   const prepMap=new Map(prepTimes.map(row=>[row.order_id,row.expected_prep_minutes]));
   for (const order of orders) {
     order.status=effectiveStatus(order);
+    if (kitchenOnly) delete order.customer_phone;
     if (order.order_context==='COUNTER') order.service_type='COUNTER';
     order.created_at=asUtc(order.created_at); order.updated_at=asUtc(order.updated_at);
     order.items=itemMap.get(order.id)||[];
@@ -356,16 +367,18 @@ export async function holdsRoute(request,env,user,id) {
     const query=env.DB.prepare(`SELECT * FROM cafe_order_holds ${all?'':'WHERE staff_username=?1'} ORDER BY created_at DESC LIMIT 100`);
     const rows=(await (all?query.all():query.bind(user.username).all())).results||[];
     return json({holds:(rows||[]).map(row=>({id:row.id,cart:parseDbJson(row.cart_json,[]),customer_name:row.customer_name,
+      customer_phone:row.customer_phone,
       service_type:row.service_type,table_number:row.table_number,note:row.note,created_at:asUtc(row.created_at)}))});
   }
   checkOrigin(request);
   if (request.method==='POST'&&!id) {
     const body=await readJson(request,60000),cart=parseArray(body.cart,'cart',MAX_LINES);
     const hold={id:crypto.randomUUID(),cart,customer_name:text(body.customer_name,'customer_name',80,false),
+      customer_phone:customerPhone(body.customer_phone),
       service_type:text(body.service_type||'COUNTER','service_type',20),table_number:text(body.table_number,'table_number',16,false),
       note:text(body.note,'note',300,false)};
-    await env.DB.prepare(`INSERT INTO cafe_order_holds(id,staff_username,cart_json,customer_name,service_type,table_number,note)
-      VALUES(?1,?2,?3,?4,?5,?6,?7)`).bind(hold.id,user.username,JSON.stringify(cart),hold.customer_name,hold.service_type,hold.table_number,hold.note).run();
+    await env.DB.prepare(`INSERT INTO cafe_order_holds(id,staff_username,cart_json,customer_name,customer_phone,service_type,table_number,note)
+      VALUES(?1,?2,?3,?4,?5,?6,?7,?8)`).bind(hold.id,user.username,JSON.stringify(cart),hold.customer_name,hold.customer_phone,hold.service_type,hold.table_number,hold.note).run();
     await audit(env,user.username,'HOLD','ORDER',hold.id);
     hold.created_at=new Date().toISOString();
     return json({hold},201);
@@ -419,7 +432,7 @@ export async function receipt(request,env,user,orderId) {
   const refundsTotal=refunds.reduce((sum,refund)=>sum+refund.amount_paise,0);
   const paidNet=payments.reduce((sum,payment)=>sum+payment.amount_paise,0)-refundsTotal;
   const refundsHtml=refunds.map(refund=>`<div><span>Refund</span><span>−${money(refund.amount_paise)}</span></div>`).join('');
-  const document=`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Receipt ${html(order.order_number)}</title><style>@page{size:${width}mm auto;margin:3mm}body{font:12px system-ui,sans-serif;color:#111;max-width:${width-6}mm;margin:0 auto;padding:5mm}h1{text-align:center;font-size:16px;margin:0}h2{text-align:center;font-size:12px;font-weight:500;margin:3px 0 12px}.meta{border-top:1px dashed #555;border-bottom:1px dashed #555;padding:8px 0}.meta div,.totals div{display:flex;justify-content:space-between;gap:5px}table{width:100%;border-collapse:collapse;margin:10px 0}th,td{text-align:left;vertical-align:top;padding:4px 2px}td:last-child,th:last-child{text-align:right}small{display:block;font-size:10px;color:#555;overflow-wrap:anywhere}.totals{border-top:1px dashed #555;padding-top:7px}.total{font-size:15px;font-weight:800}.footer{text-align:center;margin-top:14px}button{display:block;margin:15px auto;padding:10px 20px}@media print{button{display:none}body{padding:0}}</style><body><h1>${html(setting.shop_name||'Amul Ice Cream & Café')}</h1><h2>Receipt</h2><div class="meta"><div><b>${html(order.order_number)}</b><span>${html(order.source||'QR')}</span></div><div><span>${html(asUtc(order.created_at))}</span><span>${html(order.order_context==='COUNTER'?'COUNTER':order.service_type)}</span></div>${order.table_number?`<div>Table ${html(order.table_number)}</div>`:''}</div><table><thead><tr><th>Item</th><th>Qty</th><th>Amount</th></tr></thead><tbody>${itemHtml}</tbody></table><div class="totals"><div><span>Subtotal</span><span>${money(order.subtotal_paise||order.total_paise)}</span></div>${order.discount_paise?`<div><span>Discount</span><span>−${money(order.discount_paise)}</span></div>`:''}<div><span>Tax included</span><span>${money(order.tax_paise||0)}</span></div><div class="total"><span>Total</span><span>${money(order.total_paise)}</span></div><div><span>Payment</span><span>${html(order.payment_status||'UNPAID')}</span></div>${paymentHtml}${refundsHtml}<div><span>Net paid</span><span>${money(paidNet)}</span></div><div><span>Balance</span><span>${money(Math.max(0,order.total_paise-paidNet))}</span></div></div><p class="footer">${html(setting.receipt_footer||'Thank you!')}</p><button id="print-receipt" type="button">Print receipt</button><script src="/receipt.js" defer></script></body></html>`;
+  const document=`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Receipt ${html(order.order_number)}</title><style>@page{size:${width}mm auto;margin:3mm}body{font:12px system-ui,sans-serif;color:#111;max-width:${width-6}mm;margin:0 auto;padding:5mm}h1{text-align:center;font-size:16px;margin:0}h2{text-align:center;font-size:12px;font-weight:500;margin:3px 0 12px}.meta{border-top:1px dashed #555;border-bottom:1px dashed #555;padding:8px 0}.meta div,.totals div{display:flex;justify-content:space-between;gap:5px}table{width:100%;border-collapse:collapse;margin:10px 0}th,td{text-align:left;vertical-align:top;padding:4px 2px}td:last-child,th:last-child{text-align:right}small{display:block;font-size:10px;color:#555;overflow-wrap:anywhere}.totals{border-top:1px dashed #555;padding-top:7px}.total{font-size:15px;font-weight:800}.footer{text-align:center;margin-top:14px}button{display:block;margin:15px auto;padding:10px 20px}@media print{button{display:none}body{padding:0}}</style><body><h1>${html(setting.shop_name||'Amul Ice Cream & Café')}</h1><h2>Receipt</h2><div class="meta"><div><b>${html(order.order_number)}</b><span>${html(order.source||'QR')}</span></div><div><span>${html(asUtc(order.created_at))}</span><span>${html(order.order_context==='COUNTER'?'COUNTER':order.service_type)}</span></div>${order.table_number?`<div>Table ${html(order.table_number)}</div>`:''}${order.customer_name?`<div><span>Customer</span><span>${html(order.customer_name)}</span></div>`:''}${order.customer_phone?`<div><span>Phone</span><span>${html(order.customer_phone)}</span></div>`:''}</div><table><thead><tr><th>Item</th><th>Qty</th><th>Amount</th></tr></thead><tbody>${itemHtml}</tbody></table><div class="totals"><div><span>Subtotal</span><span>${money(order.subtotal_paise||order.total_paise)}</span></div>${order.discount_paise?`<div><span>Discount</span><span>−${money(order.discount_paise)}</span></div>`:''}<div><span>Tax included</span><span>${money(order.tax_paise||0)}</span></div><div class="total"><span>Total</span><span>${money(order.total_paise)}</span></div><div><span>Payment</span><span>${html(order.payment_status||'UNPAID')}</span></div>${paymentHtml}${refundsHtml}<div><span>Net paid</span><span>${money(paidNet)}</span></div><div><span>Balance</span><span>${money(Math.max(0,order.total_paise-paidNet))}</span></div></div><p class="footer">${html(setting.receipt_footer||'Thank you!')}</p><button id="print-receipt" type="button">Print receipt</button><script src="/receipt.js" defer></script></body></html>`;
   return new Response(document,{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; script-src 'self'; frame-ancestors 'self'"}});
 }
 

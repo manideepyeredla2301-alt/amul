@@ -59,6 +59,33 @@ await check('Owner login and protected admin API',async()=>{
   assert.equal(denied.response.status,401);
 });
 
+await check('POS customer phone is private and printed on the bill',async()=>{
+  const order=await ok('/api/cafe/pos/orders',{method:'POST',cookie:ownerCookie,
+    body:posOrder([line('classic-veg-burger')],{customer_name:'Phone QA',customer_phone:'98765 43210'})},201);
+  const detail=await ok(`/api/cafe/pos/orders/${order.id}`,{cookie:ownerCookie});
+  assert.equal(detail.order.customer_phone,'+919876543210');
+  const history=await ok('/api/cafe/pos/orders',{cookie:ownerCookie});
+  assert.equal(history.orders.find(entry=>entry.id===order.id).customer_phone,'+919876543210');
+  const receipt=await api(`/api/cafe/pos/orders/${order.id}/receipt`,{cookie:ownerCookie});
+  assert.match(receipt.data,/\+919876543210/);
+  const publicTracking=await ok(`/api/cafe/orders/${order.tracking_token}`);
+  assert.equal(Object.hasOwn(publicTracking.order,'customer_phone'),false);
+  const kitchen=await ok('/api/cafe/admin/orders',{cookie:ownerCookie});
+  assert.equal(Object.hasOwn(kitchen.orders.find(entry=>entry.id===order.id),'customer_phone'),false);
+  const invalid=await api('/api/cafe/pos/orders',{method:'POST',cookie:ownerCookie,
+    body:posOrder([line('classic-veg-burger')],{customer_phone:'12345'})});
+  assert.equal(invalid.response.status,400);
+});
+
+await check('Held cart keeps the customer phone for resume',async()=>{
+  const held=await ok('/api/cafe/pos/holds',{method:'POST',cookie:ownerCookie,
+    body:{cart:[line('classic-cold-coffee')],customer_name:'Hold QA',customer_phone:'+91 98765 43210',service_type:'COUNTER'}},201);
+  assert.equal(held.hold.customer_phone,'+919876543210');
+  const list=await ok('/api/cafe/pos/holds',{cookie:ownerCookie});
+  assert.equal(list.holds.find(entry=>entry.id===held.hold.id).customer_phone,'+919876543210');
+  await ok(`/api/cafe/pos/holds/${held.hold.id}`,{method:'DELETE',cookie:ownerCookie});
+});
+
 await check('Curated Amul catalogue appears only in staff POS',async()=>{
   const publicMenu=await ok('/api/cafe/menu');
   assert.ok(publicMenu.categories.every(c=>c.items.every(p=>!p.id.startsWith('amul-'))));

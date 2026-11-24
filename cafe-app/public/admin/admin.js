@@ -12,6 +12,16 @@
     reports: ['BUSINESS INSIGHTS', 'Sales reports'], promotions: ['GROW YOUR CAFÉ', 'Offers'],
     qr: ['TABLE ORDERING', 'QR codes'], staff: ['YOUR TEAM', 'Staff'], settings: ['BUSINESS DETAILS', 'Settings'],
   };
+  function requestedRoute() {
+    const params = new URLSearchParams(location.search);
+    const view = params.get('view');
+    return { view: Object.hasOwn(titles, view) ? view : 'dashboard', addProduct: view === 'products' && params.get('action') === 'add' };
+  }
+  function canManage(permission) {
+    const role = String(state.session?.role || '').toUpperCase();
+    const permissions = Array.isArray(state.session?.permissions) ? state.session.permissions : [];
+    return role === 'OWNER' || permissions.includes('*') || permissions.includes(permission);
+  }
   const currency = amount => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format((Number(amount) || 0) / 100);
   const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
   const attr = escape;
@@ -73,7 +83,20 @@
     $('#app-view').hidden = false;
     const name = session.username || session.user?.username || 'Rachana';
     $('#staff-badge').textContent = name[0]?.toUpperCase() || 'R';
+    const role = String(session.role || '').toUpperCase();
+    $$('[data-shortcut="products"], [data-shortcut="add-product"]').forEach(node => { node.hidden = !canManage('catalog'); });
+    $('[data-shortcut="staff"]').hidden = !canManage('staff');
+    $('[data-shortcut="orders"]').hidden = !(canManage('orders') || role === 'MANAGER' || role === 'CASHIER');
+    $('[data-shortcut="pos"]').hidden = !(canManage('pos') || role === 'MANAGER' || role === 'CASHIER');
+    $$('[data-view="products"], [data-view="categories"], [data-mobile-view="products"]').forEach(node => { node.hidden = !canManage('catalog'); });
+    $('[data-view="staff"]').hidden = !canManage('staff');
     document.title = 'Manage café · FrostFlow';
+  }
+
+  async function openRequestedRoute() {
+    const route = requestedRoute();
+    await setView(route.view);
+    if (route.addProduct && $('#page-error').hidden && state.data.categories) openEditor('product');
   }
 
   function updateNav() {
@@ -98,6 +121,10 @@
       await loadView(view);
       renderView(view);
       $('#sync-status').classList.remove('offline');
+      const address = new URL(location.href);
+      address.searchParams.set('view', view);
+      address.searchParams.delete('action');
+      history.replaceState(null, '', address);
     } catch (error) {
       if (error.status === 401) { showLogin('Your session expired. Please sign in again.'); return; }
       $('#page-content').innerHTML = empty('Could not load this section', error.message || 'Please try again.');
@@ -177,7 +204,9 @@
     const recent = orders.length ? `<div class="mini-list">${orders.map(order => `<div class="mini-row"><span><strong>${escape(order.order_number)}</strong><small>${escape(order.customer_name || order.table_number || 'Walk-in')} · ${whenIndia(order.created_at)}</small></span><span><strong>${currency(order.total_paise)}</strong><small>${escape(order.payment_status || 'UNPAID')}</small></span></div>`).join('')}</div>` : empty('No orders yet', 'New customer and staff orders will appear here.');
     const top = list(overview, 'top_products');
     const topProducts = top.length ? `<div class="mini-list">${top.slice(0, 5).map(row => `<div class="mini-row"><span><strong>${escape(row.name || row.product_name)}</strong><small>${escape(row.quantity || row.units || 0)} sold</small></span><strong>${currency(row.sales_paise || row.total_paise)}</strong></div>`).join('')}</div>` : '<p class="filter-note">Product rankings appear after sales are recorded.</p>';
-    return `${heading('Your café at a glance', 'Live numbers for today in India.', `<a href="/pos/" class="button button-primary">Open POS ↗</a>`)}<div class="stat-grid">${cards}</div><div class="content-grid"><section class="surface"><div class="card-head"><h3>Recent orders</h3><button type="button" class="text-button" data-action="go-orders">View all →</button></div>${recent}</section><section class="surface"><div class="card-head"><h3>Popular products</h3><button type="button" class="text-button" data-action="go-reports">Reports →</button></div>${topProducts}</section></div>`;
+    const catalogActions = canManage('catalog') ? '<button class="button button-primary" data-action="go-add-product">+ Add product</button><button class="button button-secondary" data-action="go-products">Product catalogue</button>' : '';
+    const posAction = canManage('pos') || ['MANAGER', 'CASHIER'].includes(String(state.session?.role || '').toUpperCase()) ? '<a href="/pos/" class="button button-secondary">Open POS ↗</a>' : '';
+    return `${heading('Your café at a glance', 'Live numbers for today in India.', `${catalogActions}${posAction}`)}<div class="stat-grid">${cards}</div><div class="content-grid"><section class="surface"><div class="card-head"><h3>Recent orders</h3><button type="button" class="text-button" data-action="go-orders">View all →</button></div>${recent}</section><section class="surface"><div class="card-head"><h3>Popular products</h3><button type="button" class="text-button" data-action="go-reports">Reports →</button></div>${topProducts}</section></div>`;
   }
 
   function productRows(products) {
@@ -201,7 +230,7 @@
     const categoryId = state.filters.productCategory || 'all';
     const visible = products.filter(product => (categoryId === 'all' || product.category_id === categoryId) && (!query || `${product.name} ${product.sku || ''} ${product.barcode || ''}`.toLowerCase().includes(query)));
     const chips = [{ id: 'all', name: 'All products' }, ...categories].map(category => `<button type="button" class="chip ${categoryId === category.id ? 'active' : ''}" data-product-category="${attr(category.id)}">${escape(category.name)}</button>`).join('');
-    return `${heading('Your products', `${products.length} products in your café catalogue.`, `<button class="button button-secondary" data-action="go-options">Manage add-ons</button><button class="button button-secondary" data-action="import-products">Import CSV or Excel</button><button class="button button-primary" data-action="add-product">+ Add product</button>`)}<div class="toolbar"><label class="search-box"><input id="product-search" type="search" placeholder="Search name, SKU or barcode" value="${attr(state.filters.productSearch || '')}"></label><select id="product-type"><option value="all">All types</option><option value="PREPARED" ${state.filters.productType === 'PREPARED' ? 'selected' : ''}>Café food & drinks</option><option value="RETAIL" ${state.filters.productType === 'RETAIL' ? 'selected' : ''}>Retail ice cream</option></select></div><div class="chip-row">${chips}</div><div class="surface table-wrap"><table class="data-table"><thead><tr><th>Product</th><th>Category</th><th>Type</th><th>Price</th><th>Stock</th><th>Status</th><th></th></tr></thead><tbody>${productRows(visible.filter(product => state.filters.productType === 'all' || !state.filters.productType || product.type === state.filters.productType)) || `<tr><td colspan="7">${empty('No products found', 'Try another search or add your first product.')}</td></tr>`}</tbody></table></div>`;
+    return `${heading('Product catalogue', `${products.length} products. Add, edit or import items here.`, `<button class="button button-primary" data-action="add-product">+ Add product</button><button class="button button-secondary" data-action="go-categories">Categories</button><button class="button button-secondary" data-action="import-products">Import CSV or Excel</button><button class="button button-secondary" data-action="go-options">Add-ons</button>`)}<div class="toolbar"><label class="search-box"><input id="product-search" type="search" placeholder="Search name, SKU or barcode" value="${attr(state.filters.productSearch || '')}"></label><select id="product-type"><option value="all">All types</option><option value="PREPARED" ${state.filters.productType === 'PREPARED' ? 'selected' : ''}>Café food & drinks</option><option value="RETAIL" ${state.filters.productType === 'RETAIL' ? 'selected' : ''}>Packaged Amul products</option></select></div><div class="chip-row">${chips}</div><div class="surface table-wrap"><table class="data-table"><thead><tr><th>Product</th><th>Category</th><th>Type</th><th>Price</th><th>Stock</th><th>Status</th><th></th></tr></thead><tbody>${productRows(visible.filter(product => state.filters.productType === 'all' || !state.filters.productType || product.type === state.filters.productType)) || `<tr><td colspan="7">${empty('No products found', 'Try another search or add your first product.')}</td></tr>`}</tbody></table></div>`;
   }
 
   function renderCategories() {
@@ -763,6 +792,11 @@
   async function handleAction(button) {
     const action = button.dataset.action;
     const id = button.dataset.id;
+    if (action === 'go-add-product') {
+      await setView('products');
+      if ($('#page-error').hidden) openEditor('product');
+      return;
+    }
     if (action?.startsWith('go-')) { await setView(action.slice(3)); return; }
     if (action === 'order-details') { await openOrderDetails(id); return; }
     if (action === 'import-products') { openImportEditor(); return; }
@@ -874,6 +908,8 @@
     menu.id = 'mobile-more-menu';
     menu.className = 'mobile-more-menu';
     menu.innerHTML = [['categories','Categories'], ['options','Add-ons'], ['reports','Reports'], ['promotions','Offers'], ['qr','QR codes'], ['staff','Staff'], ['settings','Settings']]
+      .filter(([view]) => !['categories', 'options'].includes(view) || canManage('catalog'))
+      .filter(([view]) => view !== 'staff' || canManage('staff'))
       .map(([view,label]) => `<button type="button" data-more-view="${view}">${escape(label)}</button>`).join('') + '<button type="button" data-more-view="logout">Sign out</button>';
     document.body.append(menu);
     menu.addEventListener('click', async event => {
@@ -896,8 +932,9 @@
           username: $('#login-username').value.trim(), password: $('#login-password').value,
         } });
         $('#login-password').value = '';
-        showApp(data);
-        await setView('dashboard');
+        const session = await api('/session').catch(() => data);
+        showApp(session);
+        await openRequestedRoute();
       } catch (error) {
         $('#login-error').textContent = error.message || 'Could not sign in.';
         $('#login-error').hidden = false;
@@ -911,6 +948,14 @@
     $('#navigation').addEventListener('click', event => {
       const button = event.target.closest('[data-view]');
       if (button) setView(button.dataset.view);
+    });
+    $('#admin-shortcuts').addEventListener('click', async event => {
+      const shortcut = event.target.closest('[data-shortcut]');
+      if (!shortcut || shortcut.tagName === 'A') return;
+      if (shortcut.dataset.shortcut === 'add-product') {
+        await setView('products');
+        if ($('#page-error').hidden) openEditor('product');
+      } else await setView(shortcut.dataset.shortcut);
     });
     $('.mobile-nav').addEventListener('click', event => {
       const button = event.target.closest('[data-mobile-view]');
@@ -982,7 +1027,7 @@
     try {
       const session = await api('/session');
       showApp(session);
-      await setView('dashboard');
+      await openRequestedRoute();
     } catch { showLogin(); }
   }
 

@@ -29,6 +29,7 @@
     serviceType: ['DINE_IN', 'TAKEAWAY', 'COUNTER'].includes(initialDraft.serviceType) ? initialDraft.serviceType : 'DINE_IN',
     tableNumber: initialDraft.tableNumber || '',
     customerName: initialDraft.customerName || '',
+    customerPhone: initialDraft.customerPhone || '',
     note: initialDraft.note || '',
     scope: 'ALL',
     categoryId: 'ALL',
@@ -38,6 +39,9 @@
     username: '',
     online: navigator.onLine,
     holds: [],
+    orders: [],
+    billFilter: 'ALL',
+    billSearch: '',
     selected: null,
     editIndex: -1,
     options: {},
@@ -113,22 +117,29 @@
   function showApp(session) {
     state.role = String(session.role || '').toUpperCase();
     state.username = session.username || 'Staff';
+    const permissions = Array.isArray(session.permissions) ? session.permissions : [];
+    const canManage = (permission) => state.role === 'OWNER' || permissions.includes(permission);
     $('#staff-name').textContent = state.username;
     $('#login-view').hidden = true;
     $('#app-view').hidden = false;
-    $('#discount-amount').disabled = !['OWNER', 'ADMIN', 'MANAGER'].includes(state.role);
+    $('#discount-amount').disabled = !(state.role === 'MANAGER' || canManage('discounts'));
+    $('#catalogue-link').hidden = !canManage('catalog');
+    $('#add-product-link').hidden = !canManage('catalog');
+    $('#staff-link').hidden = !canManage('staff');
     restoreFields();
     updateCart();
   }
   function persistDraft() {
     save(DRAFT_KEY, {
       cart: state.cart, serviceType: state.serviceType,
-      tableNumber: state.tableNumber, customerName: state.customerName, note: state.note,
+      tableNumber: state.tableNumber, customerName: state.customerName,
+      customerPhone: state.customerPhone, note: state.note,
     });
   }
   function restoreFields() {
     $('#table-number').value = state.tableNumber;
     $('#customer-name').value = state.customerName;
+    $('#customer-phone').value = state.customerPhone;
     $('#order-note').value = state.note;
     $$('.service-choice').forEach(button => {
       const active = button.dataset.service === state.serviceType;
@@ -277,7 +288,7 @@
     $('#clear-cart').disabled = !count || state.uncertain;
     $('#hold-cart').disabled = !count || !state.online || state.uncertain;
     $('#checkout').disabled = !count || (state.uncertain && !state.online) ||
-      state.cart.some(line => !productAvailable(state.products.get(line.item_id)));
+      (!state.uncertain && state.cart.some(line => !productAvailable(state.products.get(line.item_id))));
     $('#checkout').firstChild.textContent = !state.online ? 'Save unsynced ' : state.uncertain ? 'Retry order ' : 'Checkout ';
     $('#checkout').classList.toggle('button-queue', !state.online);
     $('#checkout').classList.toggle('button-primary', state.online);
@@ -419,21 +430,33 @@
     state.cart = [];
     if (!keepFields) {
       state.customerName = '';
+      state.customerPhone = '';
       state.tableNumber = '';
       state.note = '';
       restoreFields();
     }
     updateCart();
   }
-  function validateCart() {
+  function normalizePhone(value) {
+    const digits = String(value || '').replace(/[\s().-]/g, '').replace(/^\+/, '');
+    const local = digits.startsWith('91') && digits.length === 12 ? digits.slice(2) : digits;
+    return /^[6-9]\d{9}$/.test(local) ? `+91${local}` : null;
+  }
+  function validateCart({ forCheckout = true } = {}) {
     if (!state.cart.length) throw new Error('Add a product before checkout.');
     if (state.cart.length > 30 || cartCount() > 100) throw new Error('This order is too large. Keep it to 30 lines and 100 items.');
-    if (state.serviceType === 'DINE_IN' && !state.tableNumber.trim()) throw new Error('Enter a table number for dine-in orders.');
+    if (forCheckout && state.serviceType === 'DINE_IN' && !state.tableNumber.trim()) throw new Error('Enter a table number for dine-in orders.');
     if (state.tableNumber && !/^[a-zA-Z0-9][a-zA-Z0-9 -]{0,15}$/.test(state.tableNumber)) throw new Error('Use a short table or order reference.');
-    if (state.cart.some(line => !productAvailable(state.products.get(line.item_id)))) throw new Error('Remove unavailable products before checkout.');
+    if (forCheckout && !state.customerName.trim()) throw new Error('Enter the customer name before checkout.');
+    if (forCheckout && !normalizePhone(state.customerPhone)) throw new Error('Enter a valid 10-digit Indian mobile number before checkout.');
+    if (!state.uncertain && state.cart.some(line => !productAvailable(state.products.get(line.item_id)))) throw new Error('Remove unavailable products before checkout.');
   }
 
   function checkoutSummary() {
+    const customer = state.uncertain ? state.pending?.body : null;
+    const name = customer ? customer.customer_name : state.customerName.trim();
+    const phone = customer ? customer.customer_phone : normalizePhone(state.customerPhone);
+    $('#checkout-customer').innerHTML = `<strong>${escapeHtml(name || 'Customer')}</strong><span>${escapeHtml(phone || 'Phone not recorded')}</span>`;
     $('#checkout-summary').innerHTML = state.cart.map(line => {
       const product = state.products.get(line.item_id);
       return `<div class="summary-line"><span>${line.quantity} × ${escapeHtml(product?.name || line.name || 'Item')}</span><b>${money(unitPrice(product, line.options) * line.quantity)}</b></div>`;
@@ -473,8 +496,15 @@
     }
   }
   function openCheckout() {
-    try { validateCart(); }
-    catch (error) { notice(error.message, true); return; }
+    try { validateCart({ forCheckout: !state.uncertain }); }
+    catch (error) {
+      notice(error.message, true);
+      if (/customer name/i.test(error.message)) $('#customer-name').focus();
+      else if (/mobile number/i.test(error.message)) $('#customer-phone').focus();
+      else if (/table number/i.test(error.message)) $('#table-number').focus();
+      return;
+    }
+    closeMobileCart();
     checkoutSummary();
     setPayment(state.payment);
     $('#checkout-error').hidden = true;
@@ -521,6 +551,7 @@
     return {
       request_id: makeId(),
       customer_name: state.customerName.trim(),
+      customer_phone: normalizePhone(state.customerPhone),
       service_type: state.serviceType,
       table_number: state.tableNumber.trim(),
       note: state.note.trim(),
@@ -538,13 +569,82 @@
     const total = Number(order.total_paise || 0) / 100;
     $('#receipt-subtitle').textContent = `${money(total)} · ${String(order.payment_status || 'UNPAID').replaceAll('_', ' ')}`;
     $('#record-payment').disabled = !state.paymentMethods.length || String(order.payment_status || '').toUpperCase() === 'PAID';
-    $('#receipt-state').textContent = (order.has_prepared || state.cart.some(line => productType(state.products.get(line.item_id) || {}) === 'PREPARED')) ?
+    const hasPrepared = typeof order.has_prepared === 'boolean' ? order.has_prepared :
+      Array.isArray(order.items) ? order.items.some(item => item.type === 'PREPARED') :
+        state.cart.some(line => productType(state.products.get(line.item_id) || {}) === 'PREPARED');
+    $('#receipt-state').textContent = hasPrepared ?
       'Fresh items have been sent to the kitchen. Print the bill when you are ready.' :
       'Retail sale saved. Stock is updated on the server. Print the bill when you are ready.';
     const url = `/api/cafe/pos/orders/${encodeURIComponent(order.id)}/receipt`;
     $('#print-receipt').disabled = true;
+    $('#send-whatsapp').disabled = true;
+    $('#receipt-phone').value = order.customer_phone || (Array.isArray(order.items) ? '' : state.customerPhone) || '';
     $('#receipt-frame').src = url;
     $('#receipt-dialog').showModal();
+    loadReceiptDetails(order.id);
+  }
+  async function loadReceiptDetails(orderId) {
+    try {
+      const result = await api(`/api/cafe/pos/orders/${encodeURIComponent(orderId)}`);
+      if (state.lastOrder?.id !== orderId) return;
+      const detail = result.order || {};
+      state.lastOrder = { ...state.lastOrder, ...detail,
+        ...(Array.isArray(detail.payments) ? { paid_paise:detail.payments.reduce((total, payment) =>
+          total + Number(payment.amount_paise || 0) - Number(payment.refunded_paise || 0), 0) } : {}),
+      };
+      if (state.lastOrder.customer_phone) $('#receipt-phone').value = state.lastOrder.customer_phone;
+      $('#send-whatsapp').disabled = !(state.lastOrder.items || []).length;
+    } catch (error) {
+      if (state.lastOrder?.id === orderId) notice('Bill details could not load. Print the receipt or try again.', true);
+    }
+  }
+  function paidPaise(order) {
+    if (Number.isFinite(Number(order.paid_paise))) return Number(order.paid_paise);
+    if (Array.isArray(order.payments)) return order.payments.reduce((total, payment) =>
+      total + Number(payment.amount_paise || 0) - Number(payment.refunded_paise || 0), 0);
+    return Number(order.paid_paise || 0);
+  }
+  function whatsappBillText(order) {
+    const items = Array.isArray(order.items) ? order.items : [];
+    if (!items.length) throw new Error('Bill details are still loading. Try again.');
+    const when = order.created_at ? new Date(order.created_at).toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short',
+    }) : '';
+    const paid = paidPaise(order);
+    const lines = [
+      '*Amul Ice Cream & Café*',
+      `Bill: ${order.order_number || order.id}`,
+      ...(when ? [`Date: ${when}`] : []),
+      `Customer: ${order.customer_name || 'Customer'}`,
+      ...(order.table_number ? [`Table: ${order.table_number}`] : []),
+      '', 'Items:',
+      ...items.flatMap((item, index) => {
+        const options = optionSummary(state.products.get(item.item_id), item.options);
+        return [
+          `${index + 1}. ${item.quantity} × ${item.name}${item.is_complimentary ? ' (free)' : ''} — ${money(Number(item.total_paise || 0) / 100)}`,
+          ...(options ? [`   ${options}`] : []),
+          ...(item.note ? [`   Note: ${item.note}`] : []),
+        ];
+      }),
+      '',
+      ...(Number(order.discount_paise || 0) ? [`Discount: -${money(Number(order.discount_paise) / 100)}`] : []),
+      `Total: ${money(Number(order.total_paise || 0) / 100)}`,
+      `Paid: ${money(paid / 100)}`,
+      `Balance: ${money(Math.max(0, Number(order.total_paise || 0) - paid) / 100)}`,
+      `Status: ${String(order.payment_status || 'UNPAID').replaceAll('_', ' ')}`,
+      '', 'Thank you for visiting!',
+    ];
+    return lines.join('\n');
+  }
+  function sendWhatsAppBill() {
+    try {
+      const phone = normalizePhone($('#receipt-phone').value);
+      if (!phone) throw new Error('Enter a valid 10-digit Indian mobile number for WhatsApp.');
+      const bill = whatsappBillText(state.lastOrder || {});
+      const url = `https://wa.me/${phone.slice(1)}?text=${encodeURIComponent(bill)}`;
+      window.open(url, '_blank', 'noopener,noreferrer');
+      notice('WhatsApp opened with the bill. Tap Send there.');
+    } catch (error) { notice(error.message, true); }
   }
 
   async function saveLaterPayment() {
@@ -572,6 +672,8 @@
       $('#record-payment').disabled = String(state.lastOrder.payment_status || '').toUpperCase() === 'PAID';
       $('#receipt-state').textContent = 'Payment recorded. The receipt has been updated.';
       $('#receipt-frame').src = `/api/cafe/pos/orders/${encodeURIComponent(order.id)}/receipt?v=${Date.now()}`;
+      loadReceiptDetails(order.id);
+      loadOrders();
       $('#payment-dialog').close();
       notice('Payment recorded.');
     } catch (error) { setError(errorNode, error.message); }
@@ -582,7 +684,7 @@
     if (state.submitting) return;
     let body;
     try {
-      validateCart();
+      validateCart({ forCheckout: !state.uncertain });
       body = state.uncertain && state.pending?.body ? state.pending.body : payloadForCheckout();
     } catch (error) {
       $('#checkout-error').textContent = error.message;
@@ -605,6 +707,7 @@
       clearCart();
       state.payment = 'UNPAID';
       setPayment('UNPAID');
+      loadOrders();
       notice(`Order ${order.order_number || ''} saved successfully.`);
     } catch (error) {
       if (!error.status || error.status >= 500) {
@@ -632,6 +735,7 @@
     return {
       cart: state.cart.map(({ item_id, quantity, options, note }) => ({ item_id, quantity, options, note })),
       customer_name: state.customerName.trim(),
+      customer_phone: state.customerPhone.trim() ? normalizePhone(state.customerPhone) : '',
       service_type: state.serviceType,
       table_number: state.tableNumber.trim(),
       note: state.note.trim(),
@@ -661,9 +765,55 @@
       return `<div class="hold-row"><div class="hold-row-header"><strong>${escapeHtml(hold.table_number || hold.customer_name || 'Untitled cart')}</strong><small>${escapeHtml(date)}</small></div><p>${escapeHtml(details || 'Empty cart')}</p><div class="hold-row-actions"><button class="button button-primary" type="button" data-resume="${escapeHtml(hold.id)}">Resume</button><button class="button button-outline" type="button" data-delete-hold="${escapeHtml(hold.id)}">Remove</button></div></div>`;
     }).join('');
   }
+  async function loadOrders() {
+    try {
+      const result = await api('/api/cafe/pos/orders');
+      state.orders = Array.isArray(result.orders) ? result.orders : [];
+      $('#bill-count').textContent = String(state.orders.length);
+      renderBills();
+    } catch (error) {
+      if (error.status === 401 || error.status === 403) showLogin('Sign in to continue.');
+      else if ($('#bills-dialog').open) notice(error.message, true);
+    }
+  }
+  function renderBills() {
+    const search = state.billSearch.toLowerCase().trim();
+    const orders = state.orders.filter(order => {
+      if (state.billFilter === 'PAID' && order.payment_status !== 'PAID') return false;
+      if (state.billFilter === 'UNPAID' && order.payment_status === 'PAID') return false;
+      return !search || `${order.order_number || ''} ${order.customer_name || ''} ${order.customer_phone || ''} ${order.table_number || ''}`.toLowerCase().includes(search);
+    }).sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+    const list = $('#bills-list');
+    if (!orders.length) {
+      list.innerHTML = `<div class="holds-empty">${state.orders.length ? 'No bills match this search or filter.' : 'No orders have been billed yet.'}</div>`;
+      return;
+    }
+    list.innerHTML = orders.map(order => {
+      const paid = order.payment_status === 'PAID';
+      const when = order.created_at ? new Date(order.created_at).toLocaleString('en-IN', {
+        timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short',
+      }) : '';
+      const items = Array.isArray(order.items) ? order.items : [];
+      const summary = items.slice(0, 3).map(item => `${item.quantity} × ${item.name}`).join(', ');
+      const rest = items.length > 3 ? ` +${items.length - 3} more` : '';
+      return `<div class="hold-row"><div class="hold-row-header"><strong>${escapeHtml(order.order_number || order.id)}</strong><span class="bill-row-total">${money(Number(order.total_paise || 0) / 100)}</span></div>
+        <div class="bill-row-meta"><span class="bill-status ${paid ? 'paid' : 'unpaid'}">${escapeHtml(order.payment_status || 'UNPAID')}</span><small>${escapeHtml(order.source || 'Order')}</small><small>${escapeHtml(when)}</small></div>
+        <p>${escapeHtml(order.customer_name || 'Walk-in')}${order.customer_phone ? ` · ${escapeHtml(order.customer_phone)}` : ''}${order.table_number ? ` · Table ${escapeHtml(order.table_number)}` : ''}</p>
+        ${summary ? `<p>${escapeHtml(summary + rest)}</p>` : ''}<div class="hold-row-actions"><button class="button button-primary" type="button" data-open-bill="${escapeHtml(order.id)}">Open bill</button></div></div>`;
+    }).join('');
+  }
+  async function openPastBill(id) {
+    try {
+      const result = await api(`/api/cafe/pos/orders/${encodeURIComponent(id)}`);
+      const order = result.order || result;
+      $('#bills-dialog').close();
+      showReceipt({ ...order, has_prepared:order.items?.some(item => item.type === 'PREPARED') });
+    } catch (error) { notice(error.message, true); }
+  }
   async function holdCurrentCart() {
     try {
-      validateCart();
+      validateCart({ forCheckout: false });
+      if (state.customerPhone.trim() && !normalizePhone(state.customerPhone)) throw new Error('Enter a valid phone number or leave it blank for a held cart.');
       const result = await api('/api/cafe/pos/holds', { method: 'POST', body: holdPayload() });
       clearCart();
       await loadHolds();
@@ -681,6 +831,7 @@
       key: `${line.item_id}:${JSON.stringify(line.options || {})}:${line.note || ''}`,
     })) : [];
     state.customerName = hold.customer_name || '';
+    state.customerPhone = hold.customer_phone || '';
     state.serviceType = ['DINE_IN', 'TAKEAWAY', 'COUNTER'].includes(hold.service_type) ? hold.service_type : 'DINE_IN';
     state.tableNumber = hold.table_number || '';
     state.note = hold.note || '';
@@ -810,7 +961,8 @@
     const items = state.cart.map(line => ({ item_id: line.item_id, quantity: line.quantity, options: line.options || {}, note: line.note || '' }));
     const entry = {
       id: makeId(), created_at: new Date().toISOString(), status: 'UNSYNCED', last_error: '',
-      body: { request_id: makeId(), customer_name: state.customerName.trim(), service_type: state.serviceType,
+      body: { request_id: makeId(), customer_name: state.customerName.trim(),
+        customer_phone: normalizePhone(state.customerPhone), service_type: state.serviceType,
         table_number: state.tableNumber.trim(), note: state.note.trim(), items, payments: [] },
       snapshot: state.cart.map(line => ({
         item_id: line.item_id, name: state.products.get(line.item_id)?.name || line.name || line.item_id,
@@ -903,6 +1055,7 @@
     state.serviceType = entry.body.service_type;
     state.tableNumber = entry.body.table_number;
     state.customerName = entry.body.customer_name;
+    state.customerPhone = entry.body.customer_phone || '';
     state.note = entry.body.note;
     state.queue.splice(index, 1);
     persistQueue();
@@ -988,8 +1141,8 @@
       });
       $('#password').value = '';
       if (!canUsePos(session.role)) throw new Error('This account cannot use counter POS.');
-      showApp(session);
-      await Promise.all([loadCatalog(), loadHolds()]);
+      showApp(await api('/api/cafe/staff/session'));
+      await Promise.all([loadCatalog(), loadHolds(), loadOrders()]);
       if (state.uncertain && state.cart.length) openCheckout();
     } catch (error) { showLogin(error.message); }
     finally { button.disabled = false; }
@@ -1066,7 +1219,8 @@
     if (state.uncertain) return;
     if (confirm('Clear this cart?')) clearCart();
   });
-  for (const [selector, key] of [['#table-number', 'tableNumber'], ['#customer-name', 'customerName'], ['#order-note', 'note']]) {
+  for (const [selector, key] of [['#table-number', 'tableNumber'], ['#customer-name', 'customerName'],
+    ['#customer-phone', 'customerPhone'], ['#order-note', 'note']]) {
     $(selector).addEventListener('input', (event) => {
       if (state.uncertain) { event.target.value = state[key]; return; }
       state[key] = event.target.value;
@@ -1121,6 +1275,28 @@
     $('#holds-dialog').showModal();
     await loadHolds();
   });
+  $('#billed-orders').addEventListener('click', async () => {
+    $('#bills-dialog').showModal();
+    renderBills();
+    await loadOrders();
+  });
+  $('#bill-search').addEventListener('input', event => {
+    state.billSearch = event.target.value;
+    renderBills();
+  });
+  $$('.bill-filter').forEach(button => button.addEventListener('click', () => {
+    state.billFilter = button.dataset.billFilter;
+    $$('.bill-filter').forEach(choice => {
+      const active = choice === button;
+      choice.classList.toggle('active', active);
+      choice.setAttribute('aria-pressed', String(active));
+    });
+    renderBills();
+  }));
+  $('#bills-list').addEventListener('click', event => {
+    const button = event.target.closest('[data-open-bill]');
+    if (button) openPastBill(button.dataset.openBill);
+  });
   $('#holds-list').addEventListener('click', (event) => {
     const resume = event.target.closest('[data-resume]');
     const remove = event.target.closest('[data-delete-hold]');
@@ -1128,7 +1304,6 @@
     if (remove) deleteHold(remove.dataset.deleteHold);
   });
   $('#checkout').addEventListener('click', () => {
-    closeMobileCart();
     if (state.online) openCheckout();
     else queueCurrentCart();
   });
@@ -1168,7 +1343,7 @@
   $('#record-payment').addEventListener('click', () => {
     const order = state.lastOrder;
     if (!order?.id) return;
-    const remaining = Math.max(0, Number(order.total_paise || 0) - Number(order.paid_paise || 0));
+    const remaining = Math.max(0, Number(order.total_paise || 0) - paidPaise(order));
     $('#later-payment-amount').value = remaining ? (remaining / 100).toFixed(2) : '';
     $('#later-payment-reference').value = '';
     setError($('#later-payment-error'), '');
@@ -1183,6 +1358,7 @@
     try { frame.contentWindow.print(); }
     catch { window.open(frame.src, '_blank', 'noopener'); }
   });
+  $('#send-whatsapp').addEventListener('click', sendWhatsAppBill);
   $('#new-order').addEventListener('click', () => {
     $('#receipt-dialog').close();
     $('#product-search').focus();
@@ -1219,7 +1395,7 @@
       const session = await api('/api/cafe/staff/session');
       if (!canUsePos(session.role)) { showLogin('This account cannot use counter POS.'); return; }
       showApp(session);
-      await Promise.all([loadCatalog(), loadHolds()]);
+      await Promise.all([loadCatalog(), loadHolds(), loadOrders()]);
       if (state.uncertain && state.cart.length) {
         notice('Your last checkout needs confirmation. Retry it using the same order request.', true);
         openCheckout();

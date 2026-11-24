@@ -13,7 +13,7 @@ umask 077
 npx wrangler d1 export frostflow-online --remote --output /private/path/frostflow-before-cafe.sql
 ```
 
-4. Run `npm ci`, `npm run check`, the isolated local integration test, and `npx wrangler deploy --dry-run`. Review the migration files and confirm retail products still start empty.
+4. Run `npm ci`, `npm run check`, the isolated local integration test, and `npx wrangler deploy --dry-run`. Review the migration files and confirm the separate café retail stock has its 20-piece opening balance per packaged product.
 
 ## Deploy
 
@@ -25,16 +25,16 @@ npx wrangler versions list
 
 The new schema migrations are additive and use the café's separate migration table. `wrangler deploy` publishes the café Worker and its static photos. It does not deploy `frostflow-online` ERP code.
 
-The tablet POS has a second Worker, `frostflow-pos`, whose root opens `/pos/`. It uses the same D1 database and existing schema. Its secrets are separate from the café Worker. Once `CAFE_ADMIN_PASSWORD` and `CAFE_SESSION_SECRET` have been set for that Worker, deploy POS updates with:
+The former POS Worker, `frostflow-pos`, redirects page entries to `/pos/` on the canonical `frostflow-cafe` address. It retains its existing secrets and API compatibility for previously open sessions. Publish that redirect with:
 
 ```sh
 npm run deploy:pos
 npx wrangler deployments list --name frostflow-pos
 ```
 
-Do not rerun database migrations just to update the POS Worker.
+Do not rerun database migrations just to update the redirect Worker. Staff should use one address: `https://frostflow-cafe.manideepyeredla2301.workers.dev/`.
 
-After deployment, check the public menu has 68 café items and correct burger prices, then check owner login, the POS catalogue, kitchen tickets, a table QR, and a test order from creation through Ready. Check a receipt, the free-fries offer, and one manual payment. Record the deployed version ID and the test order number. Do not claim live HTTP verification if the deployment URL cannot be reached from the testing network.
+After deployment, check the public menu has 68 café items and correct burger prices, then check the Staff link, owner login, Admin **+ Add product** and catalogue controls, the POS catalogue, kitchen tickets, a table QR, and a test order from creation through Ready. Confirm checkout requires customer name and mobile number; the order appears in **Billed orders**, a held cart appears in **Held orders**, and the WhatsApp action opens a prepared bill for staff to send. Check a receipt, the free-fries offer, and one manual payment. Confirm the former POS address redirects to the café site's POS. Record the deployed version ID and the test order number. Do not claim live HTTP verification if the deployment URL cannot be reached from the testing network.
 
 ## Roll back code
 

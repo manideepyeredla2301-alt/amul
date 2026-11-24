@@ -2,13 +2,13 @@
 
 ## Start here
 
-Open the deployed café address with `/admin/` at the end. Sign in with the owner username `rachana` and the password already configured in FrostFlow. Keep that password private. Use **Sign out** when leaving a shared device.
+Open `https://frostflow-cafe.manideepyeredla2301.workers.dev/` and tap **Staff**, then **Owner Admin**. You can also open `/admin/` on the same address. Sign in with the owner username `rachana` and the password already configured in FrostFlow. Keep that password private. Use **Sign out** when leaving a shared device.
 
-The sidebar has Overview, Products, Categories, Inventory, Orders & payments, Reports, Offers, QR codes, Staff, and Settings. The tablet POS has its own address: `https://frostflow-pos.manideepyeredla2301.workers.dev/`. The kitchen board remains on the café site.
+The top of Admin has **Product catalogue**, **+ Add product**, **Staff**, **Orders & bills**, and **Open POS** shortcuts. The sidebar also has Overview, Products, Categories, Inventory, Orders & payments, Reports, Offers, QR codes, Staff, and Settings. POS and Kitchen are on this same café address at `/pos/` and `/kitchen/`. Catalogue and product creation are shown to the owner or staff with catalogue permission.
 
 ## Add or change a menu item
 
-1. Open **Products** and choose **Add product**. Pick the category and choose **Prepared** for café food or drink, or **Retail** for a packaged product.
+1. Tap **+ Add product** at the top of Admin or in **Product catalogue**. Pick the category and choose **Prepared** for café food or drink, or **Retail** for a packaged product.
 2. Enter the selling price, name, description, and availability. Add GST only if it applies to that item; the system does not assume one rate for every product.
 3. Upload a photo. Adjust the square crop and preview it, then save. Replacement photos persist in the café database. Keep uploads under 1 MB while database image storage is active.
 4. Add option groups for variants and extras. The initial burgers already have one optional Amul cheese slice at ₹10. The sundae configurator enforces scoop, serving, sauce, and topping rules.
@@ -27,9 +27,9 @@ Stock is deducted when a sale is confirmed. Authorized returns add packaged stoc
 
 ## Orders, payments, and receipts
 
-**Orders & payments** shows QR, tablet, counter, and retail transactions. Open an order to see items, notes, payment status, and receipt. Staff may record cash, UPI, or card only after confirming that payment outside the website. Split payments are supported. Owners and authorized managers can handle returns and refunds; the audit log records these actions. Receipts print at 58 mm or 80 mm widths.
+**Orders & payments** shows QR, tablet, counter, and retail transactions. POS also has a prominent **Billed orders** button for the latest 200 server orders, with search and Paid/Unpaid filters. Open a bill to print it, record a later payment, or open an itemized WhatsApp draft for the customer's mobile number. Staff must review and tap **Send** in WhatsApp; opening the draft does not send it. **Held orders** in POS shows saved carts that have not been billed, and they can be resumed on another signed-in device. Open an order in Admin to see items, notes, payment status, and receipt. Staff may record cash, UPI, or card only after confirming that payment outside the website. Split payments are supported. Owners and authorized managers can handle returns and refunds; the audit log records these actions. Receipts print at 58 mm or 80 mm widths.
 
-Customer QR checkout shows a preferred in-café payment method, but never takes payment online. You can enable or disable methods in **Settings**. No gateway is configured.
+Counter checkout requires a customer name and a valid Indian mobile number. The QR checkout asks for both as well. Phone numbers are available to authenticated staff for bills; public order tracking and kitchen tickets do not show them. Customer QR checkout shows a preferred in-café payment method, but never takes payment online. You can enable or disable methods in **Settings**. No gateway is configured.
 
 ## Offers and QR cards
 

@@ -80,6 +80,11 @@ function toast(message) {
 function openDialog(id) { const dialog = document.getElementById(id); if (!dialog.open) dialog.showModal(); }
 function closeDialog(id) { const dialog = document.getElementById(id); if (dialog.open) dialog.close(); }
 function validTable(value) { return /^[a-zA-Z0-9][a-zA-Z0-9 -]{0,15}$/.test(value); }
+function validCustomerPhone(value) {
+  const compact = String(value || '').replace(/[\s().-]/g, '');
+  const mobile = compact.startsWith('+91') ? compact.slice(3) : compact.startsWith('91') && compact.length === 12 ? compact.slice(2) : compact;
+  return /^[6-9]\d{9}$/.test(mobile);
+}
 
 const state = {
   menu: null,
@@ -416,12 +421,15 @@ async function submitOrder(event) {
   if (state.placing) return;
   const serviceType = $('input[name="service-type"]:checked')?.value || 'DINE_IN';
   const name = $('#customer-name').value.trim();
+  const phone = $('#customer-phone').value.trim();
   const table = $('#table-number').value.trim();
   if (!name) { $('#checkout-error').textContent = 'Please enter your name.'; return; }
+  if (!validCustomerPhone(phone)) { $('#checkout-error').textContent = 'Please enter a valid 10-digit mobile number.'; return; }
   if (serviceType === 'DINE_IN' && !validTable(table)) { $('#checkout-error').textContent = 'Please enter a table number (letters or numbers).'; return; }
   const body = {
     request_id: state.requestId || randomId(),
     customer_name: name,
+    customer_phone: phone,
     service_type: serviceType,
     table_number: serviceType === 'DINE_IN' ? table : undefined,
     qr_code_id: state.qrCodeId || undefined,
@@ -446,6 +454,7 @@ async function submitOrder(event) {
     const token = result.tracking_token;
     if (!token) throw new Error('Your order may have been saved, but its tracking link was not returned. Please ask the café team for help before trying again.');
     writeStorage(NAME_KEY, name);
+    $('#customer-phone').value = '';
     if (serviceType === 'DINE_IN') state.table = table;
     state.cart = [];
     state.requestId = null;

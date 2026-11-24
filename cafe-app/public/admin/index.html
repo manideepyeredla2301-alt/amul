@@ -36,7 +36,7 @@
       <div class="sidebar-shop"><span class="shop-avatar">AC</span><span><strong>My café</strong><small>Management space</small></span><span class="shop-chevron">⌄</span></div>
       <nav id="navigation" class="nav-list" aria-label="Sections">
         <button data-view="dashboard" class="nav-item active" aria-current="page"><span class="nav-icon">▦</span> Overview</button>
-        <button data-view="products" class="nav-item"><span class="nav-icon">◫</span> Products</button>
+        <button data-view="products" class="nav-item"><span class="nav-icon">◫</span> Product catalogue</button>
         <button data-view="categories" class="nav-item"><span class="nav-icon">▤</span> Categories</button>
         <button data-view="inventory" class="nav-item"><span class="nav-icon">◈</span> Inventory</button>
         <button data-view="orders" class="nav-item"><span class="nav-icon">◉</span> Orders & payments</button>
@@ -50,10 +50,11 @@
     </aside>
     <main class="main-panel">
       <header class="topbar"><div class="mobile-brand brand"><span class="brand-symbol">✳</span><span><strong>AMUL CAFÉ</strong><small>MANAGEMENT</small></span></div><div class="topbar-copy"><span id="page-eyebrow" class="eyebrow">BUSINESS OVERVIEW</span><h1 id="page-title">Good morning<span>.</span></h1></div><div class="topbar-actions"><span id="sync-status" class="sync-status"><i></i> Live</span><button id="refresh-view" type="button" class="icon-button" title="Refresh this view" aria-label="Refresh this view">↻</button><span id="staff-badge" class="staff-badge">R</span></div></header>
+      <nav id="admin-shortcuts" class="admin-shortcuts" aria-label="Quick management actions"><button type="button" data-shortcut="products">Product catalogue</button><button type="button" class="shortcut-primary" data-shortcut="add-product">+ Add product</button><button type="button" data-shortcut="staff">Staff</button><button type="button" data-shortcut="orders">Orders & bills</button><a data-shortcut="pos" href="/pos/">Open POS ↗</a></nav>
       <div id="page-content" class="page-content" aria-live="polite"></div>
       <div id="page-error" class="page-error" role="alert" hidden></div>
     </main>
-    <nav class="mobile-nav" aria-label="Quick navigation"><button data-mobile-view="dashboard">▦<span>Overview</span></button><button data-mobile-view="products">◫<span>Products</span></button><button data-mobile-view="orders">◉<span>Orders</span></button><button data-mobile-view="inventory">◈<span>Stock</span></button><button data-mobile-view="more">☷<span>More</span></button></nav>
+    <nav class="mobile-nav" aria-label="Quick navigation"><button data-mobile-view="dashboard">▦<span>Overview</span></button><button data-mobile-view="products">◫<span>Catalogue</span></button><button data-mobile-view="orders">◉<span>Orders</span></button><button data-mobile-view="inventory">◈<span>Stock</span></button><button data-mobile-view="more">☷<span>More</span></button></nav>
   </div>
 
   <dialog id="editor-dialog" class="editor-dialog" aria-labelledby="editor-title"><form id="editor-form" class="editor-form"><div class="dialog-header"><div><span id="editor-eyebrow" class="eyebrow">EDIT DETAILS</span><h2 id="editor-title">Edit</h2></div><button id="close-editor" type="button" class="icon-button" aria-label="Close editor">×</button></div><div id="editor-fields" class="editor-fields"></div><p id="editor-error" class="form-error" role="alert" hidden></p><div class="dialog-actions"><button id="cancel-editor" class="button button-secondary" type="button">Cancel</button><button id="save-editor" class="button button-primary" type="submit">Save changes</button></div></form></dialog>
