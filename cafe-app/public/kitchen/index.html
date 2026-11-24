@@ -4,6 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#17392f">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <script src="/pwa.js" defer></script>
   <meta name="robots" content="noindex, nofollow">
   <title>Café kitchen · FrostFlow</title>
   <link rel="stylesheet" href="/kitchen/kitchen.css">
@@ -35,7 +38,8 @@
         <div class="brand brand-light"><span class="brand-icon" aria-hidden="true">✳</span><span>AMUL <b>CAFÉ</b><small>kitchen orders</small></span></div>
         <div class="top-actions">
           <span id="connection" class="connection"><i aria-hidden="true"></i> Checking</span>
-          <a class="icon-link" href="/kitchen/qr" title="Print ordering QR codes" aria-label="Print ordering QR codes"><span aria-hidden="true">▦</span><span class="desktop-only">QR cards</span></a>
+          <button id="sound-toggle" class="icon-link" type="button" aria-pressed="false" title="Enable new-order sound" aria-label="Enable new-order sound"><span aria-hidden="true">♪</span><span class="desktop-only">Sound off</span></button>
+          <a class="icon-link" href="/kitchen/qr.html" title="Print ordering QR codes" aria-label="Print ordering QR codes"><span aria-hidden="true">▦</span><span class="desktop-only">QR cards</span></a>
           <button id="refresh" class="icon-link" type="button" title="Refresh orders" aria-label="Refresh orders"><span aria-hidden="true">↻</span><span class="desktop-only">Refresh</span></button>
           <button id="logout" class="icon-link" type="button" title="Sign out" aria-label="Sign out"><span aria-hidden="true">↪</span><span class="desktop-only">Sign out</span></button>
         </div>
@@ -50,6 +54,7 @@
       <div id="notice" class="notice" role="status" hidden></div>
       <section class="metrics" aria-label="Order counts">
         <div class="metric metric-new"><span class="metric-symbol" aria-hidden="true">✦</span><span class="metric-label">New</span><strong id="count-received">0</strong><small>waiting to start</small></div>
+        <div class="metric metric-accepted"><span class="metric-symbol" aria-hidden="true">○</span><span class="metric-label">Accepted</span><strong id="count-accepted">0</strong><small>queued for prep</small></div>
         <div class="metric metric-making"><span class="metric-symbol" aria-hidden="true">◌</span><span class="metric-label">Preparing</span><strong id="count-preparing">0</strong><small>being made</small></div>
         <div class="metric metric-ready"><span class="metric-symbol" aria-hidden="true">✓</span><span class="metric-label">Ready</span><strong id="count-ready">0</strong><small>for collection</small></div>
         <div class="metric metric-done"><span class="metric-symbol" aria-hidden="true">◍</span><span class="metric-label">Completed</span><strong id="count-completed">0</strong><small>today</small></div>
@@ -61,6 +66,7 @@
           <nav class="filters" aria-label="Order status">
             <button type="button" class="filter active" data-filter="ACTIVE" aria-pressed="true">Active</button>
             <button type="button" class="filter" data-filter="RECEIVED" aria-pressed="false">New</button>
+            <button type="button" class="filter" data-filter="ACCEPTED" aria-pressed="false">Accepted</button>
             <button type="button" class="filter" data-filter="PREPARING" aria-pressed="false">Preparing</button>
             <button type="button" class="filter" data-filter="READY" aria-pressed="false">Ready</button>
             <button type="button" class="filter" data-filter="COMPLETED" aria-pressed="false">Completed</button>

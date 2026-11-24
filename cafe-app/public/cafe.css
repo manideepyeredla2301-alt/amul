@@ -96,5 +96,36 @@ main{max-width:1220px;margin:0 auto;padding:0 32px 90px}
 .card-photo,.item-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .card-art .art-number{z-index:2;top:7px;left:7px;padding:4px 5px;border-radius:4px;background:#163b2bab;color:#fff;opacity:1}
 @media(max-width:760px){.hero-photo{object-position:center 38%}}
+.checkout-fields select{width:100%;padding:12px 13px;border:1px solid #dfe7dd;border-radius:10px;outline:0;background:#fff;color:#213c2d;font-size:13px;font-weight:500}
+.checkout-fields select:focus{border-color:#2c7151;box-shadow:0 0 0 3px #2c715118}
+.qr-notice{margin:0 0 18px;padding:14px 18px;border:1px solid #e1b7a2;border-radius:12px;background:#fff3ea;color:#843c2b;font-size:13px;font-weight:750}
+.card-label .food-mark{display:inline-grid;place-items:center;width:12px;height:12px;margin-right:5px;border:1px solid #308544;border-radius:3px;color:#308544;font-size:8px;line-height:1;vertical-align:middle}
+.card-label .food-mark.nonveg{border-color:#a64736;color:#a64736}
+.card-label .food-mark.egg{border-color:#b27b1c;color:#b27b1c}
+.menu-card.sold-out{opacity:.67}
+.sold-out-label{display:inline-block;margin-left:7px;padding:2px 5px;border-radius:4px;background:#fff0eb;color:#a34131;font-size:9px;font-weight:900;text-transform:uppercase}
+.menu-card.sold-out .card-add{background:#e4e7e2;color:#657369}
+.item-availability{margin-top:5px;color:#9f4534;font-size:12px;font-weight:800}
+.tracking-actions{flex-wrap:wrap}
+.tracking-actions .outline-button{min-width:30%}
+.option-choice:has(input:disabled){opacity:.45;cursor:not-allowed}
+.status-steps{grid-template-columns:repeat(5,1fr)}
+.tracking-items{display:grid;gap:6px;margin:0 0 13px;text-align:left}
+.tracking-items>div{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:#294b36}
+.tracking-items strong{white-space:nowrap}
+.tracking-items em{font-style:normal;color:#b35d3f;font-weight:800}
+.offer-preview{margin:0 0 11px;padding:10px 12px;border-radius:9px;background:#fff3df;color:#765123;font-size:12px;font-weight:850;line-height:1.4}
+:root{color:#172b41;background:#fbf8f3}
+.site-header .brand,.text-link,.header-cart,.brand-mark{color:#172b41}
+.brand-mark{border-color:#172b41}
+.hero,.site-footer,.mobile-cart,.action-button,.category-chip[aria-selected="true"]{background:#172b41}
+.action-button:hover{background:#29445e}
+.cart-count{background:#172b41}
+.title-dot,.section-kicker{color:#bd413b}
+.menu-toolbar{background:#fbf8f3}
+.card-copy h4,.menu-heading h3,.section-intro h2,.cart-line h3{color:#172b41}
+.card-bottom strong,.item-name-row>strong,.total-row strong,.checkout-summary strong{color:#172b41}
+.card-add{background:#f7e9e7;color:#a83f37}
+.card-add:hover{background:#bd413b;color:#fff}
 @media(max-width:400px){.hero h1{font-size:43px}.option-grid{grid-template-columns:1fr}.service-picker{grid-template-columns:1fr 1fr}.service-picker label{padding:9px 6px}.tracking-details{gap:3px}.tracking-details strong{font-size:10px}}
 @media(prefers-reduced-motion:reduce){:root{scroll-behavior:auto}*,*:before,*:after{transition:none!important;animation:none!important}}

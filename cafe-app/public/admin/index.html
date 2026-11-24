@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#142b3d">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <title>Manage café · FrostFlow</title>
+  <link rel="stylesheet" href="/admin/admin.css">
+  <script src="/admin/vendor/read-excel-file.min.js" defer></script>
+  <script src="/admin/xlsx-import.js" defer></script>
+  <script src="/admin/admin.js" defer></script>
+</head>
+<body>
+  <section id="login-view" class="login-screen" aria-labelledby="login-title">
+    <div class="login-art" aria-hidden="true"><span class="art-mark">✳</span><span class="art-caption">Made for the people<br>behind the counter.</span></div>
+    <div class="login-panel">
+      <div class="brand login-brand"><span class="brand-symbol">✳</span><span><strong>AMUL CAFÉ</strong><small>FROSTFLOW MANAGEMENT</small></span></div>
+      <span class="eyebrow">OWNER ACCESS</span>
+      <h1 id="login-title">Welcome back<span>.</span></h1>
+      <p>Sign in to manage your menu, team, stock and sales.</p>
+      <form id="login-form" autocomplete="on">
+        <label>Username<input id="login-username" name="username" autocomplete="username" required></label>
+        <label>Password<input id="login-password" name="password" type="password" autocomplete="current-password" required></label>
+        <button class="button button-primary" type="submit">Open management <span aria-hidden="true">→</span></button>
+        <p id="login-error" class="form-error" role="alert" hidden></p>
+      </form>
+      <small class="login-footnote">For authorized café managers only.</small>
+    </div>
+  </section>
+
+  <div id="app-view" class="app-shell" hidden>
+    <aside class="sidebar" aria-label="Management navigation">
+      <a class="brand sidebar-brand" href="/admin/"><span class="brand-symbol">✳</span><span><strong>AMUL CAFÉ</strong><small>FROSTFLOW</small></span></a>
+      <div class="sidebar-shop"><span class="shop-avatar">AC</span><span><strong>My café</strong><small>Management space</small></span><span class="shop-chevron">⌄</span></div>
+      <nav id="navigation" class="nav-list" aria-label="Sections">
+        <button data-view="dashboard" class="nav-item active" aria-current="page"><span class="nav-icon">▦</span> Overview</button>
+        <button data-view="products" class="nav-item"><span class="nav-icon">◫</span> Products</button>
+        <button data-view="categories" class="nav-item"><span class="nav-icon">▤</span> Categories</button>
+        <button data-view="inventory" class="nav-item"><span class="nav-icon">◈</span> Inventory</button>
+        <button data-view="orders" class="nav-item"><span class="nav-icon">◉</span> Orders & payments</button>
+        <button data-view="reports" class="nav-item"><span class="nav-icon">◩</span> Reports</button>
+        <button data-view="promotions" class="nav-item"><span class="nav-icon">✦</span> Offers</button>
+        <button data-view="qr" class="nav-item"><span class="nav-icon">▧</span> QR codes</button>
+        <button data-view="staff" class="nav-item"><span class="nav-icon">♧</span> Staff</button>
+        <button data-view="settings" class="nav-item"><span class="nav-icon">⚙</span> Settings</button>
+      </nav>
+      <div class="sidebar-bottom"><a href="/pos/" class="sidebar-shortcut">↗ <span>Open tablet POS</span></a><a href="/kitchen/" class="sidebar-shortcut">↗ <span>Open kitchen</span></a><button id="sign-out" class="sidebar-shortcut sign-out" type="button">↪ <span>Sign out</span></button></div>
+    </aside>
+    <main class="main-panel">
+      <header class="topbar"><div class="mobile-brand brand"><span class="brand-symbol">✳</span><span><strong>AMUL CAFÉ</strong><small>MANAGEMENT</small></span></div><div class="topbar-copy"><span id="page-eyebrow" class="eyebrow">BUSINESS OVERVIEW</span><h1 id="page-title">Good morning<span>.</span></h1></div><div class="topbar-actions"><span id="sync-status" class="sync-status"><i></i> Live</span><button id="refresh-view" type="button" class="icon-button" title="Refresh this view" aria-label="Refresh this view">↻</button><span id="staff-badge" class="staff-badge">R</span></div></header>
+      <div id="page-content" class="page-content" aria-live="polite"></div>
+      <div id="page-error" class="page-error" role="alert" hidden></div>
+    </main>
+    <nav class="mobile-nav" aria-label="Quick navigation"><button data-mobile-view="dashboard">▦<span>Overview</span></button><button data-mobile-view="products">◫<span>Products</span></button><button data-mobile-view="orders">◉<span>Orders</span></button><button data-mobile-view="inventory">◈<span>Stock</span></button><button data-mobile-view="more">☷<span>More</span></button></nav>
+  </div>
+
+  <dialog id="editor-dialog" class="editor-dialog" aria-labelledby="editor-title"><form id="editor-form" class="editor-form"><div class="dialog-header"><div><span id="editor-eyebrow" class="eyebrow">EDIT DETAILS</span><h2 id="editor-title">Edit</h2></div><button id="close-editor" type="button" class="icon-button" aria-label="Close editor">×</button></div><div id="editor-fields" class="editor-fields"></div><p id="editor-error" class="form-error" role="alert" hidden></p><div class="dialog-actions"><button id="cancel-editor" class="button button-secondary" type="button">Cancel</button><button id="save-editor" class="button button-primary" type="submit">Save changes</button></div></form></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

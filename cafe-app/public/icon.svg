@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Amul Café">
+  <rect width="512" height="512" rx="112" fill="#172b41"/>
+  <circle cx="256" cy="256" r="180" fill="#f8eee0"/>
+  <g fill="#c23a45">
+    <path d="M235 105h42v302h-42z"/>
+    <path d="M105 235h302v42H105z"/>
+    <path d="m134 164 30-30 214 214-30 30z"/>
+    <path d="m348 134 30 30-214 214-30-30z"/>
+  </g>
+  <circle cx="256" cy="256" r="47" fill="#f2c986"/>
+</svg>

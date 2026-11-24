@@ -14,3 +14,14 @@
 .prep-details ol{margin:8px 0 0;padding-left:18px;font-size:.72rem}
 .prep-details li+li{margin-top:5px}
 .order-note{white-space:pre-wrap}
+.metrics{grid-template-columns:repeat(5,minmax(0,1fr))}
+.metric-accepted{border-top:4px solid #6f91ad}
+.metric-accepted strong{color:#426c8b}
+.order-card.accepted{border-top:5px solid #6f91ad}
+.status-pill.accepted{background:#e8f0f5;color:#426c8b}
+.order-card.delayed{box-shadow:0 0 0 2px #d86b4b,0 8px 25px #a6402030}
+.order-card.delayed .elapsed-time{color:#b7432b;font-weight:900}
+.order-time small{display:block;margin-top:4px;font-size:.68rem;color:#708679}
+.item-note{margin-top:7px;padding:7px 9px;border-radius:6px;background:#fff3e7;color:#8b4f2f;font-size:.72rem;line-height:1.4;white-space:pre-wrap}
+@media(max-width:1250px){.metrics{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:850px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}

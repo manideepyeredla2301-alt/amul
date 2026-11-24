@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#172b41">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Counter · Amul Café</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/pos/pos.css">
+  <script src="/pos/pos.js" defer></script>
+</head>
+<body>
+  <main id="login-view" class="login-view" hidden>
+    <section class="login-card">
+      <div class="brand brand-dark"><span class="brand-mark">✳</span><span>AMUL <b>CAFÉ</b><small>powered by FrostFlow</small></span></div>
+      <div class="login-art" aria-hidden="true">🍨</div>
+      <span class="eyebrow">COUNTER ACCESS</span>
+      <h1>Ready to serve?</h1>
+      <p class="muted">Sign in to take orders and make bills from this tablet.</p>
+      <form id="login-form" autocomplete="on">
+        <label for="username">Username</label>
+        <input id="username" name="username" autocomplete="username" autocapitalize="none" required maxlength="80">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <p id="login-error" class="field-error" role="alert" hidden></p>
+        <button class="button button-primary login-submit" type="submit">Open counter <span aria-hidden="true">→</span></button>
+      </form>
+    </section>
+  </main>
+
+  <div id="app-view" class="app" hidden>
+    <header class="topbar">
+      <div class="brand brand-light"><span class="brand-mark">✳</span><span>AMUL <b>CAFÉ</b><small>Counter POS</small></span></div>
+      <div class="topbar-right">
+        <span id="connection" class="connection checking" role="status"><i></i> Connecting</span>
+        <button id="queued-orders" class="top-button queue-top" type="button">Unsynced <b id="queue-count">0</b></button>
+        <span id="staff-name" class="staff-name"></span>
+        <button id="sign-out" class="top-button" type="button" title="Sign out">Sign out</button>
+      </div>
+    </header>
+
+    <div id="offline-banner" class="offline-banner" role="alert" hidden>Connection lost. You can save an unsynced order on this device. It will not reach the kitchen or record payment until staff reviews and sends it online.</div>
+    <div id="notice" class="notice" role="status" hidden></div>
+
+    <main class="workspace">
+      <section class="catalog-panel" aria-labelledby="catalog-title">
+        <div class="catalog-header">
+          <div><span class="eyebrow">FAST & SIMPLE BILLING</span><h1 id="catalog-title">What are we serving?</h1></div>
+          <button id="held-orders" class="button button-outline hold-top" type="button"><span aria-hidden="true">▤</span> Held carts <b id="hold-count">0</b></button>
+        </div>
+
+        <div class="service-strip" aria-label="Order type">
+          <button class="service-choice active" type="button" data-service="DINE_IN" aria-pressed="true"><span>🍽️</span>Dine in</button>
+          <button class="service-choice" type="button" data-service="TAKEAWAY" aria-pressed="false"><span>🥡</span>Takeaway</button>
+          <button class="service-choice" type="button" data-service="COUNTER" aria-pressed="false"><span>🧾</span>Counter sale</button>
+        </div>
+
+        <div class="search-row">
+          <label class="search-box"><span class="search-icon" aria-hidden="true">⌕</span><span class="sr-only">Search products or scan barcode</span><input id="product-search" type="search" placeholder="Search product, SKU or scan barcode" autocomplete="off" inputmode="search"></label>
+          <button id="scan-button" class="button button-outline scan-button" type="button" title="Scan barcode"><span aria-hidden="true">▦</span><span>Scan</span></button>
+        </div>
+        <div id="scanner-wrap" class="scanner-wrap" hidden><video id="scanner-video" playsinline muted></video><button id="scanner-close" class="button button-outline" type="button">Close camera</button><p>Point the camera at the packaged product barcode.</p></div>
+
+        <div class="scope-tabs" role="tablist" aria-label="Products">
+          <button type="button" class="scope-tab active" data-scope="ALL" aria-selected="true">All products</button>
+          <button type="button" class="scope-tab" data-scope="PREPARED" aria-selected="false">Café menu</button>
+          <button type="button" class="scope-tab" data-scope="RETAIL" aria-selected="false">Packaged ice cream</button>
+        </div>
+        <nav id="category-list" class="category-list" aria-label="Product categories"></nav>
+        <div class="product-heading"><div><span class="eyebrow">PRODUCTS</span><h2 id="product-heading">All products</h2></div><span id="product-count" class="product-count"></span></div>
+        <div id="product-grid" class="product-grid" aria-live="polite"></div>
+        <div id="product-empty" class="empty-products" hidden><span aria-hidden="true">🍦</span><h3>No products here yet</h3><p id="product-empty-copy">Try another search or category.</p></div>
+      </section>
+
+      <aside id="cart-panel" class="cart-panel" aria-labelledby="cart-title">
+        <div class="cart-head"><button id="close-mobile-cart" class="close-mobile-cart" type="button" aria-label="Close cart">←</button><div><span class="eyebrow">CURRENT ORDER</span><h2 id="cart-title">Your cart <span id="cart-count">0</span></h2></div><button id="clear-cart" class="text-button" type="button" disabled>Clear</button></div>
+        <div class="order-fields">
+          <label><span id="table-label">Table number</span><input id="table-number" type="text" placeholder="e.g. 04" maxlength="16" autocomplete="off"></label>
+          <label><span>Customer name <small>(optional)</small></span><input id="customer-name" type="text" placeholder="Name or order reference" maxlength="80" autocomplete="off"></label>
+        </div>
+        <div id="cart-items" class="cart-items"></div>
+        <div id="cart-empty" class="cart-empty"><span aria-hidden="true">🛒</span><strong>Your cart is empty</strong><p>Tap a product to get started.</p></div>
+        <div class="cart-bottom">
+          <label class="order-note"><span>Order note <small>(optional)</small></span><textarea id="order-note" rows="2" maxlength="300" placeholder="Anything the team should know?"></textarea></label>
+          <div class="total-row"><span>Estimated total</span><strong id="cart-total">₹0</strong></div>
+          <p class="total-hint">Final prices, offers and taxes are confirmed by the server.</p>
+          <div class="cart-actions"><button id="hold-cart" class="button button-outline" type="button" disabled>Hold cart</button><button id="checkout" class="button button-primary" type="button" disabled>Checkout <span aria-hidden="true">→</span></button></div>
+        </div>
+      </aside>
+    </main>
+    <button id="mobile-cart-toggle" class="mobile-cart-toggle" type="button" hidden><span>View cart <b id="mobile-cart-count">0</b></span><strong id="mobile-cart-total">₹0</strong></button>
+  </div>
+
+  <dialog id="item-dialog" class="sheet-dialog">
+    <form id="item-form" method="dialog">
+      <div class="dialog-top"><div><span id="item-kind" class="eyebrow"></span><h2 id="item-title"></h2></div><button class="close-button" type="button" data-close="item-dialog" aria-label="Close">×</button></div>
+      <p id="item-description" class="muted"></p>
+      <div id="item-option-groups" class="option-groups"></div>
+      <label class="item-note"><span>Preparation note <small>(optional)</small></span><input id="item-note" type="text" maxlength="300" placeholder="e.g. less spicy, no onion"></label>
+      <div class="dialog-footer"><div class="qty-control" aria-label="Quantity"><button id="item-minus" type="button" aria-label="Decrease quantity">−</button><span id="item-quantity">1</span><button id="item-plus" type="button" aria-label="Increase quantity">+</button></div><button id="add-item" class="button button-primary" type="submit">Add <span id="item-price">₹0</span></button></div>
+      <p id="item-error" class="field-error" role="alert" hidden></p>
+    </form>
+  </dialog>
+
+  <dialog id="checkout-dialog" class="sheet-dialog checkout-dialog">
+    <form id="checkout-form" method="dialog">
+      <div class="dialog-top"><div><span class="eyebrow">REVIEW & BILL</span><h2>Take payment</h2></div><button class="close-button" type="button" data-close="checkout-dialog" aria-label="Close">×</button></div>
+      <p class="muted">Choose how the customer is paying. Nothing is collected online.</p>
+      <div id="checkout-summary" class="checkout-summary"></div>
+      <div class="payment-choices" role="group" aria-label="Payment method"><button type="button" class="payment-choice active" data-payment="UNPAID">Unpaid</button><button type="button" class="payment-choice" data-payment="CASH">Cash</button><button type="button" class="payment-choice" data-payment="UPI">UPI</button><button type="button" class="payment-choice" data-payment="CARD">Card</button><button type="button" class="payment-choice" data-payment="SPLIT">Split</button></div>
+      <div id="payment-fields" class="payment-fields" hidden></div>
+      <label class="discount-field"><span>Discount <small>(manager approval required)</small></span><input id="discount-amount" type="number" min="0" step="1" inputmode="numeric" placeholder="₹0" disabled></label>
+      <p id="checkout-error" class="field-error" role="alert" hidden></p>
+      <div class="checkout-foot"><div><span>Estimated total</span><strong id="checkout-total">₹0</strong></div><button id="place-order" class="button button-primary" type="submit">Create order <span aria-hidden="true">→</span></button></div>
+    </form>
+  </dialog>
+
+  <dialog id="holds-dialog" class="sheet-dialog holds-dialog">
+    <div class="dialog-top"><div><span class="eyebrow">SAVE IT FOR LATER</span><h2>Held carts</h2></div><button class="close-button" type="button" data-close="holds-dialog" aria-label="Close">×</button></div>
+    <div id="holds-list" class="holds-list"></div>
+  </dialog>
+
+  <dialog id="queue-dialog" class="sheet-dialog holds-dialog">
+    <div class="dialog-top"><div><span class="eyebrow">MANUAL SYNC REQUIRED</span><h2>Unsynced orders</h2></div><button class="close-button" type="button" data-close="queue-dialog" aria-label="Close">×</button></div>
+    <p class="queue-help">These orders are saved only on this device. They have no order number, kitchen ticket, payment record, or receipt until the server accepts them. Review each order after reconnecting.</p>
+    <div id="queue-list" class="holds-list"></div>
+  </dialog>
+
+  <dialog id="queue-review-dialog" class="sheet-dialog queue-review-dialog">
+    <div class="dialog-top"><div><span class="eyebrow">VERIFY BEFORE SENDING</span><h2 id="queue-review-title">Review offline order</h2></div><button class="close-button" type="button" data-close="queue-review-dialog" aria-label="Close">×</button></div>
+    <div id="queue-review-content" class="queue-review-content"></div>
+    <p id="queue-review-error" class="field-error" role="alert" hidden></p>
+    <div class="queue-review-actions"><button id="queue-review-edit" class="button button-outline" type="button">Edit cart</button><button id="queue-review-send" class="button button-primary" type="button">Send order now</button></div>
+  </dialog>
+
+  <dialog id="receipt-dialog" class="receipt-dialog">
+    <div class="receipt-top"><div><span class="eyebrow">ORDER CREATED</span><h2 id="receipt-title">Order confirmed</h2><p id="receipt-subtitle"></p></div><button class="close-button" type="button" data-close="receipt-dialog" aria-label="Close">×</button></div>
+    <div id="receipt-state" class="receipt-state"></div>
+    <iframe id="receipt-frame" title="Receipt preview"></iframe>
+    <div class="receipt-actions"><button id="print-receipt" class="button button-outline" type="button" disabled>Print receipt</button><button id="record-payment" class="button button-outline" type="button">Record payment</button><button id="new-order" class="button button-primary" type="button">New order</button></div>
+  </dialog>
+
+  <dialog id="payment-dialog" class="sheet-dialog payment-dialog">
+    <form id="later-payment-form" method="dialog">
+      <div class="dialog-top"><div><span class="eyebrow">COUNTER COLLECTION</span><h2>Record a payment</h2></div><button class="close-button" type="button" data-close="payment-dialog" aria-label="Close">×</button></div>
+      <p class="muted">Record money only after the customer has paid outside this website.</p>
+      <label class="payment-form-field">Method<select id="later-payment-method"><option value="CASH">Cash</option><option value="UPI">UPI</option><option value="CARD">Card</option></select></label>
+      <label class="payment-form-field">Amount received (₹)<input id="later-payment-amount" type="number" min="0.01" step="0.01" inputmode="decimal" required></label>
+      <label class="payment-form-field">Transaction reference <small>(optional)</small><input id="later-payment-reference" type="text" maxlength="100" placeholder="UPI or card reference"></label>
+      <p id="later-payment-error" class="field-error" role="alert" hidden></p>
+      <button id="save-payment" class="button button-primary full-width" type="submit">Save payment</button>
+    </form>
+  </dialog>
+</body>
+</html>

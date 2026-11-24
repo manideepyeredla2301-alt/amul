@@ -1,5 +1,6 @@
 import menu from './menu.json' with { type: 'json' };
 import prep from './prep.json' with { type: 'json' };
+import { platformRoute } from './platform.js';
 
 const encoder = new TextEncoder();
 const SESSION_SECONDS = 12 * 60 * 60;
@@ -358,6 +359,8 @@ async function setKitchenStatus(request, env, id) {
 async function route(request, env) {
   const url = new URL(request.url);
   const path = url.pathname;
+  const platformResponse = await platformRoute(request, env);
+  if (platformResponse) return platformResponse;
   if (path === '/api/cafe/health' && request.method === 'GET') return json({ ok: true, service: 'frostflow-cafe' });
   if (path === '/api/cafe/menu' && request.method === 'GET') {
     return json({ currency: menu.currency, categories: menu.categories, optionGroups: menu.optionGroups });

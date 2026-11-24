@@ -3,10 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#174c3b">
+  <meta name="theme-color" content="#172b41">
   <meta name="description" content="Order fresh café favourites at our Amul ice cream café. Scan, choose, and collect your order.">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icon-192.png">
   <title>Amul Café · Order Online</title>
   <link rel="stylesheet" href="/cafe.css">
+  <script src="/pwa.js" defer></script>
   <script type="module" src="/cafe.js"></script>
 </head>
 <body>
@@ -26,6 +30,7 @@
     </header>
 
     <main>
+      <p id="qr-notice" class="qr-notice" role="alert" hidden></p>
       <section class="hero" aria-labelledby="hero-title">
         <div class="hero-copy">
           <span class="eyebrow"><span class="eyebrow-dot"></span> FRESH FROM OUR CAFÉ</span>
@@ -49,7 +54,7 @@
       </section>
 
       <section id="menu" class="menu-section" aria-labelledby="menu-title">
-        <div class="section-intro"><div><span class="section-kicker">THE GOOD STUFF</span><h2 id="menu-title">Explore our menu<span class="title-dot">.</span></h2><p>From the first sip to the last spoonful. Photos show representative servings.</p></div><div class="handdrawn-star" aria-hidden="true">✳</div></div>
+        <div class="section-intro"><div><span class="section-kicker">THE GOOD STUFF</span><h2 id="menu-title">Explore our menu<span class="title-dot">.</span></h2><p>From the first sip to the last spoonful.</p></div><div class="handdrawn-star" aria-hidden="true">✳</div></div>
         <div class="menu-toolbar">
           <label class="search-field" for="menu-search"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.7"/><path d="m16 16 5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg><input id="menu-search" type="search" placeholder="Search burgers, sundaes, coffee…" autocomplete="off"><span class="search-shortcut" aria-hidden="true">⌕</span></label>
           <div id="category-nav" class="category-nav" role="tablist" aria-label="Menu categories"></div>
@@ -75,18 +80,18 @@
   </dialog>
 
   <dialog id="cart-dialog" class="sheet-dialog" aria-labelledby="cart-title">
-    <div class="dialog-shell cart-shell"><div class="dialog-top"><span class="dialog-overline">YOUR SELECTION</span><button class="close-button" type="button" data-close="cart-dialog" aria-label="Close cart">×</button></div><h2 id="cart-title">Your cart<span class="title-dot">.</span></h2><p class="cart-caption">A little something for every craving.</p><div id="cart-lines" class="cart-lines"></div><div class="cart-bottom"><div class="total-row"><span>Estimated total</span><strong id="cart-total">₹0</strong></div><p>Payment is made at the café after your order.</p><button id="checkout-button" class="action-button wide" type="button">Continue to order <span aria-hidden="true">→</span></button></div></div>
+    <div class="dialog-shell cart-shell"><div class="dialog-top"><span class="dialog-overline">YOUR SELECTION</span><button class="close-button" type="button" data-close="cart-dialog" aria-label="Close cart">×</button></div><h2 id="cart-title">Your cart<span class="title-dot">.</span></h2><p class="cart-caption">A little something for every craving.</p><div id="cart-lines" class="cart-lines"></div><div class="cart-bottom"><p id="cart-offer" class="offer-preview" hidden></p><div class="total-row"><span>Estimated total</span><strong id="cart-total">₹0</strong></div><p>Payment is made at the café after your order.</p><button id="checkout-button" class="action-button wide" type="button">Continue to order <span aria-hidden="true">→</span></button></div></div>
   </dialog>
 
   <dialog id="checkout-dialog" class="sheet-dialog" aria-labelledby="checkout-title">
     <form id="checkout-form" class="dialog-shell checkout-shell"><div class="dialog-top"><span class="dialog-overline">ALMOST THERE</span><button class="close-button" type="button" data-close="checkout-dialog" aria-label="Close checkout">×</button></div><h2 id="checkout-title">Place your order<span class="title-dot">.</span></h2><p class="cart-caption">We’ll prepare it as soon as it reaches the kitchen.</p>
       <fieldset class="service-picker"><legend>How are you enjoying it?</legend><label><input type="radio" name="service-type" value="DINE_IN" checked><span><strong>Dine in</strong><small>Bring it to my table</small></span></label><label><input type="radio" name="service-type" value="TAKEAWAY"><span><strong>Takeaway</strong><small>I’ll collect it</small></span></label></fieldset>
-      <div class="checkout-fields"><label>Your name<input id="customer-name" name="customer-name" maxlength="80" autocomplete="name" placeholder="Your name" required></label><label id="table-field">Table number<input id="table-number" name="table-number" maxlength="16" inputmode="text" placeholder="e.g. 4" required></label><label>Anything we should know? <span>(optional)</span><textarea id="order-note" name="order-note" maxlength="300" rows="2" placeholder="No onions, extra napkins…"></textarea></label></div>
-      <div class="checkout-summary"><span>Order total</span><strong id="checkout-total">₹0</strong></div><p class="payment-note"><span aria-hidden="true">✦</span> No online payment. Please pay at the café.</p><button id="place-order" class="action-button wide" type="submit">Place order <span aria-hidden="true">→</span></button><p id="checkout-error" class="form-error" role="alert"></p>
+      <div class="checkout-fields"><label>Your name<input id="customer-name" name="customer-name" maxlength="80" autocomplete="name" placeholder="Your name" required></label><label id="table-field">Table number<input id="table-number" name="table-number" maxlength="16" inputmode="text" placeholder="e.g. 4" required></label><label>How will you pay at the café?<select id="payment-preference" name="payment-preference"><option value="CASH">Cash</option><option value="UPI">UPI</option><option value="CARD">Card</option></select></label><label>Anything we should know? <span>(optional)</span><textarea id="order-note" name="order-note" maxlength="300" rows="2" placeholder="No onions, extra napkins…"></textarea></label></div>
+      <p id="checkout-offer" class="offer-preview" hidden></p><div class="checkout-summary"><span>Estimated total</span><strong id="checkout-total">₹0</strong></div><p class="payment-note"><span aria-hidden="true">✦</span> No online payment. Please pay at the café. Final offers and taxes are confirmed on the order.</p><button id="place-order" class="action-button wide" type="submit">Place order <span aria-hidden="true">→</span></button><p id="checkout-error" class="form-error" role="alert"></p>
     </form>
   </dialog>
 
-  <dialog id="tracking-dialog" class="sheet-dialog" aria-labelledby="tracking-title"><div class="dialog-shell tracking-shell"><div class="dialog-top"><span class="dialog-overline">ORDER UPDATE</span><button class="close-button" type="button" data-close="tracking-dialog" aria-label="Close order status">×</button></div><div class="success-icon" aria-hidden="true">✓</div><span id="tracking-kicker" class="section-kicker">WE’VE GOT IT</span><h2 id="tracking-title">Order received<span class="title-dot">.</span></h2><p id="tracking-message" class="tracking-message">Your order is on its way to the kitchen.</p><div id="tracking-status" class="status-steps"></div><div class="tracking-details"><div><span>Order number</span><strong id="tracking-number">—</strong></div><div><span>For</span><strong id="tracking-service">—</strong></div><div><span>Total</span><strong id="tracking-total">—</strong></div></div><p class="payment-note">Pay at the café. No payment has been collected online.</p><div class="tracking-actions"><button id="refresh-status" class="outline-button" type="button">Refresh status</button><button id="copy-tracking" class="outline-button" type="button">Copy tracking link</button></div><button class="action-button wide" type="button" data-close="tracking-dialog">Back to menu</button><p id="tracking-error" class="form-error" role="alert"></p></div></dialog>
+  <dialog id="tracking-dialog" class="sheet-dialog" aria-labelledby="tracking-title"><div class="dialog-shell tracking-shell"><div class="dialog-top"><span class="dialog-overline">ORDER UPDATE</span><button class="close-button" type="button" data-close="tracking-dialog" aria-label="Close order status">×</button></div><div class="success-icon" aria-hidden="true">✓</div><span id="tracking-kicker" class="section-kicker">WE’VE GOT IT</span><h2 id="tracking-title">Order received<span class="title-dot">.</span></h2><p id="tracking-message" class="tracking-message">Your order is on its way to the kitchen.</p><div id="tracking-status" class="status-steps"></div><div class="tracking-details"><div><span>Order number</span><strong id="tracking-number">—</strong></div><div><span>For</span><strong id="tracking-service">—</strong></div><div><span>Total</span><strong id="tracking-total">—</strong></div></div><div id="tracking-items" class="tracking-items" aria-label="Order items"></div><p id="tracking-payment" class="payment-note">Payment due at the café.</p><div class="tracking-actions"><button id="refresh-status" class="outline-button" type="button">Refresh status</button><button id="copy-tracking" class="outline-button" type="button">Copy tracking link</button><button id="reorder" class="outline-button" type="button" hidden>Order again</button></div><button class="action-button wide" type="button" data-close="tracking-dialog">Back to menu</button><p id="tracking-error" class="form-error" role="alert"></p></div></dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 </body>

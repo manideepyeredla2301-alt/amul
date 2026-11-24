@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "wrangler dev",
     "check": "node --check src/worker.js && node --test test/*.test.js",
+    "check:integration": "node test/platform.integration.mjs",
     "deploy": "wrangler deploy",
     "migrate:remote": "wrangler d1 migrations apply frostflow-online --remote"
   },

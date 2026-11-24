@@ -18,12 +18,14 @@
     <section class="qr-controls no-print" aria-label="QR card settings">
       <label>First table <input id="first-table" type="number" inputmode="numeric" min="1" max="999" value="1"></label>
       <label>Number of tables <input id="table-count" type="number" inputmode="numeric" min="1" max="48" value="12"></label>
-      <label class="counter-control"><input id="include-counter" type="checkbox" checked> Include counter code</label>
-      <button id="generate" class="button button-primary" type="button">Update cards</button>
+      <label class="counter-control"><input id="include-general" type="checkbox" checked> General café</label>
+      <label class="counter-control"><input id="include-counter" type="checkbox" checked> Counter pickup</label>
+      <label class="counter-control"><input id="include-takeaway" type="checkbox" checked> Takeaway</label>
+      <button id="generate" class="button button-primary" type="button">Create missing codes</button>
       <button id="print" class="button print-button" type="button">Print / Save PDF</button>
     </section>
     <p id="qr-error" class="form-error no-print" role="alert" hidden></p>
-    <p class="print-note no-print">Print at 100% scale on A4 paper. Cut along the dotted edges and place the cards at the matching tables.</p>
+    <p class="print-note no-print">Only active codes appear. Print at 100% scale on A4 paper, or download an individual SVG. Disable codes from the admin dashboard when a card is lost.</p>
     <div id="qr-grid" class="qr-grid" aria-label="Printable ordering QR cards"></div>
   </main>
 </body>

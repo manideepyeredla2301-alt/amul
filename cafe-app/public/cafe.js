@@ -21,6 +21,7 @@ const art = {
 };
 const statusSteps = [
   ['RECEIVED', 'Received'],
+  ['ACCEPTED', 'Accepted'],
   ['PREPARING', 'Preparing'],
   ['READY', 'Ready'],
   ['COMPLETED', 'Done'],
@@ -30,7 +31,11 @@ const itemPhotos = {
   'classic-chicken-burger': 'classic-chicken-burger.jpg',
 };
 function imageFor(item, category) {
-  return `/images/${itemPhotos[item.id] || `${category.id}.jpg`}`;
+  return item.image_url || category?.image_url || `/images/${itemPhotos[item.id] || `${category.id}.jpg`}`;
+}
+function foodType(item) {
+  const type = item.veg_type || (/chicken/i.test(item.name) ? 'NON_VEG' : /egg/i.test(item.name) ? 'EGG' : 'VEG');
+  return type === 'NON_VEG' ? ['nonveg', 'Non-vegetarian'] : type === 'EGG' ? ['egg', 'Contains egg'] : ['veg', 'Vegetarian'];
 }
 
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -76,6 +81,11 @@ const state = {
   requestPayloadSignature: null,
   placing: false,
   table: new URL(location.href).searchParams.get('table')?.trim() || '',
+  qrCodeId: new URL(location.href).searchParams.get('qr')?.trim() ||
+    (new URL(location.href).searchParams.get('table')?.trim() ? `table-${new URL(location.href).searchParams.get('table')?.trim()}` : 'general'),
+  qrInvalid: false,
+  defaultService: ['takeaway', 'pickup'].includes(new URL(location.href).searchParams.get('mode')) ? 'TAKEAWAY' : 'DINE_IN',
+  trackedItems: [],
 };
 if (!Array.isArray(state.cart)) state.cart = [];
 if (!validTable(state.table)) state.table = '';
@@ -86,6 +96,39 @@ function itemFor(itemId) { for (const category of categories()) { const item = c
 function itemCount() { return state.cart.reduce((total, line) => total + line.quantity, 0); }
 function linePrice(line) { return unitPrice(itemFor(line.item_id), line.options || {}) * line.quantity; }
 function cartTotal() { return state.cart.reduce((total, line) => total + linePrice(line), 0); }
+function offerMessage() {
+  const offer = state.menu?.offers?.find(entry => entry.type === 'FREE_ITEM' && entry.complimentary_product_id === 'salted-fries');
+  if (!offer || !state.cart.length) return '';
+  const eligiblePaise = state.cart.reduce((sum, line) => {
+    const item = itemFor(line.item_id);
+    return sum + (item?.ice_cream_offer_eligible ? Math.round(linePrice(line) * 100) : 0);
+  }, 0);
+  return eligiblePaise > Number(offer.threshold_paise)
+    ? 'Complimentary Salted Fries will be added to your order at ₹0.'
+    : `Eligible ice cream above ${money(Number(offer.threshold_paise) / 100)} includes complimentary Salted Fries.`;
+}
+function updateOfferPreview() {
+  const message = offerMessage();
+  for (const id of ['cart-offer', 'checkout-offer']) {
+    const node = document.getElementById(id);
+    node.textContent = message;
+    node.hidden = !message;
+  }
+}
+
+function renderPaymentMethods() {
+  const select = $('#payment-preference');
+  const names = { CASH: 'Cash', UPI: 'UPI', CARD: 'Card' };
+  const methods = (state.menu?.payment_methods || []).filter(method => names[method]);
+  const selected = select.value;
+  select.replaceChildren(...(methods.length ? methods : ['']).map(method => {
+    const option = document.createElement('option');
+    option.value = method;
+    option.textContent = names[method] || 'Ask the café team';
+    return option;
+  }));
+  if (methods.includes(selected)) select.value = selected;
+}
 
 function unitPrice(item, options) {
   if (!item) return 0;
@@ -163,7 +206,9 @@ function renderMenu() {
   if (!filtered.length) { grid.innerHTML = `<div class="empty-state"><strong>Nothing found yet</strong><p>Try another craving or browse all favourites.</p></div>`; return; }
   grid.innerHTML = filtered.map(({ item, category }, index) => {
     const [icon, bg, color] = art[category.id] || ['✳', '#e8eadd', '#526e56'];
-    return `<article class="menu-card"><div class="card-art" style="--art-bg:${bg};--art-color:${color}"><img class="card-photo" src="${escapeHtml(imageFor(item, category))}" alt="" loading="lazy" decoding="async"><span class="art-number">${String(index + 1).padStart(2, '0')}</span></div><div class="card-copy"><span class="card-label">${escapeHtml(category.name)}${item.optional ? ' · SPECIAL' : ''}</span><h4>${escapeHtml(item.name)}</h4><p>${escapeHtml(item.description || category.description || category.serving || 'Made fresh for you')}</p><div class="card-bottom"><strong>${money(item.price)}</strong><button class="card-add" type="button" data-item="${escapeHtml(item.id)}" aria-label="${item.optionGroups?.length ? 'Customize' : 'Add'} ${escapeHtml(item.name)}">+</button></div></div></article>`;
+    const [markClass, markLabel] = foodType(item);
+    const unavailable = item.available === false;
+    return `<article class="menu-card ${unavailable ? 'sold-out' : ''}"><div class="card-art" style="--art-bg:${bg};--art-color:${color}"><img class="card-photo" src="${escapeHtml(imageFor(item, category))}" alt="" loading="lazy" decoding="async"><span class="art-number">${String(index + 1).padStart(2, '0')}</span></div><div class="card-copy"><span class="card-label"><span class="food-mark ${markClass}" title="${markLabel}" aria-label="${markLabel}">●</span>${escapeHtml(category.name)}${item.optional ? ' · SPECIAL' : ''}${unavailable ? '<span class="sold-out-label">Sold out</span>' : ''}</span><h4>${escapeHtml(item.name)}</h4><p>${escapeHtml(item.description || category.description || category.serving || 'Made fresh for you')}</p><div class="card-bottom"><strong>${money(item.price)}</strong><button class="card-add" type="button" data-item="${escapeHtml(item.id)}" aria-label="${unavailable ? 'Sold out' : item.optionGroups?.length ? 'Customize' : 'Add'} ${escapeHtml(item.name)}" ${unavailable ? 'disabled' : ''}>${unavailable ? '×' : '+'}</button></div></div></article>`;
   }).join('');
   $$('[data-item]', grid).forEach(button => button.addEventListener('click', () => {
     const item = itemFor(button.dataset.item);
@@ -187,6 +232,16 @@ function defaultOptions(item) {
   }
   return options;
 }
+function normalizeSundaeOptions() {
+  if (state.selectedItem?.id !== 'build-your-own-sundae' || state.options['sundae-serving'] !== 'waffle-cone') return;
+  state.options['sundae-size'] = 'single';
+  state.options['sundae-flavors'] = (state.options['sundae-flavors'] || ['Vanilla']).slice(0, 1);
+  state.options['sundae-sauce'] = (state.options['sundae-sauce'] || ['Chocolate Fudge']).slice(0, 1);
+  const dry = (state.menu?.optionGroups?.['sundae-topping']?.choices || []).filter(value => value !== 'Jelly');
+  const topping = (state.options['sundae-topping'] || []).find(value => dry.includes(value)) || dry[0];
+  state.options['sundae-topping'] = topping ? [topping] : [];
+  state.options['sundae-extras'] = [];
+}
 function updateItemPrice() {
   $('#item-total').textContent = money(unitPrice(state.selectedItem, state.options) * state.quantity);
   $('#item-quantity').textContent = String(state.quantity);
@@ -209,21 +264,26 @@ function renderSundaeChoice(groupId, group) {
   const extraKey = groupId === 'sundae-sauce' ? 'additional-sauce' : 'additional-topping';
   const hasExtra = extras.includes(extraKey);
   const title = groupId === 'sundae-sauce' ? 'Sauce' : 'Topping';
-  return `<fieldset class="option-group"><legend>${title}</legend><small>One ${title.toLowerCase()} included. Add another if you like.</small><div class="extra-choice"><label>Included<select data-sundae-choice="${groupId}" data-choice-index="0">${group.choices.map(choice => `<option value="${escapeHtml(choice)}" ${choice === selected[0] ? 'selected' : ''}>${escapeHtml(choice)}</option>`).join('')}</select></label>${hasExtra ? `<label>Extra ${title.toLowerCase()}<select data-sundae-choice="${groupId}" data-choice-index="1">${group.choices.map(choice => `<option value="${escapeHtml(choice)}" ${choice === selected[1] ? 'selected' : ''}>${escapeHtml(choice)}</option>`).join('')}</select></label>` : ''}</div></fieldset>`;
+  const cone = state.options['sundae-serving'] === 'waffle-cone';
+  const choices = cone && groupId === 'sundae-topping' ? group.choices.filter(choice => choice !== 'Jelly') : group.choices;
+  const options = index => choices.map(choice => `<option value="${escapeHtml(choice)}" ${choice === selected[index] ? 'selected' : ''}>${escapeHtml(choice)}</option>`).join('');
+  return `<fieldset class="option-group"><legend>${title}</legend><small>${cone ? 'One ' + title.toLowerCase() + ' for a waffle cone.' : 'One ' + title.toLowerCase() + ' included. Add another if you like.'}</small><div class="extra-choice"><label>Included<select data-sundae-choice="${groupId}" data-choice-index="0">${options(0)}</select></label>${hasExtra && !cone ? `<label>Extra ${title.toLowerCase()}<select data-sundae-choice="${groupId}" data-choice-index="1">${options(1)}</select></label>` : ''}</div></fieldset>`;
 }
 function renderOptions() {
+  normalizeSundaeOptions();
   const item = state.selectedItem;
   const html = [];
+  const cone = state.options['sundae-serving'] === 'waffle-cone';
   for (const groupId of item.optionGroups || []) {
     const group = state.menu?.optionGroups?.[groupId];
     if (!group) continue;
     if (group.type === 'checkbox') {
       html.push(`<fieldset class="option-group"><legend>Extras</legend><label class="option-choice"><input type="checkbox" data-check-group="${groupId}" ${state.options[groupId] ? 'checked' : ''}><span>${escapeHtml(group.name)}</span><em>+${money(group.priceDelta)}</em></label></fieldset>`);
     } else if (group.type === 'single') {
-      html.push(`<fieldset class="option-group"><legend>${escapeHtml(group.name)}</legend><div class="option-grid">${group.choices.map(choice => `<label class="option-choice"><input type="radio" name="${groupId}" data-single-group="${groupId}" value="${escapeHtml(choice.id)}" ${state.options[groupId] === choice.id ? 'checked' : ''}><span>${escapeHtml(choice.name)}</span>${choice.priceDelta ? `<em>+${money(choice.priceDelta)}</em>` : ''}</label>`).join('')}</div></fieldset>`);
+      html.push(`<fieldset class="option-group"><legend>${escapeHtml(group.name)}</legend>${groupId === 'sundae-size' && cone ? '<small>Waffle cones hold one scoop.</small>' : ''}<div class="option-grid">${group.choices.map(choice => `<label class="option-choice"><input type="radio" name="${groupId}" data-single-group="${groupId}" value="${escapeHtml(choice.id)}" ${state.options[groupId] === choice.id ? 'checked' : ''} ${groupId === 'sundae-size' && cone && choice.id !== 'single' ? 'disabled' : ''}><span>${escapeHtml(choice.name)}</span>${choice.priceDelta ? `<em>+${money(choice.priceDelta)}</em>` : ''}</label>`).join('')}</div></fieldset>`);
     } else if (groupId === 'sundae-flavors') html.push(renderSundaeFlavors(group));
     else if (groupId === 'sundae-sauce' || groupId === 'sundae-topping') html.push(renderSundaeChoice(groupId, group));
-    else if (groupId === 'sundae-extras') html.push(`<fieldset class="option-group"><legend>Make it extra special</legend><div class="option-grid">${group.choices.map(choice => `<label class="option-choice"><input type="checkbox" data-extra="${escapeHtml(choice.id)}" ${(state.options[groupId] || []).includes(choice.id) ? 'checked' : ''}><span>${escapeHtml(choice.name)}</span><em>+${money(choice.priceDelta)}</em></label>`).join('')}</div></fieldset>`);
+    else if (groupId === 'sundae-extras' && !cone) html.push(`<fieldset class="option-group"><legend>Make it extra special</legend><div class="option-grid">${group.choices.map(choice => `<label class="option-choice"><input type="checkbox" data-extra="${escapeHtml(choice.id)}" ${(state.options[groupId] || []).includes(choice.id) ? 'checked' : ''}><span>${escapeHtml(choice.name)}</span><em>+${money(choice.priceDelta)}</em></label>`).join('')}</div></fieldset>`);
   }
   $('#item-options').innerHTML = html.join('');
   updateItemPrice();
@@ -246,6 +306,7 @@ function openItem(item) {
 }
 
 function addToCart(item, options, quantity) {
+  if (item.available === false) { toast(`${item.name} is sold out`); return; }
   const key = `${item.id}:${JSON.stringify(options)}`;
   const existing = state.cart.find(line => line.key === key);
   if (existing) existing.quantity = Math.min(MAX_QUANTITY, existing.quantity + quantity);
@@ -267,6 +328,7 @@ function renderCart() {
     }).join('');
   }
   $('#cart-total').textContent = money(cartTotal());
+  updateOfferPreview();
   $('#checkout-button').disabled = !state.cart.length;
   $$('[data-cart-minus]', container).forEach(button => button.addEventListener('click', () => changeLine(Number(button.dataset.cartMinus), -1)));
   $$('[data-cart-plus]', container).forEach(button => button.addEventListener('click', () => changeLine(Number(button.dataset.cartPlus), 1)));
@@ -288,12 +350,14 @@ function updateServiceForm() {
 }
 function openCheckout() {
   if (!state.cart.length) return;
+  if (state.qrInvalid) { toast('This QR code is no longer active. Ask a staff member for a new one.'); return; }
   closeDialog('cart-dialog');
   $('#customer-name').value = readStorage(NAME_KEY, '');
   $('#table-number').value = state.table;
-  $('input[name="service-type"][value="DINE_IN"]').checked = true;
+  $(`input[name="service-type"][value="${state.defaultService}"]`).checked = true;
   updateServiceForm();
   $('#checkout-total').textContent = money(cartTotal());
+  updateOfferPreview();
   $('#checkout-error').textContent = '';
   if (!state.requestId) {
     state.requestId = randomId();
@@ -315,6 +379,8 @@ async function submitOrder(event) {
     customer_name: name,
     service_type: serviceType,
     table_number: serviceType === 'DINE_IN' ? table : undefined,
+    qr_code_id: state.qrCodeId || undefined,
+    payment_preference: $('#payment-preference').value,
     note: $('#order-note').value.trim(),
     items: state.cart.map(line => ({ item_id: line.item_id, quantity: line.quantity, options: line.options || {} })),
   };
@@ -360,10 +426,11 @@ async function submitOrder(event) {
   }
 }
 
-function renderTracking(order) {
+function renderTracking(order, items = []) {
   const status = String(order.status || 'RECEIVED').toUpperCase();
   const labels = {
     RECEIVED: ['WE’VE GOT IT', 'Order received', 'Your order has reached the kitchen.'],
+    ACCEPTED: ['ON THE LIST', 'Order accepted', 'The kitchen has accepted your order.'],
     PREPARING: ['IN THE MAKING', 'Being prepared', 'The kitchen is preparing your order.'],
     READY: ['COME & GET IT', 'Ready to enjoy', 'Your order is ready. Please collect it or wait at your table.'],
     COMPLETED: ['ENJOY!', 'All served', 'Thanks for ordering with us.'],
@@ -376,6 +443,8 @@ function renderTracking(order) {
   $('#tracking-number').textContent = order.order_number || '—';
   $('#tracking-service').textContent = order.service_type === 'DINE_IN' ? `Table ${order.table_number || ''}` : 'Takeaway';
   $('#tracking-total').textContent = money(Number(order.total_paise || 0) / 100);
+  $('#tracking-items').innerHTML = items.map(item => `<div><span>${escapeHtml(item.quantity)}× ${escapeHtml(item.name)}${Number(item.total_paise) === 0 ? ' <em>Complimentary</em>' : ''}</span><strong>${money(Number(item.total_paise || 0) / 100)}</strong></div>`).join('');
+  $('#tracking-payment').textContent = order.payment_status === 'PAID' ? 'Paid at the café' : 'Payment due at the café';
   const reached = statusSteps.findIndex(([key]) => key === status);
   $('#tracking-status').innerHTML = statusSteps.map(([key, label], index) => {
     const done = status === 'CANCELLED' ? false : index <= reached;
@@ -388,7 +457,9 @@ async function loadTracking(token) {
   const response = await fetch(`/api/cafe/orders/${encodeURIComponent(token)}`, { cache: 'no-store' });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(result.error || 'We could not load the order status.');
-  renderTracking(result.order || result);
+  renderTracking(result.order || result, Array.isArray(result.items) ? result.items : []);
+  state.trackedItems = Array.isArray(result.items) ? result.items : [];
+  $('#reorder').hidden = !state.trackedItems.length;
   $('#tracking-error').textContent = '';
 }
 async function showTracking(token) {
@@ -431,7 +502,7 @@ function wireEvents() {
       }
     }
     if (target.dataset.sundaeChoice) state.options[target.dataset.sundaeChoice][Number(target.dataset.choiceIndex)] = target.value;
-    if (target.dataset.singleGroup === 'sundae-size' || target.dataset.extra) renderOptions();
+    if (target.dataset.singleGroup === 'sundae-size' || target.dataset.singleGroup === 'sundae-serving' || target.dataset.extra) renderOptions();
     else updateItemPrice();
   });
   $$('[data-close]').forEach(button => button.addEventListener('click', () => closeDialog(button.dataset.close)));
@@ -439,20 +510,57 @@ function wireEvents() {
   $('#tracking-dialog').addEventListener('close', () => clearInterval(state.pollTimer));
   $('#refresh-status').addEventListener('click', async () => { if (!state.trackingToken) return; $('#refresh-status').disabled = true; try { await loadTracking(state.trackingToken); toast('Status updated'); } catch (error) { $('#tracking-error').textContent = error.message; } finally { $('#refresh-status').disabled = false; } });
   $('#copy-tracking').addEventListener('click', async () => { try { await navigator.clipboard.writeText(state.trackingUrl || location.href); toast('Tracking link copied'); } catch { toast('You can copy the link from your browser'); } });
+  $('#reorder').addEventListener('click', () => {
+    let added = 0;
+    for (const past of state.trackedItems) {
+      if (past.is_complimentary) continue;
+      const item = itemFor(past.item_id);
+      if (!item || item.available === false) continue;
+      const options = past.options && typeof past.options === 'object' && !Array.isArray(past.options) ? past.options : {};
+      const quantity = Math.min(MAX_QUANTITY, Math.max(1, Number(past.quantity) || 1));
+      const key = `${item.id}:${JSON.stringify(options)}`;
+      const current = state.cart.find(line => line.key === key);
+      if (current) current.quantity = Math.min(MAX_QUANTITY, current.quantity + quantity);
+      else state.cart.push({ key, item_id: item.id, options, quantity });
+      added += 1;
+    }
+    if (!added) { toast('Those items are unavailable now.'); return; }
+    updateCartUI();
+    closeDialog('tracking-dialog');
+    openCart();
+    toast(added === state.trackedItems.filter(item => !item.is_complimentary).length ? 'Items added to your cart' : 'Available items added to your cart');
+  });
   $('#latest-order').addEventListener('click', () => { const token = readStorage(ORDER_KEY, null); if (token) showTracking(token); });
 }
 
 async function init() {
   wireEvents();
   updateCartUI();
+  if (state.qrCodeId) {
+    try {
+      const response = await fetch(`/api/cafe/qr/${encodeURIComponent(state.qrCodeId)}`, { cache: 'no-store' });
+      const code = await response.json();
+      if (!response.ok || code.active === false) throw new Error('This QR code is inactive. Please ask the café team for a current code.');
+      if (code.context === 'TABLE') state.table = String(code.table_number || '');
+      if (code.service_type === 'TAKEAWAY' || ['TAKEAWAY', 'COUNTER'].includes(code.context)) state.defaultService = 'TAKEAWAY';
+    } catch (error) {
+      state.qrInvalid = true;
+      $('#qr-notice').textContent = error.message || 'This QR code is unavailable. Please ask the café team for help.';
+      $('#qr-notice').hidden = false;
+    }
+  }
   if (state.table) { $('#table-badge').textContent = `Dining at table ${state.table}`; $('#table-badge').hidden = false; }
+  else if (state.defaultService === 'TAKEAWAY') { $('#table-badge').textContent = 'Takeaway order'; $('#table-badge').hidden = false; }
   const latest = readStorage(ORDER_KEY, null);
   if (latest) $('#latest-order').hidden = false;
   try {
     const response = await fetch('/api/cafe/menu', { cache: 'no-store' });
     if (!response.ok) throw new Error('Menu temporarily unavailable');
     state.menu = await response.json();
-    state.cart = state.cart.filter(line => itemFor(line?.item_id) && Number.isInteger(line.quantity) && line.quantity >= 1 && line.quantity <= MAX_QUANTITY && line.options && typeof line.options === 'object' && !Array.isArray(line.options));
+    renderPaymentMethods();
+    const oldCount = state.cart.length;
+    state.cart = state.cart.filter(line => itemFor(line?.item_id)?.available !== false && itemFor(line?.item_id) && Number.isInteger(line.quantity) && line.quantity >= 1 && line.quantity <= MAX_QUANTITY && line.options && typeof line.options === 'object' && !Array.isArray(line.options));
+    if (state.cart.length < oldCount) toast('Unavailable items were removed from your cart');
     renderCategories(); renderMenu(); updateCartUI();
   } catch {
     $('#menu-grid').innerHTML = `<div class="empty-state"><strong>We couldn’t load the menu</strong><p>Please refresh this page in a moment.</p></div>`;

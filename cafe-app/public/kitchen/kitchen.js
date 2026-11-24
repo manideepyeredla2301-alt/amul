@@ -10,7 +10,7 @@
     listTitle: $('#list-title'),
   };
   const statusLabel = {
-    RECEIVED: 'New', PREPARING: 'Preparing', READY: 'Ready',
+    RECEIVED: 'New', ACCEPTED: 'Accepted', PREPARING: 'Preparing', READY: 'Ready',
     COMPLETED: 'Completed', CANCELLED: 'Cancelled',
   };
   const optionNames = {
@@ -27,7 +27,8 @@
     'additional-topping': 'Additional topping', 'additional-sauce': 'Additional sauce',
     'whipped-cream': 'Whipped cream',
   };
-  const state = { orders: [], filter: 'ACTIVE', busy: false, lastSnapshot: '', firstLoad: true };
+  const state = { orders: [], filter: 'ACTIVE', busy: false, lastSnapshot: '', firstLoad: true,
+    seenIds: new Set(), eventVersion: 0, eventsRunning: false, soundEnabled: false, audio: null };
 
   const escape = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -93,6 +94,7 @@
     document.title = 'Staff sign in · Amul Café';
     state.firstLoad = true;
     state.lastSnapshot = '';
+    state.eventsRunning = false;
   }
 
   function showApp() {
@@ -102,6 +104,55 @@
     $('#today-date').textContent = new Intl.DateTimeFormat('en-IN', {
       weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Kolkata',
     }).format(new Date());
+    if (!state.eventsRunning) watchEvents();
+  }
+
+  function playNewOrderSound() {
+    if (!state.soundEnabled || !state.audio) return;
+    try {
+      const now = state.audio.currentTime;
+      for (const [offset, frequency] of [[0, 660], [0.18, 880]]) {
+        const oscillator = state.audio.createOscillator();
+        const gain = state.audio.createGain();
+        oscillator.type = 'sine';
+        oscillator.frequency.value = frequency;
+        gain.gain.setValueAtTime(0.0001, now + offset);
+        gain.gain.exponentialRampToValueAtTime(0.12, now + offset + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.15);
+        oscillator.connect(gain).connect(state.audio.destination);
+        oscillator.start(now + offset);
+        oscillator.stop(now + offset + 0.16);
+      }
+    } catch { /* Visual order indicators remain available. */ }
+  }
+
+  function updateElapsed() {
+    elements.list.querySelectorAll('.order-card[data-created]').forEach(card => {
+      const minutes = Math.max(0, Math.floor((Date.now() - parseDate(card.dataset.created).getTime()) / 60000));
+      if (!Number.isFinite(minutes)) return;
+      const elapsed = card.querySelector('.elapsed-time');
+      if (elapsed) elapsed.textContent = `${minutes} min elapsed`;
+      const active = ['RECEIVED', 'ACCEPTED', 'PREPARING'].includes(card.dataset.status);
+      card.classList.toggle('delayed', active && minutes >= Number(card.dataset.delayAfter || 15));
+    });
+  }
+
+  async function watchEvents() {
+    state.eventsRunning = true;
+    while (state.eventsRunning && !elements.app.hidden) {
+      try {
+        const data = await api(`/api/cafe/admin/events?since=${state.eventVersion}`);
+        if (Number.isSafeInteger(data.version) && data.version > state.eventVersion) {
+          state.eventVersion = data.version;
+          await loadOrders();
+        }
+        setConnection(true);
+      } catch (error) {
+        if (error.status === 401) { showLogin(); break; }
+        setConnection(false);
+      }
+      await new Promise(resolve => setTimeout(resolve, 1500));
+    }
   }
 
   function humanizeChoice(value) {
@@ -132,17 +183,18 @@
     const items = Array.isArray(order.items) ? order.items : [];
     const service = order.service_type === 'TAKEAWAY' ? 'Takeaway' : 'Dine in';
     const table = order.service_type === 'TAKEAWAY' ? 'Collection' : `Table ${order.table_number || '—'}`;
-    const primary = { RECEIVED: ['PREPARING', 'Start preparing'], PREPARING: ['READY', 'Mark ready'], READY: ['COMPLETED', 'Complete order'] }[status];
-    const canCancel = status === 'RECEIVED' || status === 'PREPARING';
+    const primary = { RECEIVED: ['ACCEPTED', 'Accept order'], ACCEPTED: ['PREPARING', 'Start preparing'], PREPARING: ['READY', 'Mark ready'], READY: ['COMPLETED', 'Complete order'] }[status];
+    const canCancel = ['RECEIVED', 'ACCEPTED', 'PREPARING'].includes(status);
+    const source = { QR: 'QR order', TABLET: 'Tablet', COUNTER: 'Counter' }[String(order.source || 'QR').toUpperCase()] || 'QR order';
     const itemMarkup = items.map((item) => {
       const options = itemOptions(item.options);
       const steps = Array.isArray(item.prep_steps) ? item.prep_steps : [];
-      const prep = steps.length ? `<details class="prep-details" ${['RECEIVED', 'PREPARING'].includes(status) ? 'open' : ''}><summary>How to prepare</summary><ol>${steps.map(step => `<li>${escape(step)}</li>`).join('')}</ol></details>` : '';
-      return `<li class="order-item"><div class="item-main"><span class="item-qty">${escape(item.quantity)}×</span><div><span class="item-name">${escape(item.name)}</span>${options ? `<div class="item-options">${escape(options)}</div>` : ''}${prep}</div></div><span class="item-price">${money(item.total_paise)}</span></li>`;
+      const prep = steps.length ? `<details class="prep-details" ${['RECEIVED', 'ACCEPTED', 'PREPARING'].includes(status) ? 'open' : ''}><summary>How to prepare</summary><ol>${steps.map(step => `<li>${escape(step)}</li>`).join('')}</ol></details>` : '';
+      return `<li class="order-item"><div class="item-main"><span class="item-qty">${escape(item.quantity)}×</span><div><span class="item-name">${escape(item.name)}${item.is_complimentary ? ' · Free offer' : ''}</span>${options ? `<div class="item-options">${escape(options)}</div>` : ''}${item.note ? `<div class="item-note"><strong>Cook note:</strong> ${escape(item.note)}</div>` : ''}${prep}</div></div><span class="item-price">${money(item.total_paise)}</span></li>`;
     }).join('');
-    return `<article class="order-card ${escape(cssStatus)}" data-id="${escape(order.id)}">
-      <div class="card-head"><div class="head-row"><strong class="order-number">#${escape(order.order_number || String(order.id).slice(0, 8))}</strong><span class="order-time">${escape(orderTime(order.created_at))}</span></div>
-      <div class="order-meta"><span class="status-pill ${escape(cssStatus)}">${escape(statusLabel[status] || status)}</span><span class="service-pill">${escape(service)}</span></div>
+    return `<article class="order-card ${escape(cssStatus)}" data-id="${escape(order.id)}" data-status="${escape(status)}" data-created="${escape(order.created_at)}" data-delay-after="${escape(order.expected_prep_minutes || 15)}">
+      <div class="card-head"><div class="head-row"><strong class="order-number">#${escape(order.order_number || String(order.id).slice(0, 8))}</strong><span class="order-time">${escape(orderTime(order.created_at))}<small class="elapsed-time"></small></span></div>
+      <div class="order-meta"><span class="status-pill ${escape(cssStatus)}">${escape(statusLabel[status] || status)}</span><span class="service-pill">${escape(service)}</span><span class="service-pill">${escape(source)}</span></div>
       <div class="customer-line"><span class="customer-name">${escape(order.customer_name || 'Guest')}</span><span class="table-label">${escape(table)}</span></div></div>
       <div class="card-body"><div class="items-title">${items.length} ITEM${items.length === 1 ? '' : 'S'}</div><ul class="order-items">${itemMarkup}</ul>${order.note ? `<div class="order-note"><strong>Customer instructions</strong>${escape(order.note)}</div>` : ''}</div>
       <div class="card-foot"><div class="order-total"><small>Total · Pay at counter</small><strong>${money(order.total_paise)}</strong></div>
@@ -150,12 +202,13 @@
   }
 
   function render() {
-    const counts = { RECEIVED: 0, PREPARING: 0, READY: 0, COMPLETED: 0 };
+    const counts = { RECEIVED: 0, ACCEPTED: 0, PREPARING: 0, READY: 0, COMPLETED: 0 };
     for (const order of state.orders) {
       const status = String(order.status || '').toUpperCase();
       if (counts[status] !== undefined && (status !== 'COMPLETED' || todayInIndia(order.updated_at || order.created_at))) counts[status] += 1;
     }
     $('#count-received').textContent = counts.RECEIVED;
+    $('#count-accepted').textContent = counts.ACCEPTED;
     $('#count-preparing').textContent = counts.PREPARING;
     $('#count-ready').textContent = counts.READY;
     $('#count-completed').textContent = counts.COMPLETED;
@@ -164,14 +217,14 @@
     const search = elements.search.value.trim().toLocaleLowerCase();
     const visible = state.orders.filter((order) => {
       const status = String(order.status || '').toUpperCase();
-      if (state.filter === 'ACTIVE' && !['RECEIVED', 'PREPARING', 'READY'].includes(status)) return false;
+      if (state.filter === 'ACTIVE' && !['RECEIVED', 'ACCEPTED', 'PREPARING', 'READY'].includes(status)) return false;
       if (state.filter !== 'ACTIVE' && status !== state.filter) return false;
       if (!search) return true;
       const haystack = [order.order_number, order.customer_name, order.table_number,
         ...(order.items || []).map((item) => item.name)].join(' ').toLocaleLowerCase();
       return haystack.includes(search);
     });
-    const priority = { RECEIVED: 0, PREPARING: 1, READY: 2, COMPLETED: 3, CANCELLED: 4 };
+    const priority = { RECEIVED: 0, ACCEPTED: 1, PREPARING: 2, READY: 3, COMPLETED: 4, CANCELLED: 5 };
     visible.sort((a, b) => {
       if (state.filter === 'ACTIVE') {
         const rank = (priority[a.status] ?? 5) - (priority[b.status] ?? 5);
@@ -184,6 +237,7 @@
     elements.empty.hidden = visible.length > 0;
     elements.visibleCount.textContent = `${visible.length} order${visible.length === 1 ? '' : 's'}`;
     elements.listTitle.textContent = state.filter === 'ACTIVE' ? 'Active queue' : `${statusLabel[state.filter] || state.filter} orders`;
+    updateElapsed();
   }
 
   async function loadOrders({ manual = false } = {}) {
@@ -194,9 +248,12 @@
       const orders = Array.isArray(data.orders) ? data.orders : [];
       const snapshot = JSON.stringify(orders);
       if (snapshot !== state.lastSnapshot || state.firstLoad) {
+        const fresh = state.firstLoad ? [] : orders.filter(order => order.status === 'RECEIVED' && !state.seenIds.has(order.id));
+        state.seenIds = new Set(orders.map(order => order.id));
         state.orders = orders;
         state.lastSnapshot = snapshot;
         render();
+        if (fresh.length) { playNewOrderSound(); notice(`${fresh.length} new order${fresh.length === 1 ? '' : 's'} received.`); }
         state.firstLoad = false;
       }
       elements.lastUpdated.textContent = `Updated ${new Intl.DateTimeFormat('en-IN', {
@@ -231,9 +288,14 @@
     button.disabled = true;
     elements.loginError.hidden = true;
     try {
-      await api('/api/cafe/admin/login', { method: 'POST', body: {
-        username: $('#username').value.trim(), password: $('#password').value,
-      } });
+      const credentials = { username: $('#username').value.trim(), password: $('#password').value };
+      let session;
+      try { session = await api('/api/cafe/staff/login', { method: 'POST', body: credentials }); }
+      catch (error) {
+        if (error.status !== 401) throw error;
+        session = await api('/api/cafe/admin/login', { method: 'POST', body: credentials });
+      }
+      document.querySelector('a[href="/kitchen/qr.html"]').hidden = session.role === 'KITCHEN';
       $('#password').value = '';
       showApp();
       await loadOrders();
@@ -244,13 +306,26 @@
   });
 
   $('#logout').addEventListener('click', async () => {
-    try { await api('/api/cafe/admin/logout', { method: 'POST', body: {} }); }
-    catch { /* Clearing the visible board still protects customer details. */ }
+    await Promise.allSettled([
+      api('/api/cafe/staff/logout', { method: 'POST', body: {} }),
+      api('/api/cafe/admin/logout', { method: 'POST', body: {} }),
+    ]);
     state.orders = [];
     elements.list.innerHTML = '';
     showLogin();
   });
   $('#refresh').addEventListener('click', () => loadOrders({ manual: true }));
+  $('#sound-toggle').addEventListener('click', async () => {
+    const Audio = window.AudioContext || window.webkitAudioContext;
+    if (!Audio) { notice('This browser does not support notification sound.', true); return; }
+    if (!state.audio) state.audio = new Audio();
+    if (state.audio.state === 'suspended') await state.audio.resume();
+    state.soundEnabled = !state.soundEnabled;
+    $('#sound-toggle').setAttribute('aria-pressed', String(state.soundEnabled));
+    $('#sound-toggle').setAttribute('aria-label', state.soundEnabled ? 'Disable new-order sound' : 'Enable new-order sound');
+    $('#sound-toggle').querySelector('.desktop-only').textContent = state.soundEnabled ? 'Sound on' : 'Sound off';
+    if (state.soundEnabled) playNewOrderSound();
+  });
   elements.search.addEventListener('input', render);
   document.querySelectorAll('[data-filter]').forEach((button) => button.addEventListener('click', () => {
     state.filter = button.dataset.filter;
@@ -266,7 +341,11 @@
     if (button) changeStatus(button.dataset.id, button.dataset.action, button);
   });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) loadOrders(); });
-  window.setInterval(() => loadOrders(), 8000);
+  window.setInterval(() => loadOrders(), 15000);
+  window.setInterval(updateElapsed, 30000);
 
-  api('/api/cafe/admin/session').then(() => { showApp(); loadOrders(); }).catch(() => showLogin());
+  api('/api/cafe/staff/session').then((session) => {
+    document.querySelector('a[href="/kitchen/qr.html"]').hidden = session.role === 'KITCHEN';
+    showApp(); loadOrders();
+  }).catch(() => showLogin());
 })();

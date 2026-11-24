@@ -1,46 +1,47 @@
-# FrostFlow Café QR Ordering
+# Amul Ice Cream & Café on FrostFlow
 
-This is a separate Cloudflare Worker in the FrostFlow account. It shares the
-`frostflow-online` D1 database but uses only `cafe_` tables and its own migration
-history. It does not replace the existing FrostFlow ERP Worker or use its
-wholesale order workflow.
+The café runs as the `frostflow-cafe` Cloudflare Worker in the existing FrostFlow account. It shares the `frostflow-online` D1 database, uses only `cafe_` tables, and has a separate `cafe_migrations` history. The existing FrostFlow ERP Worker is not changed by this project.
 
-## Pages
+## Open the system
 
-- `/` — mobile customer menu, cart, dine-in or takeaway ordering, and tracking
-- `/?table=7` — the same menu with table 7 selected from its QR code
-- `/kitchen/` — kitchen sign-in, order queue, and status controls
-- `/kitchen/qr` — printable counter and table QR cards (1–999)
+| Page | Purpose |
+| --- | --- |
+| `/` | Customer menu, QR context, cart, checkout, tracking, reorder |
+| `/pos/` | Tablet and retail counter orders, payment records, receipts |
+| `/kitchen/` | Live prepared-food queue and cook instructions |
+| `/admin/` | Owner catalogue, stock, reports, staff, offers, settings |
+| `/kitchen/qr.html` | Managed and printable QR cards |
 
-There is no online payment form or payment endpoint. Customers pay at the café.
-The menu is defined in `src/menu.json`; the Worker computes every order total
-from that file and ignores client-supplied prices. Kitchen preparation steps
-for every item are in `src/prep.json` and appear only in authenticated orders.
-Where the source menu lacked a full formula, they refer to the café's approved
-house ingredients and quantities. In the original menu,
-Blueberry Cheesecake Sandwich was marked optional. The build-your-own sundae
-did not specify how many sauces or toppings were included, so this app includes
-one of each and charges for a second via the listed add-ons.
+All five pages use the same database-backed API. New QR orders have an active managed QR ID. Staff POS orders do not need a QR code. Retail-only transactions complete without a kitchen ticket; a promotional free prepared item still creates a kitchen ticket. Customer checkout never collects money or marks a payment complete. Cash, UPI, and card are recorded manually by staff after the payment happens outside the site.
 
-## Operations
+The seed migration imports the 68 finalized café products and prices, including ₹90 veg and ₹120 chicken burgers with an optional ₹10 cheese slice. It creates empty retail categories without inventing packaged SKUs or stock. Every café product has a distinct original photo at `public/images/products/<product-id>.jpg` and editable preparation steps. Uploaded replacement photos are cropped in the admin browser and persisted in D1 as image BLOBs because R2 is not enabled on this account. The upload limit is 1 MB when stored in D1. Admin bulk import accepts CSV and `.xlsx` Excel files.
 
-Use Node 24 or later. From this directory:
+## Code and storage
+
+- `src/platform*.js`: authenticated API, catalogue pricing, orders, POS, kitchen events, payments, inventory, reports, staff, offers, and QR codes.
+- `migrations/20261124_cafe_platform*.sql`: additive schema and editable seed data. Earlier café migrations remain in place.
+- `src/prep.json`: initial cook instructions. The database copy can be edited in Admin → Products without a deployment.
+- `public/`: customer, POS, kitchen, and admin pages and generated product photos.
+- `test/pricing.test.js`: price tests.
+- `test/platform.integration.mjs`: isolated local API journey covering ordering, stock, payment, staff, and promotion cases.
+
+## Local checks
+
+Use Node 24 or later from this directory. Keep local secrets in an ignored `.dev.vars` file. Set `CAFE_ADMIN_USER`, `CAFE_ADMIN_PASSWORD`, and a random `CAFE_SESSION_SECRET` of at least 32 characters there. Do not use production passwords in tests or commit them.
 
 ```sh
 npm ci
+npx wrangler d1 migrations apply frostflow-online --local
 npm run check
-npx wrangler d1 migrations apply frostflow-online --remote
-npx wrangler deploy --secrets-file /path/to/private-secrets.json
+npm run dev -- --port 8790
 ```
 
-The deployment secrets file must contain `CAFE_ADMIN_PASSWORD` and
-`CAFE_SESSION_SECRET` (at least 32 random characters). Do not commit it.
-The kitchen username is `rachana` in `wrangler.jsonc`.
-Authentication uses a separate kitchen password, a hashed, expiring session in
-D1, a secure HttpOnly cookie, same-origin write checks, and sign-in throttling.
-Public orders are also rate limited per connection. Order statuses are
-`RECEIVED → PREPARING → READY → COMPLETED`, with cancellation allowed before
-the order is ready.
+Run the integration journey against a **disposable local D1 database**, never production:
 
-For local development, put the two secrets in a Git-ignored `.dev.vars` file,
-run `npx wrangler d1 migrations apply frostflow-online --local`, then `npm run dev`.
+```sh
+CAFE_TEST_PASSWORD='<local test password>' npm run check:integration
+```
+
+It uses `http://localhost:8790` by default; override with `CAFE_TEST_BASE_URL`. The test creates orders, products, a cashier, payments, returns, and refunds.
+
+See `docs/owner-guide.md`, `docs/staff-guide.md`, `docs/technical-assessment.md`, and `docs/deployment-rollback.md` for operation and deployment.
