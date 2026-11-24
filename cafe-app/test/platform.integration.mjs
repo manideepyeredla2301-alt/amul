@@ -76,6 +76,18 @@ await check('Eleven regular scoops have confirmed cup prices and a ₹10 cone op
   assert.match(ticket?.items[0]?.prep_steps?.join(' ')||'',/selected cup or cone/);
 });
 
+await check('Each scoop has its own branded photo',async()=>{
+  const publicMenu=await ok('/api/cafe/menu');
+  const items=publicMenu.categories.find(category=>category.id==='scoops')?.items||[];
+  assert.equal(items.length,11);
+  assert.equal(new Set(items.map(item=>item.image_url)).size,11);
+  for (const item of items) assert.match(item.image_url||'',/^\/images\/products\/scoop-[a-z-]+\.jpg$/);
+  const photo=await api(items[0].image_url,{raw:true});
+  assert.equal(photo.response.status,200);
+  assert.match(photo.response.headers.get('content-type')||'',/image\/jpeg/);
+  assert.ok(photo.data.byteLength>10_000);
+});
+
 await check('Public menu advertises only currently usable offers',async()=>{
   const posCatalog=await ok('/api/cafe/pos/catalog',{cookie:ownerCookie});
   const retailId=posCatalog.categories.flatMap(category=>category.items).find(item=>item.type==='RETAIL')?.id;

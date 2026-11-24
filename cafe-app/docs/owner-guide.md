@@ -6,12 +6,14 @@ Open `https://frostflow-cafe.manideepyeredla2301.workers.dev/` and tap **Staff**
 
 The top of Admin has **Product catalogue**, **+ Add product**, **Staff**, **Orders & bills**, and **Open POS** shortcuts. The sidebar also has Overview, Products, Categories, Inventory, Orders & payments, Reports, Offers, QR codes, Staff, and Settings. POS and Kitchen are on this same café address at `/pos/` and `/kitchen/`. Catalogue and product creation are shown to the owner or staff with catalogue permission.
 
+For the TV commercial, open `/ads/` on the same address (or tap **Open the café ad display** from the Staff page). Use **Full screen** on the TV browser and keep that tab open. The 42-second highlight loop has Pause/Play and next/previous controls; the full menu is below it. Prices, availability, and current offers refresh from the café menu every five minutes. Change a product in **Products** or an offer in **Offers** to update the display without rebuilding it.
+
 ## Add or change a menu item
 
 1. Tap **+ Add product** at the top of Admin or in **Product catalogue**. Pick the category and choose **Prepared** for café food or drink, or **Retail** for a packaged product.
 2. Enter the selling price, name, description, and availability. Add GST only if it applies to that item; the system does not assume one rate for every product.
 3. Upload a photo. Adjust the square crop and preview it, then save. Replacement photos persist in the café database. Keep uploads under 1 MB while database image storage is active.
-4. Add option groups for variants and extras. The initial burgers already have one optional Amul cheese slice at ₹10. The sundae configurator enforces scoop, serving, sauce, and topping rules.
+4. Add option groups for variants and extras. The initial burgers already have one optional Amul cheese slice at ₹10. The eleven regular Scoops have a cup choice at the listed price and a cone for ₹10 extra. The sundae configurator enforces scoop, serving, sauce, and topping rules.
 5. Enter **Kitchen steps** for prepared items. These steps appear on every kitchen ticket and can be edited without changing code.
 6. Save and check the public menu or POS. Use **Sold out** or **Unavailable** when an item should stop accepting new orders; existing orders keep their original price and details.
 
@@ -33,7 +35,7 @@ Counter checkout requires a customer name and a valid Indian mobile number. The 
 
 ## Offers and QR cards
 
-The initial offer gives one **Salted Fries at ₹0** when eligible ice cream purchases are **strictly above ₹250**. Burgers, sandwiches, coffee, frappes, and snacks do not count toward that threshold. The free item appears on the customer order, receipt, and kitchen ticket. Change or disable the offer in **Offers**.
+The initial offer gives one **Salted Fries at ₹0** when eligible ice cream purchases, including Scoops, are **strictly above ₹250**. Burgers, sandwiches, coffee, frappes, and snacks do not count toward that threshold. The free item appears on the customer order, receipt, and kitchen ticket. Change or disable the offer in **Offers**; `/ads/` shows only currently usable offers.
 
 In **QR codes**, manage the general, counter pickup, takeaway, and table codes. Disable a lost or retired code; it will stop accepting new orders. Print cards from **QR cards** or the supplied printable PDF. Check that a table card opens with the correct table number before placing it on a table. The initial print set includes tables 1–12; create further managed codes in Admin before printing their cards. Packaged Amul categories are not visible through these QR codes unless the owner later enables them for QR ordering.
 

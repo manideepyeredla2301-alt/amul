@@ -19,6 +19,8 @@ If a customer says an order did not appear, ask for the order number or tracking
 
 An owner or staff member with catalogue permission can use the **Catalogue** and **Add product** shortcuts in POS. The owner can also use the **Staff** shortcut. These controls open Admin on the same café address.
 
+To show the café commercial on a TV, open **Staff → Open the café ad display** or go to `/ads/` on the café address. Tap **Full screen** in the TV browser. The highlights loop automatically, with Pause/Play and next/previous buttons; the complete customer menu is below. The display refreshes prices and current offers every five minutes. If an item is sold out, the menu marks it unavailable.
+
 Imported packaged products appear in POS by name and SKU. A product marked **Price pending** or **Sold out** cannot be added until the owner verifies its price and café stock. Do not substitute a different pack size or flavour when the requested one is unavailable.
 
 ### When the connection fails
@@ -40,6 +42,7 @@ Follow the exact choices on the ticket. For example:
 - **Frappes, cold coffees, shakes:** check the named flavour and garnish; use the café's approved recipe and a 300 ml clear cup. Use a dome lid when served takeaway and appropriate.
 - **Premium sundaes:** check the named ice cream and toppings; serve in a 200 ml paper cup.
 - **Build Your Own Sundae:** follow scoop count, flavours, cup/cone/bowl, sauce, topping, and paid extras. Waffle cones allow only one scoop, one sauce, and one dry topping, with no jelly or whipped cream.
+- **Regular Scoops:** use one regular scoop of the ordered flavour. Serve it in a cup at the listed price or in a cone when selected (+₹10). Pineapple is ₹40 in a cup.
 - **Sandwiches:** use two slices of bread, the chosen bread type and extras, and the filling on the ticket. Cook chicken and egg fillings fully before serving.
 
 The owner can correct or expand any item's cook steps in Admin → Products. If a house recipe, ingredient quantity, or food safety detail has not been approved by the café, ask the owner before improvising.
