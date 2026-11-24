@@ -17,6 +17,8 @@ If a customer says an order did not appear, ask for the order number or tracking
 
 **Hold cart** saves a cart for later. A packaged-only sale normally completes without a kitchen ticket. A mixed sale sends only the prepared lines to the kitchen. If a retail ice cream purchase earns the free Salted Fries offer, that complimentary food item still goes to the kitchen.
 
+Imported packaged products appear in POS by name and SKU. A product marked **Price pending** or **Sold out** cannot be added until the owner verifies its price and café stock. Do not substitute a different pack size or flavour when the requested one is unavailable.
+
 ### When the connection fails
 
 The POS displays an offline warning. You may save an order as **Unsynced** on that device. An unsynced order has no order number, kitchen ticket, payment record, or receipt. Tell the customer and kitchen staff that it has **not** been accepted. After reconnecting, open **Unsynced**, review current prices, stock, and customer details, then send it manually. Do not take or record a second payment until the order has a confirmed number. If the server reports a conflict, correct the cart or ask a manager; do not blindly resend a different order under the same request ID.
@@ -26,6 +28,8 @@ The POS displays an offline warning. You may save an order as **Unsynced** on th
 Open `/kitchen/` and sign in. Keep the board open on a visible screen. New orders appear automatically; enable **Sound** if the device permits it. The board reconnects after brief network interruptions and refreshes missed updates. Each ticket shows its order number, source, table or pickup context, elapsed time, quantities, selected extras, customer notes, and **step-by-step preparation instructions for each product**. Late orders are highlighted.
 
 Move a new ticket through **Accepted → Preparing → Ready → Completed** as the work happens. Customers see the same status on their tracking page. Only cancel an order when it truly cannot be made, and tell the counter team. A complimentary Salted Fries line is marked free but still needs preparation.
+
+Packaged Amul products are sold through staff POS and do not appear in the customer QR menu. Pick the exact pack and quantity, check its seal and best-before date, keep frozen items frozen until handover, and confirm the order number. A packaged-only POS sale is handled at the counter and does not create a kitchen ticket.
 
 Follow the exact choices on the ticket. For example:
 

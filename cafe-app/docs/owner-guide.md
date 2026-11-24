@@ -17,11 +17,13 @@ The sidebar has Overview, Products, Categories, Inventory, Orders & payments, Re
 
 Use **Categories** to rename, reorder, and control visibility in the QR menu, POS, or retail area. A category with products cannot be deleted until its products are moved or archived. The import control accepts CSV or `.xlsx` Excel files with up to 200 products. Excel import reads the first worksheet. Review the dry run before applying an import.
 
-## Set up packaged ice creams
+## Set up packaged Amul products
 
-The retail categories start empty so no SKU, MRP, cost, tax, or opening stock is guessed. In **Products**, create each packaged item with its actual SKU or barcode, pack size, MRP, selling price, cost, tax, and stock tracking. In **Inventory**, enter opening stock or a purchase; add batch number, manufacturing date, and expiry when available. Confirm a test barcode lookup in the POS before using it for sales.
+The café database contains 243 distinct products from FrostFlow's curated Amul catalogue, including 167 ice creams. They appear in the staff POS and are hidden from the customer QR menu. Their printed MRPs are starting prices, and 45 products with missing or conflicting prices or pack details are disabled for owner review. Check the product's actual package before enabling one of those items. Items with no verified MRP show **Price pending**. Existing FrostFlow distribution stock is not counted as café counter stock.
 
-Stock is deducted when a sale is confirmed. Authorized returns add packaged stock back. A sale is rejected if tracked stock would become negative. For prepared items, you can track a finished-item quantity; if an ingredient recipe is configured, the recipe consumes ingredients instead of also deducting finished-item stock. Edit ingredients and recipe quantities in **Inventory**.
+All imported retail products start with zero café stock, so they show **Sold out** until stock is entered. In **Inventory**, enter the physical café quantity for each item; add batch number, manufacturing date, and expiry when available. In **Products**, review the selling price and enable any item marked for review after checking its pack. Barcode values were not present in the source catalogue; add the actual barcode from the pack before relying on barcode scanning. The existing SKU is searchable in POS. Upload an accurate product photo for any item showing an image placeholder.
+
+Stock is deducted when a sale is confirmed. Authorized returns add packaged stock back. A sale is rejected if tracked stock would become negative. A packaged-only POS sale completes at the counter. For prepared items, you can track a finished-item quantity; if an ingredient recipe is configured, the recipe consumes ingredients instead of also deducting finished-item stock. Edit ingredients and recipe quantities in **Inventory**.
 
 ## Orders, payments, and receipts
 
@@ -33,7 +35,7 @@ Customer QR checkout shows a preferred in-café payment method, but never takes 
 
 The initial offer gives one **Salted Fries at ₹0** when eligible ice cream purchases are **strictly above ₹250**. Burgers, sandwiches, coffee, frappes, and snacks do not count toward that threshold. The free item appears on the customer order, receipt, and kitchen ticket. Change or disable the offer in **Offers**.
 
-In **QR codes**, manage the general, counter pickup, takeaway, and table codes. Disable a lost or retired code; it will stop accepting new orders. Print cards from **QR cards** or the supplied printable PDF. Check that a table card opens with the correct table number before placing it on a table. The initial print set includes tables 1–12; create further managed codes in Admin before printing their cards.
+In **QR codes**, manage the general, counter pickup, takeaway, and table codes. Disable a lost or retired code; it will stop accepting new orders. Print cards from **QR cards** or the supplied printable PDF. Check that a table card opens with the correct table number before placing it on a table. The initial print set includes tables 1–12; create further managed codes in Admin before printing their cards. Packaged Amul categories are not visible through these QR codes unless the owner later enables them for QR ordering.
 
 ## Staff and reports
 

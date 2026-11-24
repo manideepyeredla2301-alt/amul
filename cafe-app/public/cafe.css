@@ -129,3 +129,5 @@ main{max-width:1220px;margin:0 auto;padding:0 32px 90px}
 .card-add:hover{background:#bd413b;color:#fff}
 @media(max-width:400px){.hero h1{font-size:43px}.option-grid{grid-template-columns:1fr}.service-picker{grid-template-columns:1fr 1fr}.service-picker label{padding:9px 6px}.tracking-details{gap:3px}.tracking-details strong{font-size:10px}}
 @media(prefers-reduced-motion:reduce){:root{scroll-behavior:auto}*,*:before,*:after{transition:none!important;animation:none!important}}
+.card-art .card-fallback{z-index:0}.card-photo{z-index:1}.card-art .art-number{z-index:2}.menu-card.price-pending .card-bottom strong{font-size:12px}
+.menu-more{display:flex;justify-content:center;margin:24px 0 35px}.menu-more button{min-height:44px;padding:10px 22px;border:1px solid #172b41;border-radius:11px;background:#fff;color:#172b41;font-size:13px;font-weight:850}.menu-more button:hover{background:#f1f4f6}.menu-more button:focus-visible{outline:3px solid #d89e53;outline-offset:2px}

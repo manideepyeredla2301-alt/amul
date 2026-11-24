@@ -59,6 +59,19 @@ await check('Owner login and protected admin API',async()=>{
   assert.equal(denied.response.status,401);
 });
 
+await check('Curated Amul catalogue appears only in staff POS',async()=>{
+  const publicMenu=await ok('/api/cafe/menu');
+  assert.ok(publicMenu.categories.every(c=>c.items.every(p=>!p.id.startsWith('amul-'))));
+  const posMenu=await ok('/api/cafe/pos/catalog',{cookie:ownerCookie});
+  const packaged=posMenu.categories.flatMap(c=>c.items).filter(p=>p.id.startsWith('amul-'));
+  assert.equal(packaged.length,243);
+  const cone=packaged.find(p=>p.id==='amul-ictrbch45');
+  assert.equal(cone.price_paise,5000);
+  assert.equal(cone.available,false);
+  const photo=await api('/images/ICTRBCH45.jpg',{raw:true});
+  assert.equal(photo.response.status,200);
+});
+
 await check('Table 7 QR context and frappe order',async()=>{
   const code=await ok('/api/cafe/qr/table-7');
   assert.equal(code.table_number,'7');
@@ -162,6 +175,25 @@ await check('Retail barcode, stock deduction, and no kitchen entry',async()=>{
   assert.ok(!kitchen.orders.some(o=>o.id===order.id));
   const detail=await ok(`/api/cafe/pos/orders/${order.id}`,{cookie:ownerCookie});
   assert.equal(detail.order.payment_status,'PAID');
+});
+
+await check('QR retail order reaches staff for pickup',async()=>{
+  await ok('/api/cafe/admin/categories/retail-cups',{method:'PATCH',cookie:ownerCookie,body:{show_qr:true}});
+  const order=await ok('/api/cafe/orders',{method:'POST',body:qrOrder([line(retailId)])},201);
+  assert.equal(order.status,'RECEIVED');
+  const kitchen=await ok('/api/cafe/admin/orders',{cookie:ownerCookie});
+  const found=kitchen.orders.find(o=>o.id===order.id);
+  assert.deepEqual(found.items.map(i=>i.item_id),[retailId]);
+});
+
+await check('Unpriced retail item cannot be ordered',async()=>{
+  const unpriced=`qa-unpriced-${suffix}`;
+  await ok('/api/cafe/admin/products',{method:'POST',cookie:ownerCookie,
+    body:{id:unpriced,name:`QA Unpriced ${suffix}`,category_id:'retail-cups',type:'RETAIL',price_paise:0,available:true}},201);
+  const menu=await ok('/api/cafe/menu');
+  assert.equal(menu.categories.find(c=>c.id==='retail-cups').items.find(p=>p.id===unpriced).available,false);
+  const order=await api('/api/cafe/orders',{method:'POST',body:qrOrder([line(unpriced)])});
+  assert.equal(order.response.status,409);
 });
 
 await check('Mixed retail and prepared order sends only food to kitchen',async()=>{

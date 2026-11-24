@@ -2,6 +2,7 @@ const CART_KEY = 'amul-cafe-cart-v1';
 const NAME_KEY = 'amul-cafe-name-v1';
 const ORDER_KEY = 'amul-cafe-last-order-v1';
 const MAX_QUANTITY = 20;
+const MENU_PAGE_SIZE = 24;
 
 const art = {
   'cold-coffees': ['☕', '#e9dfd0', '#7a5541'],
@@ -18,6 +19,20 @@ const art = {
   nuggets: ['🍗', '#efe0cb', '#a17349'],
   maggi: ['🍜', '#f2e5c8', '#9d783d'],
   mojitos: ['🍹', '#d9ede4', '#4c8b71'],
+  'retail-cups': ['🍨', '#e9e3f4', '#6e5e92'],
+  'retail-cones': ['🍦', '#f6e9d6', '#a26949'],
+  'retail-bars': ['🍫', '#e9dcd6', '#806052'],
+  'retail-sticks': ['🍭', '#f0e0ec', '#986b88'],
+  'retail-family-packs': ['🍨', '#e0eaf3', '#5a7894'],
+  'retail-tubs': ['🍨', '#e0eaf3', '#5a7894'],
+  'retail-multipacks': ['🍦', '#e8e6f0', '#766d93'],
+  'retail-other': ['🍦', '#e8e6f0', '#766d93'],
+  'retail-novelties': ['🍦', '#e8e6f0', '#766d93'],
+  'retail-frozen-snacks': ['🍟', '#f1e5d6', '#a16c42'],
+  'retail-dairy-drinks': ['🥛', '#e0eafa', '#52779a'],
+  'retail-dairy': ['🧀', '#f6ead2', '#a47d42'],
+  'retail-chocolates': ['🍫', '#e9dcd6', '#806052'],
+  'retail-snacks': ['🍪', '#f1e5d6', '#a16c42'],
 };
 const statusSteps = [
   ['RECEIVED', 'Received'],
@@ -31,8 +46,10 @@ const itemPhotos = {
   'classic-chicken-burger': 'classic-chicken-burger.jpg',
 };
 function imageFor(item, category) {
-  return item.image_url || category?.image_url || `/images/${itemPhotos[item.id] || `${category.id}.jpg`}`;
+  if (item.image_url || category?.image_url) return item.image_url || category.image_url;
+  return item.type === 'RETAIL' ? '' : `/images/${itemPhotos[item.id] || `${category.id}.jpg`}`;
 }
+function pricePending(item) { return item?.type === 'RETAIL' && Number(item.price_paise ?? Math.round(Number(item.price || 0) * 100)) <= 0; }
 function foodType(item) {
   const type = item.veg_type || (/chicken/i.test(item.name) ? 'NON_VEG' : /egg/i.test(item.name) ? 'EGG' : 'VEG');
   return type === 'NON_VEG' ? ['nonveg', 'Non-vegetarian'] : type === 'EGG' ? ['egg', 'Contains egg'] : ['veg', 'Vegetarian'];
@@ -68,6 +85,7 @@ const state = {
   menu: null,
   selectedCategory: 'all',
   search: '',
+  visibleLimit: MENU_PAGE_SIZE,
   cart: readStorage(CART_KEY, []),
   selectedItem: null,
   selectedCategoryData: null,
@@ -184,31 +202,57 @@ function updateCartUI() {
 
 function renderCategories() {
   const nav = $('#category-nav');
-  const chips = [{ id: 'all', name: 'All favourites' }, ...categories()];
+  const scrollLeft = nav.scrollLeft;
+  const populated = categories().filter(category => category.items?.length);
+  const chips = [{ id: 'all', name: 'All products' }];
+  if (populated.some(category => category.items.some(item => item.type === 'RETAIL'))) chips.push({ id: 'retail', name: 'Amul packs' });
+  chips.push(...populated);
   nav.innerHTML = chips.map(category => `<button class="category-chip" type="button" role="tab" aria-selected="${state.selectedCategory === category.id}" data-category="${escapeHtml(category.id)}">${escapeHtml(category.name)}</button>`).join('');
+  nav.scrollLeft = scrollLeft;
   $$('[data-category]', nav).forEach(button => button.addEventListener('click', () => {
     state.selectedCategory = button.dataset.category;
+    state.visibleLimit = MENU_PAGE_SIZE;
     renderCategories(); renderMenu();
     $('#menu').scrollIntoView({ block: 'start', behavior: 'smooth' });
   }));
 }
 
+function menuMoreButton() {
+  let button = $('#menu-more');
+  if (button) return button;
+  const wrapper = document.createElement('div');
+  wrapper.className = 'menu-more';
+  wrapper.innerHTML = '<button id="menu-more" type="button">Show more</button>';
+  $('#menu-grid').after(wrapper);
+  button = $('#menu-more');
+  button.addEventListener('click', () => { state.visibleLimit += MENU_PAGE_SIZE; renderMenu(); });
+  return button;
+}
+
 function renderMenu() {
   const selected = categories().find(category => category.id === state.selectedCategory);
+  const retailSelected = state.selectedCategory === 'retail';
   const query = state.search.toLocaleLowerCase().trim();
-  const entries = (selected ? [selected] : categories()).flatMap(category => category.items.map(item => ({ item, category })));
+  const entries = (selected ? [selected] : categories()).flatMap(category => category.items.map(item => ({ item, category })))
+    .filter(({ item }) => !retailSelected || item.type === 'RETAIL');
   const filtered = entries.filter(({ item, category }) => !query || `${item.name} ${item.description || ''} ${category.name}`.toLocaleLowerCase().includes(query));
   $('#category-kicker').textContent = query ? 'YOUR SEARCH' : selected ? 'FROM OUR MENU' : 'ALL FAVOURITES';
-  $('#category-title').textContent = query ? 'Search results' : selected?.name || 'Everything good';
+  $('#category-title').textContent = query ? 'Search results' : retailSelected ? 'Packaged Amul products' : selected?.name || 'Everything good';
   $('#category-description').textContent = query ? `For “${state.search.trim()}”` : selected?.description || selected?.serving || '';
-  $('#result-count').textContent = `${filtered.length} ${filtered.length === 1 ? 'item' : 'items'}`;
+  const shown = Math.min(filtered.length, state.visibleLimit);
+  $('#result-count').textContent = shown === filtered.length ? `${filtered.length} ${filtered.length === 1 ? 'item' : 'items'}` : `${shown} of ${filtered.length} items`;
+  const more = menuMoreButton();
+  more.parentElement.hidden = shown >= filtered.length;
+  if (!more.parentElement.hidden) more.textContent = `Show more · ${filtered.length - shown} remaining`;
   const grid = $('#menu-grid');
   if (!filtered.length) { grid.innerHTML = `<div class="empty-state"><strong>Nothing found yet</strong><p>Try another craving or browse all favourites.</p></div>`; return; }
-  grid.innerHTML = filtered.map(({ item, category }, index) => {
+  grid.innerHTML = filtered.slice(0, shown).map(({ item, category }, index) => {
     const [icon, bg, color] = art[category.id] || ['✳', '#e8eadd', '#526e56'];
     const [markClass, markLabel] = foodType(item);
-    const unavailable = item.available === false;
-    return `<article class="menu-card ${unavailable ? 'sold-out' : ''}"><div class="card-art" style="--art-bg:${bg};--art-color:${color}"><img class="card-photo" src="${escapeHtml(imageFor(item, category))}" alt="" loading="lazy" decoding="async"><span class="art-number">${String(index + 1).padStart(2, '0')}</span></div><div class="card-copy"><span class="card-label"><span class="food-mark ${markClass}" title="${markLabel}" aria-label="${markLabel}">●</span>${escapeHtml(category.name)}${item.optional ? ' · SPECIAL' : ''}${unavailable ? '<span class="sold-out-label">Sold out</span>' : ''}</span><h4>${escapeHtml(item.name)}</h4><p>${escapeHtml(item.description || category.description || category.serving || 'Made fresh for you')}</p><div class="card-bottom"><strong>${money(item.price)}</strong><button class="card-add" type="button" data-item="${escapeHtml(item.id)}" aria-label="${unavailable ? 'Sold out' : item.optionGroups?.length ? 'Customize' : 'Add'} ${escapeHtml(item.name)}" ${unavailable ? 'disabled' : ''}>${unavailable ? '×' : '+'}</button></div></div></article>`;
+    const pending = pricePending(item);
+    const unavailable = item.available === false || pending;
+    const photo = imageFor(item, category);
+    return `<article class="menu-card ${unavailable ? 'sold-out' : ''} ${pending ? 'price-pending' : ''}"><div class="card-art" style="--art-bg:${bg};--art-color:${color}"><span class="card-fallback" aria-hidden="true">${icon}</span>${photo ? `<img class="card-photo" src="${escapeHtml(photo)}" alt="" loading="lazy" decoding="async">` : ''}<span class="art-number">${String(index + 1).padStart(2, '0')}</span></div><div class="card-copy"><span class="card-label">${item.type === 'RETAIL' ? '' : `<span class="food-mark ${markClass}" title="${markLabel}" aria-label="${markLabel}">●</span>`}${escapeHtml(category.name)}${item.optional ? ' · SPECIAL' : ''}${unavailable ? `<span class="sold-out-label">${pending ? 'Price pending' : 'Sold out'}</span>` : ''}</span><h4>${escapeHtml(item.name)}</h4><p>${escapeHtml(item.description || category.description || category.serving || (item.type === 'RETAIL' ? 'Packaged Amul product' : 'Made fresh for you'))}</p><div class="card-bottom"><strong>${pending ? 'Price pending' : money(item.price)}</strong><button class="card-add" type="button" data-item="${escapeHtml(item.id)}" aria-label="${pending ? 'Price pending' : unavailable ? 'Sold out' : item.optionGroups?.length ? 'Customize' : 'Add'} ${escapeHtml(item.name)}" ${unavailable ? 'disabled' : ''}>${unavailable ? '×' : '+'}</button></div></div></article>`;
   }).join('');
   $$('[data-item]', grid).forEach(button => button.addEventListener('click', () => {
     const item = itemFor(button.dataset.item);
@@ -306,6 +350,7 @@ function openItem(item) {
 }
 
 function addToCart(item, options, quantity) {
+  if (pricePending(item)) { toast(`${item.name} is awaiting a price`); return; }
   if (item.available === false) { toast(`${item.name} is sold out`); return; }
   const key = `${item.id}:${JSON.stringify(options)}`;
   const existing = state.cart.find(line => line.key === key);
@@ -474,7 +519,9 @@ async function showTracking(token) {
 }
 
 function wireEvents() {
-  $('#menu-search').addEventListener('input', event => { state.search = event.target.value; if (state.search) { state.selectedCategory = 'all'; renderCategories(); } renderMenu(); });
+  $('#menu-search').placeholder = 'Search ice cream, burgers, coffee…';
+  $('#menu-search').addEventListener('input', event => { state.search = event.target.value; state.visibleLimit = MENU_PAGE_SIZE; if (state.search) { state.selectedCategory = 'all'; renderCategories(); } renderMenu(); });
+  $('#menu-grid').addEventListener('error', event => { if (event.target.matches('img.card-photo')) event.target.hidden = true; }, true);
   $('#header-cart').addEventListener('click', openCart);
   $('#mobile-cart').addEventListener('click', openCart);
   $('#checkout-button').addEventListener('click', openCheckout);

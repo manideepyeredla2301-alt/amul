@@ -119,6 +119,7 @@ export async function createOrder(request,env,user=null,source='QR') {
     if (!category||!category.active||(source==='QR'&&!category.show_qr)||(source!=='QR'&&!category.show_pos)) throw new PlatformError('Item is unavailable in this ordering channel',409);
     const quantity=integer(submitted.quantity,'quantity',1,20);
     quantitySum+=quantity;
+    if (product.type==='RETAIL'&&product.price_paise<=0) throw new PlatformError(`${product.name} needs a confirmed price`,409);
     if (!product.available) throw new PlatformError(`${product.name} is sold out`,409);
     if (product.track_stock) {
       const recipe=product.type==='PREPARED'?await env.DB.prepare('SELECT 1 FROM cafe_recipes WHERE product_id=?1 LIMIT 1').bind(product.id).first():null;
@@ -133,7 +134,9 @@ export async function createOrder(request,env,user=null,source='QR') {
   const resolvedSource=source==='QR'?'QR':body.source&&['TABLET','COUNTER','RETAIL'].includes(body.source)?body.source:originallyRetailOnly?'RETAIL':serviceType==='COUNTER'?'COUNTER':'TABLET';
   const promo=await activePromotion(env,lines);
   if (promo?.free) lines.push({product:promo.free,quantity:1,note:'',unit_price_paise:0,options:{},total_paise:0,is_complimentary:true});
-  const noKitchenItems=lines.every(line=>!line.product.kitchen_route);
+  // QR retail orders still need a staff handoff; POS retail sales finish at the counter.
+  const routeToKitchen=line=>!!line.product.kitchen_route||(source==='QR'&&line.product.type==='RETAIL');
+  const noKitchenItems=lines.every(line=>!routeToKitchen(line));
   const subtotal=lines.reduce((sum,line)=>sum+line.total_paise,0);
   const authorizedDiscount=source==='QR'?0:integer(body.discount_paise??0,'discount_paise',0,subtotal);
   if (authorizedDiscount>0) requirePermission(user,'discounts');
@@ -196,7 +199,7 @@ export async function createOrder(request,env,user=null,source='QR') {
     (order_id,line_no,item_id,name,category,quantity,unit_price_paise,total_paise,options_json,product_type,kitchen_route,note,is_complimentary,tax_paise)
     VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)`)
     .bind(id,index+1,line.product.id,line.product.name,line.product.category_id,line.quantity,line.unit_price_paise,
-      line.total_paise,JSON.stringify(line.options),line.product.type,line.product.kitchen_route?1:0,
+      line.total_paise,JSON.stringify(line.options),line.product.type,routeToKitchen(line)?1:0,
       line.note,line.is_complimentary?1:0,line.tax_paise));
     for (const allocation of allocations.get(index)||[]) statements.push(env.DB.prepare(`INSERT INTO cafe_stock_allocations
       (order_id,line_no,batch_id,quantity) VALUES(?1,?2,?3,?4)`)

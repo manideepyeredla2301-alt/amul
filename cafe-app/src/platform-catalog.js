@@ -7,7 +7,7 @@ export function itemFromRow(row) {
     type:row.type,image_url:row.image_url,price:row.price_paise/100,price_paise:row.price_paise,
     mrp_paise:row.mrp_paise,cost_paise:row.cost_paise,tax_rate_bps:row.tax_rate_bps,
     sku:row.sku,barcode:row.barcode,brand:row.brand,pack_size:row.pack_size,
-    veg_type:row.veg_type,available:!!row.available&&(!row.track_stock||Number(row.stock_quantity)>0),
+    veg_type:row.veg_type,available:!!row.available&&(row.type!=='RETAIL'||Number(row.price_paise)>0)&&(!row.track_stock||Number(row.stock_quantity)>0),
     available_setting:!!row.available,
     active:!!row.active,optional:!!row.optional,track_stock:!!row.track_stock,
     stock_quantity:Number(row.stock_quantity),prep_minutes:row.prep_minutes,
@@ -45,7 +45,7 @@ export async function catalog(env,channel='qr',includeInactive=false) {
           const full=itemFromRow(product);
           if (product.track_stock) {
             if (product.type==='PREPARED'&&recipeAvailability.has(product.id)) full.available=!!product.available&&recipeAvailability.get(product.id);
-            if (product.type==='RETAIL'&&batchAvailability.has(product.id)) full.available=!!product.available&&Number(product.stock_quantity)>0&&batchAvailability.get(product.id);
+            if (product.type==='RETAIL'&&batchAvailability.has(product.id)) full.available=full.available&&batchAvailability.get(product.id);
           }
           const offerEligible=eligibleCategories.includes(product.category_id)||eligibleProducts.includes(product.id);
           if (includeInactive) return {...full,ice_cream_offer_eligible:offerEligible};
