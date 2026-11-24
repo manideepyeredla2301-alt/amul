@@ -1,0 +1,15 @@
+{
+  "name": "frostflow-cafe",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "check": "node --check src/worker.js && node --test test/*.test.js",
+    "deploy": "wrangler deploy",
+    "migrate:remote": "wrangler d1 migrations apply frostflow-online --remote"
+  },
+  "devDependencies": {
+    "wrangler": "^4.38.0"
+  }
+}

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#174c3b">
+  <meta name="description" content="Order fresh café favourites at our Amul ice cream café. Scan, choose, and collect your order.">
+  <title>Amul Café · Order Online</title>
+  <link rel="stylesheet" href="/cafe.css">
+  <script type="module" src="/cafe.js"></script>
+</head>
+<body>
+  <div class="site-shell">
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="Amul Café, home">
+        <span class="brand-mark" aria-hidden="true"><span>✳</span></span>
+        <span><strong>AMUL</strong><small>ICE CREAM CAFÉ</small></span>
+      </a>
+      <div class="header-actions">
+        <button id="latest-order" class="text-link" type="button" hidden>Track order</button>
+        <button id="header-cart" class="header-cart" type="button" aria-label="Open cart">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M3 4h2l2.1 10.1a2 2 0 0 0 2 1.6h9a2 2 0 0 0 1.96-1.6L21 8H6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="10" cy="20" r="1.2" fill="currentColor"/><circle cx="18" cy="20" r="1.2" fill="currentColor"/></svg>
+          <span class="header-cart-label">Cart</span><span id="cart-count" class="cart-count">0</span>
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <span class="eyebrow"><span class="eyebrow-dot"></span> FRESH FROM OUR CAFÉ</span>
+          <h1 id="hero-title">A little joy,<br><em>made to order.</em></h1>
+          <p>Ice cream, coffee and café favourites. Choose what you love, and we’ll get it ready.</p>
+          <div class="hero-actions">
+            <a href="#menu" class="primary-link">Explore the menu <span aria-hidden="true">↗</span></a>
+            <span id="table-badge" class="table-badge" hidden></span>
+          </div>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <div class="art-sparkle sparkle-one">✦</div><div class="art-sparkle sparkle-two">✳</div>
+          <div class="sundae-scoop scoop-back"></div><div class="sundae-scoop scoop-left"></div><div class="sundae-scoop scoop-right"></div>
+          <div class="sundae-cherry"></div><div class="sundae-stem"></div>
+          <div class="sundae-bowl"><div></div></div><div class="sundae-stem-base"></div><div class="sundae-foot"></div>
+          <span class="art-caption">Scooped with love</span>
+        </div>
+      </section>
+
+      <section class="quick-info" aria-label="Ordering details">
+        <div><span class="info-icon">01</span><span><strong>Browse & choose</strong><small>Find your café favourite</small></span></div>
+        <div><span class="info-icon">02</span><span><strong>Make it yours</strong><small>Pick toppings & extras</small></span></div>
+        <div><span class="info-icon">03</span><span><strong>Order & enjoy</strong><small>Pay when you collect</small></span></div>
+      </section>
+
+      <section id="menu" class="menu-section" aria-labelledby="menu-title">
+        <div class="section-intro"><div><span class="section-kicker">THE GOOD STUFF</span><h2 id="menu-title">Explore our menu<span class="title-dot">.</span></h2><p>From the first sip to the last spoonful.</p></div><div class="handdrawn-star" aria-hidden="true">✳</div></div>
+        <div class="menu-toolbar">
+          <label class="search-field" for="menu-search"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.7"/><path d="m16 16 5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg><input id="menu-search" type="search" placeholder="Search burgers, sundaes, coffee…" autocomplete="off"><span class="search-shortcut" aria-hidden="true">⌕</span></label>
+          <div id="category-nav" class="category-nav" role="tablist" aria-label="Menu categories"></div>
+        </div>
+        <div class="menu-heading"><div><span id="category-kicker" class="section-kicker">ALL FAVOURITES</span><h3 id="category-title">Everything good</h3><p id="category-description"></p></div><span id="result-count" class="result-count"></span></div>
+        <div id="menu-grid" class="menu-grid" aria-live="polite"><p class="loading">Loading today’s menu…</p></div>
+      </section>
+    </main>
+
+    <footer class="site-footer"><div><strong>AMUL <span>ICE CREAM CAFÉ</span></strong><p>Good things happen around a table.</p></div><div><span>Made fresh for you</span><span>Pay at the café · No online payment</span></div></footer>
+  </div>
+
+  <button id="mobile-cart" class="mobile-cart" type="button" hidden><span class="mobile-cart-left"><span id="mobile-cart-count" class="mobile-count">0</span> View your cart</span><strong id="mobile-cart-total">₹0</strong></button>
+
+  <dialog id="item-dialog" class="sheet-dialog" aria-labelledby="item-title">
+    <div class="dialog-shell">
+      <div class="dialog-top"><span class="dialog-overline">MAKE IT YOURS</span><button class="close-button" type="button" data-close="item-dialog" aria-label="Close item details">×</button></div>
+      <div id="item-visual" class="item-visual"><span id="item-icon"></span></div>
+      <div class="item-content"><div class="item-name-row"><div><span id="item-category" class="item-category"></span><h2 id="item-title"></h2></div><strong id="item-base-price"></strong></div><p id="item-description" class="item-description"></p><div id="item-options" class="item-options"></div></div>
+      <div class="dialog-action"><div class="quantity-control" aria-label="Quantity"><button id="item-minus" type="button" aria-label="Decrease quantity">−</button><output id="item-quantity">1</output><button id="item-plus" type="button" aria-label="Increase quantity">+</button></div><button id="add-item" class="action-button" type="button"><span>Add to cart</span><strong id="item-total">₹0</strong></button></div>
+      <p id="item-error" class="form-error" role="alert"></p>
+    </div>
+  </dialog>
+
+  <dialog id="cart-dialog" class="sheet-dialog" aria-labelledby="cart-title">
+    <div class="dialog-shell cart-shell"><div class="dialog-top"><span class="dialog-overline">YOUR SELECTION</span><button class="close-button" type="button" data-close="cart-dialog" aria-label="Close cart">×</button></div><h2 id="cart-title">Your cart<span class="title-dot">.</span></h2><p class="cart-caption">A little something for every craving.</p><div id="cart-lines" class="cart-lines"></div><div class="cart-bottom"><div class="total-row"><span>Estimated total</span><strong id="cart-total">₹0</strong></div><p>Payment is made at the café after your order.</p><button id="checkout-button" class="action-button wide" type="button">Continue to order <span aria-hidden="true">→</span></button></div></div>
+  </dialog>
+
+  <dialog id="checkout-dialog" class="sheet-dialog" aria-labelledby="checkout-title">
+    <form id="checkout-form" class="dialog-shell checkout-shell"><div class="dialog-top"><span class="dialog-overline">ALMOST THERE</span><button class="close-button" type="button" data-close="checkout-dialog" aria-label="Close checkout">×</button></div><h2 id="checkout-title">Place your order<span class="title-dot">.</span></h2><p class="cart-caption">We’ll prepare it as soon as it reaches the kitchen.</p>
+      <fieldset class="service-picker"><legend>How are you enjoying it?</legend><label><input type="radio" name="service-type" value="DINE_IN" checked><span><strong>Dine in</strong><small>Bring it to my table</small></span></label><label><input type="radio" name="service-type" value="TAKEAWAY"><span><strong>Takeaway</strong><small>I’ll collect it</small></span></label></fieldset>
+      <div class="checkout-fields"><label>Your name<input id="customer-name" name="customer-name" maxlength="80" autocomplete="name" placeholder="Your name" required></label><label id="table-field">Table number<input id="table-number" name="table-number" maxlength="16" inputmode="text" placeholder="e.g. 4" required></label><label>Anything we should know? <span>(optional)</span><textarea id="order-note" name="order-note" maxlength="300" rows="2" placeholder="No onions, extra napkins…"></textarea></label></div>
+      <div class="checkout-summary"><span>Order total</span><strong id="checkout-total">₹0</strong></div><p class="payment-note"><span aria-hidden="true">✦</span> No online payment. Please pay at the café.</p><button id="place-order" class="action-button wide" type="submit">Place order <span aria-hidden="true">→</span></button><p id="checkout-error" class="form-error" role="alert"></p>
+    </form>
+  </dialog>
+
+  <dialog id="tracking-dialog" class="sheet-dialog" aria-labelledby="tracking-title"><div class="dialog-shell tracking-shell"><div class="dialog-top"><span class="dialog-overline">ORDER UPDATE</span><button class="close-button" type="button" data-close="tracking-dialog" aria-label="Close order status">×</button></div><div class="success-icon" aria-hidden="true">✓</div><span id="tracking-kicker" class="section-kicker">WE’VE GOT IT</span><h2 id="tracking-title">Order received<span class="title-dot">.</span></h2><p id="tracking-message" class="tracking-message">Your order is on its way to the kitchen.</p><div id="tracking-status" class="status-steps"></div><div class="tracking-details"><div><span>Order number</span><strong id="tracking-number">—</strong></div><div><span>For</span><strong id="tracking-service">—</strong></div><div><span>Total</span><strong id="tracking-total">—</strong></div></div><p class="payment-note">Pay at the café. No payment has been collected online.</p><div class="tracking-actions"><button id="refresh-status" class="outline-button" type="button">Refresh status</button><button id="copy-tracking" class="outline-button" type="button">Copy tracking link</button></div><button class="action-button wide" type="button" data-close="tracking-dialog">Back to menu</button><p id="tracking-error" class="form-error" role="alert"></p></div></dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

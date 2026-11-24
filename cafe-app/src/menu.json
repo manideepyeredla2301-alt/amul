@@ -1,0 +1,188 @@
+{
+  "currency": "INR",
+  "sourceConversationId": "6b03fa0c-bd00-8322-b606-5eca85ba97bf",
+  "notes": [
+    "Burger prices and cheese add-on were explicitly finalized by the user after the earlier six-burger proposal; only the two classic burgers are included.",
+    "The six core sandwich prices and sandwich add-ons appeared in a user message. Blueberry Cheesecake Sandwich was explicitly labeled optional.",
+    "Other prices were listed in the conversation's consolidated complete menu. That answer described some frappe, sundae, sandwich, and refresher prices as proposed rather than individually confirmed.",
+    "Build Your Own Sundae lists flavors, sauces, and toppings, but the number of included sauces and toppings was not specified."
+  ],
+  "categories": [
+    {
+      "id": "cold-coffees",
+      "name": "Cold Coffees",
+      "serving": "300 ml",
+      "items": [
+        {"id":"classic-cold-coffee","name":"Classic Cold Coffee","price":99},
+        {"id":"creamy-cold-coffee","name":"Creamy Cold Coffee","price":119},
+        {"id":"chocolate-cold-coffee","name":"Chocolate Cold Coffee","price":129},
+        {"id":"hazelnut-cold-coffee","name":"Hazelnut Cold Coffee","price":139},
+        {"id":"caramel-cold-coffee","name":"Caramel Cold Coffee","price":139},
+        {"id":"cold-coffee-with-ice-cream","name":"Cold Coffee with Ice Cream","price":149}
+      ]
+    },
+    {
+      "id": "coffee-frappes",
+      "name": "Signature Coffee Frappes",
+      "serving": "300 ml",
+      "description": "Barisco frappe base",
+      "items": [
+        {"id":"classic-cafe-frappe","name":"Classic Café Frappe","price":129},
+        {"id":"chocolate-mocha-frappe","name":"Chocolate Mocha Frappe","price":159},
+        {"id":"hazelnut-frappe","name":"Hazelnut Frappe","price":159},
+        {"id":"caramel-frappe","name":"Caramel Frappe","price":159},
+        {"id":"cold-devils-chocolate","name":"Cold Devil's Chocolate","price":169}
+      ]
+    },
+    {
+      "id": "dessert-frappes",
+      "name": "Cream & Dessert Frappes",
+      "serving": "300 ml",
+      "description": "Coffee-free options",
+      "items": [
+        {"id":"oreo-crunch-frappe","name":"Oreo Crunch Frappe","price":169},
+        {"id":"brownie-overload-frappe","name":"Brownie Overload Frappe","price":179},
+        {"id":"butterscotch-crunch-frappe","name":"Butterscotch Crunch Frappe","price":159},
+        {"id":"strawberry-velvet-frappe","name":"Strawberry Velvet Frappe","price":149},
+        {"id":"blueberry-bliss-frappe","name":"Blueberry Bliss Frappe","price":169},
+        {"id":"vanilla-cream-frappe","name":"Vanilla Cream Frappe","price":139}
+      ]
+    },
+    {
+      "id": "milkshakes",
+      "name": "Classic Milkshakes",
+      "serving": "300 ml",
+      "items": [
+        {"id":"vanilla-milkshake","name":"Vanilla Milkshake","price":100},
+        {"id":"strawberry-milkshake","name":"Strawberry Milkshake","price":100},
+        {"id":"mango-milkshake","name":"Mango Milkshake","price":100},
+        {"id":"pineapple-milkshake","name":"Pineapple Milkshake","price":100},
+        {"id":"chocolate-milkshake","name":"Chocolate Milkshake","price":100},
+        {"id":"oreo-milkshake","name":"Oreo Milkshake","price":120},
+        {"id":"kitkat-milkshake","name":"KitKat Milkshake","price":120}
+      ]
+    },
+    {
+      "id": "thickshakes",
+      "name": "Premium Thickshakes",
+      "serving": "300 ml",
+      "items": [
+        {"id":"vanilla-thickshake","name":"Vanilla Thickshake","price":180},
+        {"id":"oreo-thickshake","name":"Oreo Thickshake","price":180},
+        {"id":"kitkat-thickshake","name":"KitKat Thickshake","price":180},
+        {"id":"choco-brownie-thickshake","name":"Choco Brownie Thickshake","price":200},
+        {"id":"choco-chip-thickshake","name":"Choco Chip Thickshake","price":200},
+        {"id":"american-nuts-thickshake","name":"American Nuts Thickshake","price":200},
+        {"id":"cookies-and-cream-thickshake","name":"Cookies & Cream Thickshake","price":200},
+        {"id":"blackcurrant-thickshake","name":"Blackcurrant Thickshake","price":200},
+        {"id":"ferrero-rocher-thickshake","name":"Ferrero Rocher Thickshake","price":220}
+      ]
+    },
+    {
+      "id": "signature-sundaes",
+      "name": "Signature Sundaes",
+      "serving": "200 ml",
+      "description": "Two ice cream flavours, sauce and toppings",
+      "items": [
+        {"id":"hot-chocolate-fudge","name":"Hot Chocolate Fudge","price":149},
+        {"id":"brownie-fudge","name":"Brownie Fudge","price":169},
+        {"id":"butterscotch-crunch-sundae","name":"Butterscotch Crunch","price":149},
+        {"id":"strawberry-bliss","name":"Strawberry Bliss","price":139},
+        {"id":"oreo-cookie-crunch","name":"Oreo Cookie Crunch","price":159},
+        {"id":"blueberry-delight","name":"Blueberry Delight","price":159,"description":"Vanilla ice cream, blueberry crush and Mala's Blueberry Fruit Filling"}
+      ]
+    },
+    {
+      "id": "build-your-own-sundae",
+      "name": "Build Your Own Sundae",
+      "items": [
+        {"id":"build-your-own-sundae","name":"Build Your Own Sundae","price":80,"optionGroups":["sundae-size","sundae-flavors","sundae-serving","sundae-sauce","sundae-topping","sundae-extras"]}
+      ]
+    },
+    {
+      "id": "sandwiches",
+      "name": "Signature Sandwiches",
+      "items": [
+        {"id":"english-cream-cheese","name":"English Cream Cheese","price":99,"description":"Cream cheese, cucumber, herbs, pepper","optionGroups":["sandwich-bread","sandwich-cheese"]},
+        {"id":"creamy-spinach-and-corn","name":"Creamy Spinach & Corn","price":109,"description":"Sweet corn, spinach, cheese, creamy sauce","optionGroups":["sandwich-bread","sandwich-cheese"]},
+        {"id":"grilled-paneer","name":"Grilled Paneer","price":129,"description":"Paneer, capsicum, lettuce, garlic dressing","optionGroups":["sandwich-bread","sandwich-cheese","sandwich-paneer"]},
+        {"id":"english-scrambled-egg","name":"English Scrambled Egg","price":119,"description":"Two eggs, cheese, black pepper","optionGroups":["sandwich-bread","sandwich-cheese","sandwich-egg"]},
+        {"id":"grilled-chicken","name":"Grilled Chicken","price":149,"description":"Chicken breast, lettuce, tomato, yogurt dressing","optionGroups":["sandwich-bread","sandwich-cheese","sandwich-chicken"]},
+        {"id":"peanut-butter-banana","name":"Peanut Butter Banana","price":89,"description":"Peanut butter, banana, cinnamon","optionGroups":["sandwich-bread"]},
+        {"id":"blueberry-cheesecake-sandwich","name":"Blueberry Cheesecake Sandwich","price":119,"description":"Cream cheese and blueberry fruit filling","optional":true,"optionGroups":["sandwich-bread"]}
+      ]
+    },
+    {
+      "id": "burgers",
+      "name": "Burgers",
+      "description": "Ready-made patty, fresh bun, lettuce, onion, tomato and burger mayonnaise",
+      "items": [
+        {"id":"classic-veg-burger","name":"Classic Veg Burger","price":90,"optionGroups":["burger-cheese"]},
+        {"id":"classic-chicken-burger","name":"Classic Chicken Burger","price":120,"optionGroups":["burger-cheese"]}
+      ]
+    },
+    {
+      "id": "fries",
+      "name": "Fries",
+      "items": [
+        {"id":"salted-fries","name":"Salted Fries","price":80},
+        {"id":"peri-peri-fries","name":"Peri Peri Fries","price":90}
+      ]
+    },
+    {
+      "id": "momos",
+      "name": "Momos",
+      "items": [
+        {"id":"veg-steam-momos","name":"Veg Steam Momos","price":110},
+        {"id":"veg-fried-momos","name":"Veg Fried Momos","price":110},
+        {"id":"chicken-steam-momos","name":"Chicken Steam Momos","price":130},
+        {"id":"chicken-fried-momos","name":"Chicken Fried Momos","price":130}
+      ]
+    },
+    {
+      "id": "nuggets",
+      "name": "Nuggets",
+      "items": [
+        {"id":"veg-nuggets","name":"Veg Nuggets","price":110},
+        {"id":"chicken-nuggets","name":"Chicken Nuggets","price":120}
+      ]
+    },
+    {
+      "id": "maggi",
+      "name": "Maggi",
+      "items": [
+        {"id":"veg-maggi","name":"Veg Maggi","price":60},
+        {"id":"egg-maggi","name":"Egg Maggi","price":70},
+        {"id":"chicken-maggi","name":"Chicken Maggi","price":80}
+      ]
+    },
+    {
+      "id": "mojitos",
+      "name": "Mojitos & Refreshers",
+      "items": [
+        {"id":"virgin-mojito","name":"Virgin Mojito","price":70},
+        {"id":"blue-curacao-mojito","name":"Blue Curaçao Mojito","price":70},
+        {"id":"strawberry-mojito","name":"Strawberry Mojito","price":89},
+        {"id":"green-apple-mojito","name":"Green Apple Mojito","price":89},
+        {"id":"kiwi-mojito","name":"Kiwi Mojito","price":89},
+        {"id":"blueberry-mojito","name":"Blueberry Mojito","price":99},
+        {"id":"mango-mojito","name":"Mango Mojito","price":89},
+        {"id":"pineapple-mojito","name":"Pineapple Mojito","price":89}
+      ]
+    }
+  ],
+  "optionGroups": {
+    "burger-cheese": {"name":"Amul Cheese Slice","type":"checkbox","priceDelta":10},
+    "sandwich-bread": {"name":"Whole Wheat Bread","type":"checkbox","priceDelta":10},
+    "sandwich-cheese": {"name":"Extra Cheese","type":"checkbox","priceDelta":20},
+    "sandwich-egg": {"name":"Extra Egg","type":"checkbox","priceDelta":20},
+    "sandwich-paneer": {"name":"Extra Paneer","type":"checkbox","priceDelta":30},
+    "sandwich-chicken": {"name":"Extra Chicken","type":"checkbox","priceDelta":40},
+    "sundae-size": {"name":"Size","type":"single","required":true,"choices":[{"id":"single","name":"Single Scoop","price":80,"priceDelta":0},{"id":"double","name":"Double Scoop","price":120,"priceDelta":40},{"id":"triple","name":"Triple Scoop","price":150,"priceDelta":70}]},
+    "sundae-flavors": {"name":"Ice Cream Flavors","type":"multi","selectionCount":"Matches selected scoop count","choices":["Vanilla","Butterscotch","Strawberry","Cookies & Cream","Chocolate Brownie","Black Currant"]},
+    "sundae-serving": {"name":"Serving","type":"single","required":true,"choices":[{"id":"cup","name":"Cup","priceDelta":0},{"id":"waffle-cone","name":"Waffle Cone","priceDelta":10},{"id":"waffle-bowl","name":"Waffle Bowl","priceDelta":20}]},
+    "sundae-sauce": {"name":"Sauce","type":"multi","includedCount":null,"choices":["Chocolate Fudge","Caramel","Butterscotch","Strawberry","Blueberry"]},
+    "sundae-topping": {"name":"Topping","type":"multi","includedCount":null,"choices":["Cashews","Butterscotch Crunch","Oreo Crumbs","Chocolate Chips","Rainbow Sprinkles","Jelly"]},
+    "sundae-extras": {"name":"Optional Extras","type":"multi","choices":[{"id":"additional-topping","name":"Additional Topping","priceDelta":15},{"id":"additional-sauce","name":"Additional Sauce","priceDelta":20},{"id":"whipped-cream","name":"Whipped Cream","priceDelta":20}]}
+  }
+}

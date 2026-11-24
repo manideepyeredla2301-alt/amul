@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#17392f">
+  <title>Print ordering QR cards · Amul Café</title>
+  <link rel="stylesheet" href="/kitchen/kitchen.css">
+  <link rel="stylesheet" href="/kitchen/qr.css">
+  <script src="/kitchen/qrcode.js" defer></script>
+  <script src="/kitchen/qr.js" defer></script>
+</head>
+<body>
+  <header class="topbar no-print"><div class="topbar-inner"><a class="brand brand-light" href="/kitchen/"><span class="brand-icon" aria-hidden="true">✳</span><span>AMUL <b>CAFÉ</b><small>ordering QR cards</small></span></a><a class="icon-link" href="/kitchen/">← <span class="desktop-only">Kitchen board</span></a></div></header>
+  <main class="qr-main">
+    <div class="page-intro no-print"><div><span class="eyebrow">READY TO PRINT</span><h1>Order at your table<span class="title-dot">.</span></h1><p>Choose your table range, then print or save the cards as a PDF. Each code opens the menu with its table prefilled.</p></div></div>
+    <section class="qr-controls no-print" aria-label="QR card settings">
+      <label>First table <input id="first-table" type="number" inputmode="numeric" min="1" max="999" value="1"></label>
+      <label>Number of tables <input id="table-count" type="number" inputmode="numeric" min="1" max="48" value="12"></label>
+      <label class="counter-control"><input id="include-counter" type="checkbox" checked> Include counter code</label>
+      <button id="generate" class="button button-primary" type="button">Update cards</button>
+      <button id="print" class="button print-button" type="button">Print / Save PDF</button>
+    </section>
+    <p id="qr-error" class="form-error no-print" role="alert" hidden></p>
+    <p class="print-note no-print">Print at 100% scale on A4 paper. Cut along the dotted edges and place the cards at the matching tables.</p>
+    <div id="qr-grid" class="qr-grid" aria-label="Printable ordering QR cards"></div>
+  </main>
+</body>
+</html>
