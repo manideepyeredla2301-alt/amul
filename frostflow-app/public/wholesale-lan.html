@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#173c5a">
+  <title>Wholesale orders · MR Enterprises</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/wholesale-lan.css">
+  <script src="/wholesale-lan.js" defer></script>
+</head>
+<body>
+  <div id="login-view" class="login-view" hidden>
+    <div class="login-card">
+      <div class="brand-mark" aria-hidden="true">MR</div>
+      <p class="eyebrow">MR ENTERPRISES</p>
+      <h1>Wholesale orders</h1>
+      <p class="muted">Sign in to take orders and prepare picking checklists.</p>
+      <form id="login-form">
+        <label for="login-user">Username</label>
+        <input id="login-user" name="username" autocomplete="username" required>
+        <label for="login-password">Password</label>
+        <input id="login-password" name="password" type="password" autocomplete="current-password" required>
+        <button class="button primary wide" type="submit">Sign in</button>
+      </form>
+      <p id="login-error" class="form-error" role="alert" hidden></p>
+    </div>
+  </div>
+
+  <div id="app-view" class="app" hidden>
+    <header class="app-header">
+      <div class="app-header-inner">
+        <div class="brand"><span class="brand-mark small" aria-hidden="true">MR</span><span><small>MR ENTERPRISES</small><strong>Wholesale orders</strong></span></div>
+        <div class="header-actions"><span id="signed-in-as" class="signed-in"></span><button id="logout-button" class="button text" type="button">Sign out</button></div>
+      </div>
+    </header>
+    <nav class="app-nav" aria-label="Wholesale navigation">
+      <button id="nav-orders" class="nav-button active" type="button" data-nav="orders">Orders</button>
+      <button id="nav-new" class="nav-button" type="button" data-nav="new">Take an order</button>
+    </nav>
+    <main id="main" class="main" tabindex="-1"></main>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

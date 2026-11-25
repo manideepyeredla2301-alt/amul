@@ -6,6 +6,7 @@
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
+    "start:wholesale-lan": "node wholesale-lan.js",
     "test": "node --test"
   },
   "engines": {

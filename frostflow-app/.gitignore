@@ -9,6 +9,7 @@ data/.amul-sql-secret
 data/.amul-read-secret
 data/amul-d1-connector.log
 data/amul-d1-preview.json
+data/wholesale-lan-auth.json
 node_modules/
 .env
 .env.*
