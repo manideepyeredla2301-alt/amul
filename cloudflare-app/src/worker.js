@@ -1,3 +1,5 @@
+import { wholesaleApi } from './wholesale.js';
+
 const encoder = new TextEncoder();
 
 const securityHeaders = {
@@ -35,6 +37,16 @@ async function appAuthorized(request, env) {
   if (!env.APP_USER || !env.APP_PASSWORD) return false;
   const expected = `Basic ${btoa(`${env.APP_USER}:${env.APP_PASSWORD}`)}`;
   return equalSecret(request.headers.get('authorization') || '', expected);
+}
+
+async function wholesaleIdentity(request, env) {
+  if (await appAuthorized(request, env)) return { user: env.APP_USER, role: 'OWNER' };
+  if (env.WHOLESALE_STAFF_USER && env.WHOLESALE_STAFF_PASSWORD) {
+    const expected = `Basic ${btoa(`${env.WHOLESALE_STAFF_USER}:${env.WHOLESALE_STAFF_PASSWORD}`)}`;
+    if (await equalSecret(request.headers.get('authorization') || '', expected))
+      return { user: env.WHOLESALE_STAFF_USER, role: 'STAFF' };
+  }
+  return null;
 }
 
 async function syncAuthorized(request, env) {
@@ -521,7 +533,16 @@ async function publicOrderStatus(env, token) {
   return json({ order, lines, invoice: invoice || null });
 }
 
+async function inWholesaleChecklist(env, orderId) {
+  return Boolean(await env.DB.prepare('SELECT 1 FROM wholesale_pick_orders WHERE source_ref=?1 LIMIT 1').bind(orderId).first());
+}
+
+function wholesaleChecklistConflict() {
+  return json({ error: 'This order is being handled in Wholesale. Open its picking checklist there; the old order actions are disabled.' }, 409);
+}
+
 async function updatePickedLine(request, env, id) {
+  if (await inWholesaleChecklist(env, id)) return wholesaleChecklistConflict();
   const body = await readObject(request, 20_000);
   const lineNo = cleanInteger(body.line_no, 'line_no', 1);
   const pickedQty = cleanNumber(body.picked_qty, 'picked_qty', 0);
@@ -541,6 +562,7 @@ async function updatePickedLine(request, env, id) {
 }
 
 async function queueInvoice(env, id) {
+  if (await inWholesaleChecklist(env, id)) return wholesaleChecklistConflict();
   const existing = await env.DB.prepare('SELECT * FROM invoice_jobs WHERE order_id=?1').bind(id).first();
   if (existing) {
     if (existing.status === 'FAILED') {
@@ -618,6 +640,7 @@ async function createPurchaseTopup(request, env) {
 }
 
 async function updateOrder(request, env, id, action) {
+  if (action !== 'ack' && await inWholesaleChecklist(env, id)) return wholesaleChecklistConflict();
   const workflow = { confirm: 'CONFIRMED', pack: 'PACKING', dispatch: 'OUT_FOR_DELIVERY', deliver: 'DELIVERED', fulfil: 'DELIVERED', cancel: 'CANCELLED', ack: null }[action];
   if (workflow === undefined) return json({ error: 'Unknown action' }, 404);
   const order = await env.DB.prepare('SELECT id,order_number,customer_name,phone,delivery_date,status,workflow_status,invoice_number,public_token FROM orders WHERE id=?1').bind(id).first();
@@ -1007,6 +1030,7 @@ async function createInvoice(request, env) {
   const lines = Array.isArray(body.lines) ? body.lines : [];
   if (!lines.length || lines.length > 200) throw new Response('Choose 1 to 200 products', { status: 400 });
   const orderId = cleanText(body.order_id, 'order_id', 100, false);
+  if (orderId && await inWholesaleChecklist(env, orderId)) return wholesaleChecklistConflict();
   let order = null;
   if (orderId) {
     order = await env.DB.prepare(`SELECT * FROM orders WHERE id=?1 AND status IN ('NEW','SYNCED')
@@ -1240,6 +1264,18 @@ async function route(request, env) {
   const url = new URL(request.url);
   const path = url.pathname;
   if (path === '/api/health') return json({ ok: true, service: 'frostflow-online', version: '0.9.0', database: 'cloudflare-d1-central' });
+  if (path === '/wholesale') return Response.redirect(new URL('/wholesale/', request.url), 308);
+  if (path.startsWith('/api/wholesale/') || path.startsWith('/wholesale/') || path === '/wholesale.css' || path === '/wholesale.js') {
+    const identity = await wholesaleIdentity(request, env);
+    if (!identity) return json({ error: 'Wholesale sign-in required' }, 401,
+      { 'WWW-Authenticate': 'Basic realm="MR Enterprises Wholesale", charset="UTF-8"' });
+    if (!['GET', 'HEAD'].includes(request.method)) {
+      if (request.headers.get('origin') !== url.origin) return json({ error: 'Same-origin request required' }, 403);
+      if (!/^application\/json(?:;|$)/i.test(request.headers.get('content-type') || '')) return json({ error: 'Send JSON data' }, 415);
+    }
+    if (path.startsWith('/api/wholesale/')) return wholesaleApi(request, env, identity.role, identity.user);
+    return env.ASSETS.fetch(request);
+  }
   if (path === '/api/catalog/orders' && request.method === 'POST') return createOrder(request, env, { publicCatalog: true });
   const publicOrderMatch = path.match(/^\/api\/catalog\/orders\/([a-f0-9]{48})$/i);
   if (publicOrderMatch && request.method === 'GET') return publicOrderStatus(env, publicOrderMatch[1]);

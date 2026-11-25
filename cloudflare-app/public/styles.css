@@ -85,11 +85,12 @@ main { width: min(100%, 1420px); margin: 0 auto; padding: 30px clamp(16px, 3vw, 
 .content-heading > span { color: var(--muted); font-size: .75rem; }
 .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(280px, .75fr); gap: 14px; }
 .quick-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
-.quick-actions button { display: grid; grid-template-columns: 36px 1fr; gap: 1px 10px; padding: 13px; border: 1px solid var(--line); background: #f8faf9; color: #17372e; text-align: left; }
-.quick-actions button > span { grid-row: 1 / 3; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: var(--mint); color: var(--green-dark); font-size: 1.05rem; }
-.quick-actions button strong { align-self: end; font-size: .86rem; }
-.quick-actions button small { color: var(--muted); font-size: .68rem; font-weight: 580; }
-.quick-actions button:hover { border-color: #a9c9bc; background: #f1f8f5; }
+.quick-actions button, .quick-actions a { display: grid; grid-template-columns: 36px 1fr; gap: 1px 10px; padding: 13px; border: 1px solid var(--line); border-radius: 10px; background: #f8faf9; color: #17372e; text-align: left; text-decoration: none; }
+.quick-actions button > span, .quick-actions a > span { grid-row: 1 / 3; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: var(--mint); color: var(--green-dark); font-size: 1.05rem; }
+.quick-actions button strong, .quick-actions a strong { align-self: end; font-size: .86rem; }
+.quick-actions button small, .quick-actions a small { color: var(--muted); font-size: .68rem; font-weight: 580; }
+.quick-actions button:hover, .quick-actions a:hover { border-color: #a9c9bc; background: #f1f8f5; }
+.quick-actions a:focus-visible { outline: 3px solid rgba(11, 122, 87, .2); outline-offset: 2px; }
 .health-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 999px; background: #eaf8f0; color: var(--green-dark); font-size: .67rem; font-weight: 800; }
 .health-badge i { width: 7px; height: 7px; border-radius: 50%; background: #2ab274; }
 .health-badge.warning { background: #fff2d6; color: #855c00; }
@@ -310,7 +311,7 @@ dialog form { display: grid; gap: 14px; padding: 20px; }
   .app-shell { display: block; }
   .sidebar { position: fixed; inset: auto 0 0; z-index: 20; width: 100%; height: auto; padding: 7px max(6px, env(safe-area-inset-right)) calc(7px + env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left)); border-top: 1px solid rgba(255,255,255,.14); box-shadow: 0 -8px 26px rgba(11,48,38,.2); }
   .brand, .sidebar-status { display: none; }
-  .sidebar nav { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 2px; width: 100%; }
+  .sidebar nav { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; width: 100%; }
   .sidebar nav button, .sidebar nav .nav-page { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1px; justify-items: center; min-width: 0; padding: 5px 1px; }
   .sidebar nav button span, .sidebar nav .nav-page span { width: 29px; height: 27px; font-size: .9rem; }
   .sidebar nav button b, .sidebar nav .nav-page b { display: block; max-width: 100%; overflow: hidden; font-size: .52rem; text-overflow: ellipsis; white-space: nowrap; }

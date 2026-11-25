@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#173c5a">
+  <title>Wholesale orders · FrostFlow Online</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/wholesale.css">
+  <script src="/wholesale.js" defer></script>
+</head>
+<body>
+  <div id="app-view" class="app" hidden>
+    <header class="app-header">
+      <div class="app-header-inner">
+        <div class="brand"><span class="brand-mark small" aria-hidden="true">MR</span><span><small>MR ENTERPRISES</small><strong>Wholesale orders</strong></span></div>
+        <div class="header-actions"><span id="signed-in-as" class="signed-in"></span><a id="back-to-frostflow" class="button text" href="/">← FrostFlow</a></div>
+      </div>
+    </header>
+    <nav class="app-nav" aria-label="Wholesale navigation">
+      <button id="nav-orders" class="nav-button active" type="button" data-nav="orders">Orders</button>
+      <button id="nav-new" class="nav-button" type="button" data-nav="new">Take an order</button>
+    </nav>
+    <main id="main" class="main" tabindex="-1"></main>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

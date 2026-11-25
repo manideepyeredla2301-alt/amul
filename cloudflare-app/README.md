@@ -25,6 +25,34 @@ quantities can be typed directly. Location capture uses an iPhone-friendly
 retry and explains how to continue in Safari when an in-app browser blocks
 location permission.
 
+## Wholesale picking app
+
+Open `/wholesale/` on any internet-connected phone or computer. The owner signs
+in with the existing `APP_USER` and `APP_PASSWORD` FrostFlow Online credentials.
+The new POS-style product tiles support categories, search, and manual rates
+for products without a synced price. The owner can record phone orders, select
+**Add existing online orders** to copy open customer orders into the checklist
+(up to 20 per tap when there is a large backlog),
+mark each line picked or short, and put an order on hold. The copy is
+idempotent and does not change the original online order or its reservation.
+
+The owner can prepare and print an invoice **draft** from picked quantities.
+This app does not post an invoice to Amul SQL or D1 and does not deduct stock.
+Migration `0015_wholesale_picking.sql` creates separate checklist, draft and
+audit tables so this workflow does not alter the existing order and invoice
+ledgers. An imported order still exists in the older Orders view, but its old
+picking, fulfilment and invoice actions are blocked so it is processed only in
+the wholesale checklist. After issuing the final invoice in Windows, wait for
+the Windows-to-D1 sync, verify the posted invoice number and customer in the
+wholesale app, then select **Record final invoice**. This records the external
+number and releases the original online order's stock reservation; it never
+creates a D1 invoice or deducts stock. If an unbilled order is cancelled,
+select **Cancel order** and enter a reason to release its reservation. Draft
+history remains visible. For this deployment only the owner login is enabled. Separate staff
+access is supported later with `WHOLESALE_STAFF_USER` and the encrypted
+`WHOLESALE_STAFF_PASSWORD` secret; that login is limited to `/wholesale/` and
+cannot create or view drafts.
+
 The protected admin can also create central customers, set an absolute physical
 stock quantity, and post a customer invoice directly in D1. Online invoice
 posting validates available stock in the database transaction, deducts each
